@@ -1,0 +1,93 @@
+# Session Logging UX
+
+## UX principle
+
+The gym screen must be faster than a spreadsheet and usable with one hand on iPhone.
+
+## Primary screen: today's workout
+
+Show:
+- Session name.
+- Estimated duration.
+- Progress through exercises/sets.
+- Current exercise.
+- Previous performance.
+- Planned target.
+- Set logging controls.
+- Sticky bottom action.
+
+## Set logging form
+
+Required fields:
+- kg
+- reps
+- RIR
+- pain score
+
+Optional:
+- notes
+
+Defaults:
+- Weight defaults from plan or last set.
+- Reps defaults from target or last set.
+- RIR defaults to target RIR 2.
+- Pain defaults to 0, except pain-sensitive exercises may force confirmation.
+
+## Control design
+
+- Large numeric controls for kg/reps.
+- RIR as big segmented buttons.
+- Pain as quick 0-10 selector.
+- Notes field supports iPhone dictation.
+- Main action: `Guardar set` / `Save set`.
+- Secondary action: `Siguiente ejercicio` / `Next exercise`.
+
+## Spanish labels
+
+- Entrenar
+- Iniciar sesión
+- Guardar set
+- Siguiente set
+- Siguiente ejercicio
+- Completar entrenamiento
+- Peso
+- Repeticiones
+- Reps en reserva
+- Dolor
+- Notas
+- Última vez
+- Sugerido para hoy
+
+## Friction constraints
+
+- No dense tables during active workout.
+- No required long text.
+- No hidden save actions.
+- Avoid multi-step modals while training.
+- Tap targets should be large enough for tired hands.
+- Critical actions should be clear and reversible when possible.
+
+## Pain-aware UX
+
+When pain score is high:
+- Ask for optional note.
+- Show warning after save.
+- Suggest reducing load or changing exercise next time.
+- Preserve the pain event for future exercise selection.
+
+Pain score interpretation:
+- 0: no pain
+- 1-2: acceptable awareness
+- 3: caution
+- 4+: warning; hold/reduce/modify next time
+- 7+: stop/avoid and seek professional guidance if persistent
+
+## iPhone MVP validation checklist
+
+During real gym use, confirm:
+- Can log a default set in under 5 seconds.
+- Can edit weight/reps quickly.
+- RIR and pain controls are easy to tap.
+- Notes via dictation are usable.
+- Previous performance is visible without scrolling too much.
+- Completing workout is obvious.
