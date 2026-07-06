@@ -1,0 +1,10 @@
+{
+  "appName": "Entrenador Personal AI",
+  "nav": {
+    "home": "Inicio",
+    "profile": "Perfil",
+    "plan": "Plan",
+    "train": "Entrenar",
+    "progress": "Progreso"
+  }
+}

@@ -9,6 +9,8 @@ dist/
 coverage/
 playwright-report/
 test-results/
+*.tsbuildinfo
+.vercel/
 
 # env/secrets
 .env

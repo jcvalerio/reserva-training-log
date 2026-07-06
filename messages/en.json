@@ -1,0 +1,10 @@
+{
+  "appName": "AI Personal Trainer",
+  "nav": {
+    "home": "Home",
+    "profile": "Profile",
+    "plan": "Plan",
+    "train": "Train",
+    "progress": "Progress"
+  }
+}

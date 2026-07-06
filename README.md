@@ -12,6 +12,30 @@ Spanish-first iPhone Web MVP for personal hypertrophy training: generate a plan,
 - Default language: Spanish.
 - Secondary language: English.
 
+## Local development
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Useful checks:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
+
+Database migration commands:
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
 ## Planning docs
 
 - [MVP plan](docs/product/mvp-plan.md)
