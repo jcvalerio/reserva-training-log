@@ -14,10 +14,13 @@ Resolve these before or during early implementation.
 
 ## Technical
 
-1. Drizzle or Prisma for final ORM choice?
-2. Clerk or Better Auth?
-3. Neon or Supabase for Postgres?
-4. Which AI provider/model chain for initial MVP?
+Resolved on 2026-07-06:
+1. ORM: Drizzle ORM + Drizzle Kit. Prisma is only a fallback if Drizzle slows field-testing progress.
+2. Auth: Better Auth with Google OAuth first. Clerk is only a fallback if auth blocks progress.
+3. Database: Neon Postgres. Supabase is deferred unless storage/realtime/Supabase Auth becomes valuable.
+4. AI provider/model chain: Vercel AI SDK with a Gemini Flash-class model behind an adapter, with Zod validation and deterministic guardrails before persistence.
+
+Still open:
 5. Should we build a tiny exercise catalog manually first or seed from a larger public source?
 
 ## UX

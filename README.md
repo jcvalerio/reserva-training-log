@@ -22,6 +22,7 @@ Spanish-first iPhone Web MVP for personal hypertrophy training: generate a plan,
 - [Session logging UX](docs/product/session-logging-ux.md)
 - [Technical stack](docs/architecture/technical-stack.md)
 - [Open questions](docs/product/open-questions.md)
+- [Implementation log](docs/product/implementation-log.md)
 
 ## Success target
 

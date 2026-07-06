@@ -1,6 +1,6 @@
 # Technical Stack
 
-Recommended 2026 Web MVP stack.
+Locked 2026 Web MVP stack for the personal-use-first implementation.
 
 ## App
 
@@ -13,18 +13,32 @@ Recommended 2026 Web MVP stack.
 
 ## Data
 
-- PostgreSQL
-- Drizzle ORM recommended for a lean fresh MVP
-- Prisma is acceptable if familiarity/speed matters more than schema-lightness
+- Neon Postgres
+- Drizzle ORM + Drizzle Kit for schema and migrations
 - Zod for runtime validation and AI structured output validation
+
+Why Drizzle over Prisma for this MVP:
+- More explicit SQL-shaped TypeScript for small vertical changes.
+- Lightweight schema layer with less generated-client ceremony.
+- Easier for coding agents to inspect and modify safely.
+- Fits a small personal/tester app where transparent queries matter more than a fully guided ORM workflow.
+
+Fallback:
+- Prisma remains acceptable only if Drizzle materially slows implementation.
 
 ## Auth
 
-Recommended for speed:
-- Clerk
+- Better Auth
+- Start with Google OAuth only for the tester group.
 
-Alternative:
-- Better Auth if avoiding hosted auth dependency is more important.
+Why Better Auth over Clerk for this MVP:
+- Avoids a hosted auth vendor dependency and potential SaaS cost.
+- Keeps auth-related data in owned Postgres.
+- Good fit for personal use with a small number of testers.
+- Easier to inspect in local development and for coding-agent changes.
+
+Fallback:
+- Clerk is the fallback if auth setup becomes the blocker to field testing.
 
 MVP requirement:
 - Separate login per tester.
@@ -61,8 +75,13 @@ Critical E2E flows:
 ## Deployment
 
 - Vercel for app hosting
-- Neon or Supabase Postgres
-- Managed auth provider
+- Neon Postgres for the database
+- Better Auth running inside the Next.js app
+
+Why Neon over Supabase for this MVP:
+- The app currently needs Postgres, not storage/realtime/Supabase Auth.
+- Simple Vercel + Postgres deployment path.
+- Keeps the backend surface area narrow until field use proves more needs.
 
 ## Deferred technical capabilities
 
