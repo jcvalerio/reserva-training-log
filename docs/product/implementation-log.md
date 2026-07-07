@@ -160,3 +160,24 @@ Verification:
 Next iteration:
 - Confirm Better Auth Google callback locally.
 - Implement real sign-in UI and authenticated ownership helpers.
+
+## 2026-07-06 — Google sign-in UI and ownership helpers
+
+Status: completed.
+
+Implemented:
+- Added server auth helpers for Better Auth session lookup, required-user redirects, and Google OAuth configuration checks.
+- Replaced the placeholder landing CTA with a working Google sign-in client button.
+- Added signed-in/signed-out home shell behavior with active-session copy and sign-out support.
+- Added privacy-preserving ownership helpers to assert/filter user-owned resources before future profile queries.
+- Added unit coverage for ownership helper behavior.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 4 files, 9 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Confirm Better Auth Google callback locally with the configured Google OAuth credentials.
+- Start the athlete profile foundation behind authenticated ownership checks.
