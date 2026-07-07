@@ -156,6 +156,30 @@ export const musclePriority = pgTable(
   (table) => [index("muscle_priority_athlete_profile_id_idx").on(table.athleteProfileId)],
 );
 
+export const bodyMeasurement = pgTable(
+  "body_measurement",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    measuredAt: timestamp("measured_at", { withTimezone: true }).notNull().defaultNow(),
+    bodyWeightKg: numeric("body_weight_kg", { precision: 6, scale: 2 }),
+    waistCm: numeric("waist_cm", { precision: 6, scale: 2 }),
+    rightThighCm: numeric("right_thigh_cm", { precision: 6, scale: 2 }),
+    leftThighCm: numeric("left_thigh_cm", { precision: 6, scale: 2 }),
+    rightCalfCm: numeric("right_calf_cm", { precision: 6, scale: 2 }),
+    leftCalfCm: numeric("left_calf_cm", { precision: 6, scale: 2 }),
+    rightArmCm: numeric("right_arm_cm", { precision: 6, scale: 2 }),
+    leftArmCm: numeric("left_arm_cm", { precision: 6, scale: 2 }),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("body_measurement_athlete_profile_id_idx").on(table.athleteProfileId),
+    index("body_measurement_measured_at_idx").on(table.measuredAt),
+  ],
+);
+
 export const exercise = pgTable(
   "exercise",
   {

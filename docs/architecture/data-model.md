@@ -109,6 +109,12 @@ Derived values:
 - `thighDifferenceCm = leftThighCm - rightThighCm`
 - `calfDifferenceCm = leftCalfCm - rightCalfCm`
 
+MVP implementation note:
+- `/mediciones` inserts a new `BodyMeasurement` row on every save and never overwrites previous measurements.
+- Numeric measurements are nullable to support partial check-ins, but at least one numeric value is required before saving.
+- `measuredAt` defaults to the save time when the tester leaves the optional date/time blank.
+- The first UI lists recent entries and calculates thigh/calf gaps; charts can be added after field validation.
+
 ## Exercise
 
 Canonical exercise catalog.

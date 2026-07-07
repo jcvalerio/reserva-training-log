@@ -90,6 +90,7 @@ Scope:
 - Measurement entry.
 - Trend list/chart.
 - Difference calculations.
+- Partial measurement saves are allowed when at least one numeric measurement is present.
 
 Initial measurements for Athlete A:
 - Left thigh larger by 2 cm

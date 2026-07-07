@@ -2,6 +2,32 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-06 — Body measurement tracking
+
+Status: completed.
+
+Implemented:
+- Added `body_measurement` Drizzle table and migration for historical body measurements tied to an athlete profile.
+- Added authenticated `/mediciones` page linked from the home shell.
+- Added Spanish-first iPhone-friendly measurement form with optional date/time, weight, waist, left/right thigh, calf, arm, and notes.
+- Preserved history by inserting a new measurement row on every save; previous rows are never overwritten.
+- Allowed partial measurement saves while requiring at least one numeric measurement.
+- Displayed recent measurement history plus derived left-minus-right thigh and calf gaps.
+- Added recommended cadence copy: cada 2 semanas.
+- Added unit coverage for measurement validation and gap calculation.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 7 files, 18 tests.
+- `npm run build` passes.
+- `npm run db:generate` created `drizzle/0004_old_spiral.sql`.
+- `npm run db:migrate` applied `drizzle/0004_old_spiral.sql` successfully against the configured Neon development database.
+
+Next iteration:
+- Validate `/mediciones` manually on iPhone-sized viewport with a tester profile.
+- Continue with non-AI progress foundations; do not start AI plan generation yet.
+
 ## 2026-07-06 — Stack decision locked
 
 Status: completed.
