@@ -22,6 +22,13 @@
       "when": 1783393223452,
       "tag": "0002_simple_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783393856266,
+      "tag": "0003_silky_stark_industries",
+      "breakpoints": true
     }
   ]
 }

@@ -226,3 +226,28 @@ Verification:
 Next iteration:
 - Confirm Google OAuth end-to-end locally and create/update a tester profile through `/perfil`.
 - Start baseline working-weight intake with kg, reps, sets, RIR, pain score, notes, and unilateral left/right support.
+
+## 2026-07-06 — Baseline working-weight intake
+
+Status: completed.
+
+Implemented:
+- Added `exercise` and `baseline_lift` Drizzle tables with a migration for the MVP baseline catalog and onboarding working weights.
+- Added authenticated `/baseline` page linked from the home shell.
+- Added Spanish-first baseline form for the suggested key exercises with bilateral and unilateral left/right rows.
+- Added server action/repository logic to require an athlete profile, lazily upsert the suggested exercise catalog, and replace the tester's current baseline entries.
+- Added deterministic validation requiring at least one completed baseline row while allowing individual exercises to be skipped.
+- Enforced complete baseline rows: kg, reps, sets, numeric RIR 0-4, pain score 0-10, side, and optional notes.
+- Added unit coverage for baseline parsing, required pain/RIR, skipped exercises, and unilateral left/right data preservation.
+- Updated data model docs with the MVP exercise catalog and baseline intake behavior.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 6 files, 14 tests.
+- `npm run build` passes.
+- `npm run db:migrate` applied `drizzle/0003_silky_stark_industries.sql` successfully against the configured Neon development database.
+
+Next iteration:
+- Confirm Google OAuth end-to-end locally and create/update tester profile + baseline through `/perfil` and `/baseline`.
+- Add body measurement tracking with left/right thigh/calf gaps and history preservation.

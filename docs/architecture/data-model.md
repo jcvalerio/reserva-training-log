@@ -115,17 +115,23 @@ Canonical exercise catalog.
 
 Fields:
 - `id`
+- `slug` — unique stable key for seeded/suggested exercises
 - `nameEs`
 - `nameEn`
 - `primaryMuscles`
 - `secondaryMuscles`
-- `equipmentType` — machine, cable, dumbbell, barbell, bodyweight
+- `equipmentType` — machine, cable, dumbbell, barbell, bodyweight, or MVP combined values
 - `movementPattern`
 - `isUnilateralCapable`
 - `jointStressTags` — shoulder, knee, lower_back, etc.
 - `defaultRepRangeMin`
 - `defaultRepRangeMax`
 - `notes`
+- `createdAt`
+- `updatedAt`
+
+MVP implementation note:
+- The baseline intake lazily upserts the first suggested exercise list into `exercise` by `slug`; a richer catalog/import can replace this after field validation.
 
 ## BaselineLift
 
@@ -136,13 +142,18 @@ Fields:
 - `athleteProfileId`
 - `exerciseId`
 - `side` — bilateral, left, right
-- `weightKg`
+- `weightKg` — decimal kg value
 - `reps`
 - `sets`
 - `rir` — numeric 0, 1, 2, 3, 4 where 4 means `4+`; UI maps this to labels like `4+ Fácil`
 - `painScore` — 0-10
 - `notes`
 - `recordedAt`
+
+MVP implementation note:
+- `/baseline` allows each suggested exercise/side to be skipped, but requires at least one complete baseline entry before saving.
+- If a row is started, kg, reps, sets, numeric RIR, and pain score are all required; notes remain optional.
+- Unilateral-capable suggested exercises render separate left/right rows and persist each side independently.
 
 ## WorkoutPlan
 

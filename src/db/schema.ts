@@ -3,6 +3,7 @@ import {
   integer,
   jsonb,
   index,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -23,6 +24,7 @@ export const limitationSideEnum = pgEnum("limitation_side", ["left", "right", "b
 export const limitationSeverityEnum = pgEnum("limitation_severity", ["mild", "moderate", "severe"]);
 export const musclePriorityLevelEnum = pgEnum("muscle_priority_level", ["normal", "high", "very_high"]);
 export const sideFocusEnum = pgEnum("side_focus", ["right", "left", "bilateral", "none"]);
+export const baselineSideEnum = pgEnum("baseline_side", ["bilateral", "left", "right"]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -152,4 +154,51 @@ export const musclePriority = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [index("muscle_priority_athlete_profile_id_idx").on(table.athleteProfileId)],
+);
+
+export const exercise = pgTable(
+  "exercise",
+  {
+    id: text("id").primaryKey(),
+    slug: text("slug").notNull(),
+    nameEs: text("name_es").notNull(),
+    nameEn: text("name_en").notNull(),
+    primaryMuscles: jsonb("primary_muscles").$type<string[]>().notNull().default([]),
+    secondaryMuscles: jsonb("secondary_muscles").$type<string[]>().notNull().default([]),
+    equipmentType: text("equipment_type").notNull(),
+    movementPattern: text("movement_pattern"),
+    isUnilateralCapable: boolean("is_unilateral_capable").notNull().default(false),
+    jointStressTags: jsonb("joint_stress_tags").$type<string[]>().notNull().default([]),
+    defaultRepRangeMin: integer("default_rep_range_min").notNull().default(8),
+    defaultRepRangeMax: integer("default_rep_range_max").notNull().default(12),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [uniqueIndex("exercise_slug_unique").on(table.slug)],
+);
+
+export const baselineLift = pgTable(
+  "baseline_lift",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercise.id, { onDelete: "restrict" }),
+    side: baselineSideEnum("side").notNull().default("bilateral"),
+    weightKg: numeric("weight_kg", { precision: 6, scale: 2 }).notNull(),
+    reps: integer("reps").notNull(),
+    sets: integer("sets").notNull(),
+    rir: integer("rir").notNull(),
+    painScore: integer("pain_score").notNull(),
+    notes: text("notes"),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("baseline_lift_athlete_profile_id_idx").on(table.athleteProfileId),
+    index("baseline_lift_exercise_id_idx").on(table.exerciseId),
+  ],
 );

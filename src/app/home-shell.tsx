@@ -5,6 +5,7 @@ import { GoogleSignInButton, SignOutButton } from "./auth-buttons";
 const navItems: Array<{ label: string; href: string } | { label: string; href?: never }> = [
   { label: "Inicio", href: "/" },
   { label: "Perfil", href: "/perfil" },
+  { label: "Base", href: "/baseline" },
   { label: "Plan" },
   { label: "Entrenar" },
   { label: "Progreso" },
@@ -92,7 +93,7 @@ export function HomeShell({ user, googleSignInEnabled }: HomeShellProps) {
             <div>
               <p className="text-sm font-semibold text-emerald-300">Listo para M1 perfil</p>
               <p className="mt-1 text-sm leading-6 text-zinc-300">
-                Próximo paso: crear tu perfil de atleta antes de pesos base, mediciones y plan.
+                Próximo paso: crear tu perfil de atleta y registrar pesos base antes de mediciones y plan.
               </p>
             </div>
             <SignOutButton />
