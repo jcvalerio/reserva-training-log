@@ -57,3 +57,29 @@ Next iteration:
 - Create Neon project and Google OAuth credentials, then configure Vercel/local env vars.
 - Run `npm run db:migrate` against Neon.
 - Implement real Google sign-in UI and authenticated ownership helpers.
+
+## 2026-07-06 — MVP release workflow selected
+
+Status: completed.
+
+Decision:
+- Do not add a long-lived `develop` branch for the MVP.
+- Use `main` as the always-releasable production branch.
+- Use short-lived `feature/*` and `fix/*` branches for implementation work.
+- Keep production and development data separate with distinct Neon database URLs.
+- Vercel production env points to production resources; local and preview envs point to development resources.
+
+Rationale:
+- Reduces branch and release overhead for a personal-use-first MVP.
+- Preserves the important safety boundary: no feature branch should use the production database.
+- Keeps release simple: pass checks, merge to `main`, deploy to production.
+
+Docs updated:
+- Added `docs/architecture/release-workflow.md`.
+- Linked the workflow from `README.md`.
+- Updated deployment notes in `docs/architecture/technical-stack.md`.
+
+Next iteration:
+- Configure Neon production/development database URLs in Vercel and local `.env.local`.
+- Confirm Google OAuth redirect URLs for localhost and production.
+- Run the initial migration against the development database first.

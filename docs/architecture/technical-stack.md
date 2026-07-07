@@ -77,11 +77,15 @@ Critical E2E flows:
 - Vercel for app hosting
 - Neon Postgres for the database
 - Better Auth running inside the Next.js app
+- Branching: `main` deploys to production; short-lived `feature/*` and `fix/*` branches use local/preview checks.
+- Environments: keep production and development databases separate, but avoid a long-lived `develop` branch for the MVP.
 
 Why Neon over Supabase for this MVP:
 - The app currently needs Postgres, not storage/realtime/Supabase Auth.
 - Simple Vercel + Postgres deployment path.
 - Keeps the backend surface area narrow until field use proves more needs.
+
+See [Release Workflow](release-workflow.md) for branch, environment, OAuth, and migration rules.
 
 ## Deferred technical capabilities
 

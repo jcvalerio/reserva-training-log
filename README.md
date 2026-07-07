@@ -45,6 +45,7 @@ npm run db:migrate
 - [Progression rules](docs/product/progression-rules.md)
 - [Session logging UX](docs/product/session-logging-ux.md)
 - [Technical stack](docs/architecture/technical-stack.md)
+- [Release workflow](docs/architecture/release-workflow.md)
 - [Open questions](docs/product/open-questions.md)
 - [Implementation log](docs/product/implementation-log.md)
 
