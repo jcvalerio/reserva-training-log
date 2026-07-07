@@ -8,6 +8,13 @@
       "when": 1783365140558,
       "tag": "0000_thankful_the_call",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783390108388,
+      "tag": "0001_safe_speed",
+      "breakpoints": true
     }
   ]
 }

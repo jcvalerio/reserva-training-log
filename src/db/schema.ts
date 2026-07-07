@@ -19,6 +19,12 @@ export const progressionAggressivenessEnum = pgEnum("progression_aggressiveness"
   "aggressive",
 ]);
 
+const updatedAtColumn = () =>
+  timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdateFn(() => new Date());
+
 export const user = pgTable(
   "user",
   {
@@ -30,7 +36,7 @@ export const user = pgTable(
     defaultLocale: localeEnum("default_locale").notNull().default("es"),
     units: unitsEnum("units").notNull().default("metric"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
   },
   (table) => [uniqueIndex("user_email_unique").on(table.email)],
 );
@@ -42,7 +48,7 @@ export const session = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     token: text("token").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id")
@@ -67,7 +73,7 @@ export const account = pgTable("account", {
   scope: text("scope"),
   password: text("password"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: updatedAtColumn(),
 });
 
 export const verification = pgTable("verification", {
@@ -76,7 +82,7 @@ export const verification = pgTable("verification", {
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: updatedAtColumn(),
 });
 
 export const athleteProfile = pgTable("athlete_profile", {
@@ -98,8 +104,9 @@ export const athleteProfile = pgTable("athlete_profile", {
     .notNull()
     .default("aggressive"),
   preferredLocale: localeEnum("preferred_locale").notNull().default("es"),
+  timezone: text("timezone").notNull().default("America/Costa_Rica"),
   gymContext: text("gym_context").notNull().default("a fully-equipped commercial gym, full gym"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: updatedAtColumn(),
 });

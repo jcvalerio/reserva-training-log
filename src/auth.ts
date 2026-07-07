@@ -3,14 +3,15 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { env } from "@/env";
 
 const authSecret =
-  process.env.BETTER_AUTH_SECRET ??
-  (process.env.VERCEL ? undefined : "local-development-only-secret-change-before-deploy");
+  env.BETTER_AUTH_SECRET ??
+  (env.VERCEL ? undefined : "local-development-only-secret-change-before-deploy");
 
-const authBaseUrl = process.env.BETTER_AUTH_URL ?? (process.env.VERCEL ? undefined : "http://localhost:3000");
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const authBaseUrl = env.BETTER_AUTH_URL ?? (env.VERCEL ? undefined : "http://localhost:3000");
+const googleClientId = env.GOOGLE_CLIENT_ID;
+const googleClientSecret = env.GOOGLE_CLIENT_SECRET;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {

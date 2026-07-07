@@ -8,13 +8,18 @@ Represents one authenticated person.
 
 Fields:
 - `id`
-- `authProviderUserId`
 - `email`
-- `displayName`
+- `name`
+- `emailVerified`
+- `image`
 - `defaultLocale` — `es` or `en`
 - `units` — `metric` initially
 - `createdAt`
 - `updatedAt`
+
+Auth note:
+- Better Auth owns the core `user`, `session`, `account`, and `verification` tables.
+- External provider identity is stored in `account.providerId` + `account.accountId`, not as `authProviderUserId` on the app user.
 
 Relationships:
 - has one or more `AthleteProfile` records, but MVP expects one profile per user.
@@ -38,6 +43,7 @@ Fields:
 - `experienceLevel` — intermediate
 - `progressionAggressiveness` — conservative, normal, aggressive
 - `preferredLocale` — `es` default
+- `timezone` — default `America/Costa_Rica` for today's workout and date grouping
 - `gymContext` — text or enum; full gym equipment for a commercial gym
 - `notes`
 - `createdAt`
@@ -123,7 +129,7 @@ Fields:
 - `weightKg`
 - `reps`
 - `sets`
-- `rir` — 0, 1, 2, 3, 4_plus
+- `rir` — numeric 0, 1, 2, 3, 4 where 4 means `4+`; UI maps this to labels like `4+ Fácil`
 - `painScore` — 0-10
 - `notes`
 - `recordedAt`
@@ -182,7 +188,7 @@ Fields:
 - `targetRepMin`
 - `targetRepMax`
 - `targetWeightKg`
-- `targetRir`
+- `targetRir` — numeric 0, 1, 2, 3, 4 where 4 means `4+`
 - `restSeconds`
 - `notesEs`
 - `notesEn`
@@ -237,7 +243,7 @@ Fields:
 - `plannedRepsMax`
 - `actualWeightKg`
 - `actualReps`
-- `rir` — 0, 1, 2, 3, 4_plus
+- `rir` — numeric 0, 1, 2, 3, 4 where 4 means `4+`; numeric storage allows averaging for progression rules
 - `painScore` — 0-10
 - `notes`
 - `completedAt`
@@ -264,8 +270,8 @@ Fields:
 ## Key invariants
 
 1. Users can only access their own athlete profiles and training data.
-2. Set logs must include actual weight, reps, RIR, and pain score.
-3. Pain score is required for profiles/exercises marked pain-sensitive.
+2. Set logs must include actual weight, reps, numeric RIR, and pain score.
+3. Pain score is required for every set; pain-sensitive profiles/exercises may add extra confirmation.
 4. Unilateral exercises can store separate left/right set logs.
 5. Body measurement trends preserve historical records; never overwrite history.
 6. Progression suggestions are recommendations; users can override them.

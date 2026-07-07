@@ -2,7 +2,7 @@
 
 ## Effort model
 
-Use RIR in the UI.
+Use RIR in the UI. Store RIR numerically as `0 | 1 | 2 | 3 | 4`; `4` represents `4+` for calculations and UI labels.
 
 | Value | Spanish label | Meaning |
 |---:|---|---|
@@ -16,6 +16,14 @@ Primary working-set target for hypertrophy:
 - Most sets: RIR 1-3.
 - Default target: RIR 2.
 - Failure: occasional only, never when pain or technique risk is high.
+
+## Pain thresholds
+
+Authoritative MVP thresholds:
+- `pain <= 2`: progression is allowed if performance and notes also support it.
+- `pain > 2`: aggressive progression is blocked automatically; hold, repeat, or reduce depending on context.
+- `pain > 3`: next-session suggestion should reduce load, modify range, or swap exercise.
+- `pain >= 7`: stop/avoid the pattern and recommend professional guidance if persistent.
 
 ## Basic progression algorithm v1
 
@@ -93,13 +101,17 @@ Progress goal:
 
 ## 5% improvement definition
 
+Default comparison window:
+- Compare the latest completed session for an exercise/side against the previous completed session of the same exercise/side.
+- For measurements, compare the latest measurement against the previous measurement, normally on a 2-week cadence.
+
 The app can count improvement when one or more signals improve by at least 5%:
 
-- Total volume load: sets × reps × kg.
-- Reps at the same load and similar RIR.
-- Load at same reps and similar RIR.
-- Estimated performance score.
-- Lower pain at same workload.
-- Reduced left/right measurement or performance gap.
+- Total volume load: `(sum of actual reps × kg)` increases by >= 5% while max pain does not increase above 2.
+- Reps at the same load and similar RIR: reps increase by >= 5% when load is unchanged and average RIR changes by no more than 1.
+- Load at same reps and similar RIR: load increases by >= 5% when reps are unchanged or higher and average RIR changes by no more than 1.
+- Estimated performance score: estimated 1RM or comparable score increases by >= 5% for compatible rep ranges.
+- Pain improvement: pain decreases by >= 2 points at the same or higher workload.
+- Asymmetry improvement: left/right measurement or performance gap shrinks by >= 5% without increasing pain.
 
 Do not require every exercise to improve every week.

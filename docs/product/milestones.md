@@ -4,7 +4,7 @@ Work in small vertical slices. Each milestone must be usable on iPhone before mo
 
 ## M0 — Product and technical foundation
 
-Status: in progress. App bootstrap, stack dependencies, initial migration, Spanish landing page, and local verification are complete. Remaining M0 work is real env setup, database migration against Neon, and CI/deployment wiring.
+Status: in progress. App bootstrap, stack dependencies, initial migrations, Spanish landing page, CI checks, and local verification are complete. Remaining M0 work is real env setup, database migration against Neon, and Vercel deployment wiring.
 
 Goal: align scope and bootstrap a clean project.
 

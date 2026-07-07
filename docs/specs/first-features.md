@@ -114,6 +114,8 @@ Scope:
 - Intermediate level.
 - Full gym equipment.
 - Spanish plan by default.
+- AI output must match the Zod contract in `src/plans/generated-plan-schema.ts`.
+- Seeded fallback plan is available if AI fails or returns invalid output.
 - Review before start.
 
 Plan bias:
@@ -123,7 +125,9 @@ Plan bias:
 
 Acceptance:
 - Plan has 5 distinct sessions per week.
-- Each session has exercises, sets, rep ranges, target RIR, and notes.
+- Each session has exercises, sets, rep ranges, numeric target RIR, rest seconds, and notes.
+- Invalid AI output is rejected before persistence.
+- If AI generation fails, tester can accept/edit the seeded fallback plan and continue to logging.
 - Shoulder bursitis profiles avoid or modify risky shoulder movements.
 - Lower-body priority profile gets extra quad/calf/unilateral focus.
 

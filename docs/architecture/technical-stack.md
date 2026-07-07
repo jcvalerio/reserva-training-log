@@ -48,13 +48,15 @@ MVP requirement:
 
 - Vercel AI SDK
 - Google Gemini or other selected provider behind an adapter
-- Structured JSON outputs validated by Zod
+- Structured JSON outputs validated by Zod using `src/plans/generated-plan-schema.ts`
 - Rule-based guardrails before persistence
+- Seeded fallback plan when AI generation fails or returns invalid output
 
 Important:
 - AI can generate plan drafts.
 - Deterministic code should validate session duration, volume, limitations, pain-sensitive substitutions, and schema correctness.
 - Rule-based progression should come before AI explanations.
+- AI failure must not block testers from receiving a usable fallback plan and logging sessions.
 
 ## Testing
 

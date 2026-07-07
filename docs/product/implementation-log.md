@@ -99,3 +99,43 @@ Next iteration:
 - Configure Neon production/development database URLs in Vercel and local `.env.local`.
 - Confirm Google OAuth redirect URLs for localhost and production.
 - Run the initial migration against the development database first.
+
+## 2026-07-06 — Gap analysis corrective pass
+
+Status: completed.
+
+Validated and addressed the correctness-blocking documentation review before continuing M1/M3 work.
+
+Implemented:
+- Locked RIR as numeric `0 | 1 | 2 | 3 | 4`, where `4` displays as `4+` in the UI.
+- Made pain thresholds authoritative: `pain >2` blocks aggressive progression, `pain >3` reduces/modifies/swaps, and `pain >=7` stops/avoids with professional-guidance copy if persistent.
+- Added generated plan contract docs and runtime Zod schema in `src/plans/generated-plan-schema.ts`.
+- Added seeded fallback plan in `src/plans/seeded-plan.ts` so AI failure does not block field testing.
+- Added rule-based progression engine skeleton with tests for increase, pain hold, pain reduce/modify, and sharp rep drop.
+- Added runtime environment parsing in `src/env.ts` and wired auth/db/AI provider config through it.
+- Added Drizzle `$onUpdateFn` for `updatedAt` columns.
+- Added athlete profile `timezone`, defaulting to `America/Costa_Rica`.
+- Added Node/npm `engines` to `package.json`.
+- Added GitHub Actions CI for lint, typecheck, unit tests, and build.
+- Added Drizzle migration `drizzle/0001_safe_speed.sql` for the timezone column.
+
+Docs updated:
+- `docs/architecture/data-model.md`
+- `docs/architecture/technical-stack.md`
+- `docs/product/milestones.md`
+- `docs/product/open-questions.md`
+- `docs/product/progression-rules.md`
+- `docs/product/session-logging-ux.md`
+- `docs/specs/first-features.md`
+- `docs/specs/generated-plan-contract.md`
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 3 files, 6 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Run `npm run db:migrate` against the development Neon database first.
+- Confirm Better Auth Google callback locally.
+- Implement real sign-in UI and authenticated ownership helpers.

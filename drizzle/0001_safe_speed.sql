@@ -1,0 +1,1 @@
+ALTER TABLE "athlete_profile" ADD COLUMN "timezone" text DEFAULT 'America/Costa_Rica' NOT NULL;

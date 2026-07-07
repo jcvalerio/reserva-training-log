@@ -9,11 +9,13 @@ The gym screen must be faster than a spreadsheet and usable with one hand on iPh
 Show:
 - Session name.
 - Estimated duration.
+- Rest timer when applicable.
 - Progress through exercises/sets.
 - Current exercise.
 - Previous performance.
 - Planned target.
 - Set logging controls.
+- Exercise swap/modify action for pain or equipment conflicts.
 - Sticky bottom action.
 
 ## Set logging form
@@ -36,11 +38,12 @@ Defaults:
 ## Control design
 
 - Large numeric controls for kg/reps.
-- RIR as big segmented buttons.
+- RIR as big segmented buttons; persist as numeric 0-4, where 4 displays as `4+`.
 - Pain as quick 0-10 selector.
 - Notes field supports iPhone dictation.
 - Main action: `Guardar set` / `Save set`.
 - Secondary action: `Siguiente ejercicio` / `Next exercise`.
+- Context action: `Cambiar ejercicio` / `Swap exercise`.
 
 ## Spanish labels
 
@@ -77,8 +80,8 @@ When pain score is high:
 
 Pain score interpretation:
 - 0: no pain
-- 1-2: acceptable awareness
-- 3: caution
+- 1-2: acceptable awareness; progression may be allowed if performance supports it
+- 3: caution; block aggressive progression
 - 4+: warning; hold/reduce/modify next time
 - 7+: stop/avoid and seek professional guidance if persistent
 

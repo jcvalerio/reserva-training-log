@@ -43,6 +43,7 @@ npm run db:migrate
 - [Milestones](docs/product/milestones.md)
 - [Data model](docs/architecture/data-model.md)
 - [First features](docs/specs/first-features.md)
+- [Generated plan contract](docs/specs/generated-plan-contract.md)
 - [Progression rules](docs/product/progression-rules.md)
 - [Session logging UX](docs/product/session-logging-ux.md)
 - [Technical stack](docs/architecture/technical-stack.md)

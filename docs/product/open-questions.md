@@ -7,7 +7,7 @@ Resolve these before or during early implementation.
 1. Should the first generated plan use Push/Pull/Legs/Upper/Lower or a body-part split?
 2. Which exact baseline exercises should be mandatory vs optional?
 3. Should shoulder pain tracking be required for all upper-body exercises for bursitis profiles, or only shoulder-tagged exercises?
-4. What pain threshold should block progression automatically: >2, >3, or user-configurable?
+4. Resolved: pain >2 blocks aggressive progression; pain >3 triggers reduce/modify/swap suggestion; pain >=7 should stop/avoid the pattern and recommend professional guidance if persistent.
 5. Should final sets ever intentionally target RIR 0 for experienced users?
 6. How should skipped sessions affect progression suggestions?
 7. Should measurement reminders be every 2 weeks inside MVP?
