@@ -139,3 +139,24 @@ Next iteration:
 - Run `npm run db:migrate` against the development Neon database first.
 - Confirm Better Auth Google callback locally.
 - Implement real sign-in UI and authenticated ownership helpers.
+
+## 2026-07-06 — Drizzle local env loading fixed
+
+Status: completed.
+
+Issue:
+- `npm run db:migrate` failed because `drizzle.config.ts` read `process.env.DATABASE_URL` directly, while Next.js-style `.env.local` files are not loaded automatically by Drizzle Kit.
+
+Implemented:
+- Updated `drizzle.config.ts` to load `.env.local` or `.env` with Node `process.loadEnvFile()` before reading `DATABASE_URL`.
+- Added a clear error if `DATABASE_URL` is still missing.
+- Updated README migration instructions to note that `.env.local` is used.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run db:migrate` applied migrations successfully against the configured Neon database.
+
+Next iteration:
+- Confirm Better Auth Google callback locally.
+- Implement real sign-in UI and authenticated ownership helpers.

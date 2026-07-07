@@ -30,7 +30,7 @@ npm run test
 npm run build
 ```
 
-Database migration commands:
+Database migration commands load `DATABASE_URL` from `.env.local`:
 
 ```bash
 npm run db:generate
