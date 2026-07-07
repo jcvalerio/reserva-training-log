@@ -1,6 +1,14 @@
+import Link from "next/link";
+
 import { GoogleSignInButton, SignOutButton } from "./auth-buttons";
 
-const navItems = ["Inicio", "Perfil", "Plan", "Entrenar", "Progreso"];
+const navItems: Array<{ label: string; href: string } | { label: string; href?: never }> = [
+  { label: "Inicio", href: "/" },
+  { label: "Perfil", href: "/perfil" },
+  { label: "Plan" },
+  { label: "Entrenar" },
+  { label: "Progreso" },
+];
 const loggingFields = ["kg", "reps", "RIR", "dolor", "notas"];
 
 type HomeShellProps = {
@@ -23,14 +31,24 @@ export function HomeShell({ user, googleSignInEnabled }: HomeShellProps) {
           <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300">ES / EN</span>
         </div>
         <nav aria-label="Principal" className="flex gap-2 overflow-x-auto pb-1">
-          {navItems.map((item) => (
-            <span
-              key={item}
-              className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
-            >
-              {item}
-            </span>
-          ))}
+          {navItems.map((item) =>
+            item.href ? (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <span
+                key={item.label}
+                className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
+              >
+                {item.label}
+              </span>
+            ),
+          )}
         </nav>
         <div className="rounded-2xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">

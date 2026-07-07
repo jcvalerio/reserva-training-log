@@ -181,3 +181,25 @@ Verification:
 Next iteration:
 - Confirm Better Auth Google callback locally with the configured Google OAuth credentials.
 - Start the athlete profile foundation behind authenticated ownership checks.
+
+## 2026-07-06 — Authenticated athlete profile foundation
+
+Status: completed.
+
+Implemented:
+- Added authenticated `/perfil` onboarding page for the core athlete context fields.
+- Added server action to validate and save the current user's athlete profile.
+- Added profile repository helpers that query by authenticated owner and assert ownership before returning/updating records.
+- Added Spanish-first profile validation defaults for 5 days/week, 60-minute sessions, hypertrophy, mobility/fat-loss secondary goals, aggressive pain-aware progression, and Costa Rica timezone.
+- Linked the home shell Perfil nav item to the authenticated profile route.
+- Added unit coverage for profile parsing defaults and temporary note composition for limitations/priorities until dedicated tables exist.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 5 files, 11 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Confirm Google OAuth end-to-end locally and create/update a tester profile through `/perfil`.
+- Add dedicated persistence for limitations and muscle priorities, or continue with baseline working-weight intake if the profile flow is sufficient for M1 testing.
