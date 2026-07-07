@@ -83,3 +83,19 @@ Next iteration:
 - Configure Neon production/development database URLs in Vercel and local `.env.local`.
 - Confirm Google OAuth redirect URLs for localhost and production.
 - Run the initial migration against the development database first.
+
+## 2026-07-06 — Node version pinned
+
+Status: completed.
+
+Implemented:
+- Added `.nvmrc` with Node `v24.18.0` to keep local agent/developer runtime consistent with the current project bootstrap.
+- Updated local development instructions to run `nvm use` before installing or starting the app.
+
+Notes:
+- `next-env.d.ts` can be rewritten by `next dev` between `.next/dev/types` and `.next/types`; this generated change was reverted and should not be treated as a feature change.
+
+Next iteration:
+- Configure Neon production/development database URLs in Vercel and local `.env.local`.
+- Confirm Google OAuth redirect URLs for localhost and production.
+- Run the initial migration against the development database first.

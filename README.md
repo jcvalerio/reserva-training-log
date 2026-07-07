@@ -15,6 +15,7 @@ Spanish-first iPhone Web MVP for personal hypertrophy training: generate a plan,
 ## Local development
 
 ```bash
+nvm use
 npm install
 cp .env.example .env.local
 npm run dev
