@@ -70,16 +70,12 @@ export function parseAthleteProfileFormData(formData: FormData): AthleteProfileI
   });
 }
 
-export function composeProfileNotes(input: Pick<AthleteProfileInput, "notes" | "painSensitiveAreas" | "musclePriorities">) {
-  if (!input.painSensitiveAreas && !input.musclePriorities) {
-    return input.notes;
-  }
-
-  return [
-    input.notes ? `Notas: ${input.notes}` : null,
-    input.painSensitiveAreas ? `Limitaciones / zonas sensibles: ${input.painSensitiveAreas}` : null,
-    input.musclePriorities ? `Prioridades musculares: ${input.musclePriorities}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n\n") || undefined;
+export function parseProfileListInput(value: string | undefined): string[] {
+  return (
+    value
+      ?.split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 20) ?? []
+  );
 }

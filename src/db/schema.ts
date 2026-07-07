@@ -2,6 +2,7 @@ import {
   boolean,
   integer,
   jsonb,
+  index,
   pgEnum,
   pgTable,
   text,
@@ -18,6 +19,10 @@ export const progressionAggressivenessEnum = pgEnum("progression_aggressiveness"
   "normal",
   "aggressive",
 ]);
+export const limitationSideEnum = pgEnum("limitation_side", ["left", "right", "bilateral", "unknown"]);
+export const limitationSeverityEnum = pgEnum("limitation_severity", ["mild", "moderate", "severe"]);
+export const musclePriorityLevelEnum = pgEnum("muscle_priority_level", ["normal", "high", "very_high"]);
+export const sideFocusEnum = pgEnum("side_focus", ["right", "left", "bilateral", "none"]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -110,3 +115,41 @@ export const athleteProfile = pgTable("athlete_profile", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: updatedAtColumn(),
 });
+
+export const limitation = pgTable(
+  "limitation",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    bodyRegion: text("body_region").notNull(),
+    side: limitationSideEnum("side").notNull().default("unknown"),
+    conditionName: text("condition_name").notNull(),
+    severity: limitationSeverityEnum("severity").notNull().default("moderate"),
+    requiresPainTracking: boolean("requires_pain_tracking").notNull().default(true),
+    avoidPatterns: text("avoid_patterns"),
+    notes: text("notes"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [index("limitation_athlete_profile_id_idx").on(table.athleteProfileId)],
+);
+
+export const musclePriority = pgTable(
+  "muscle_priority",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    muscleGroup: text("muscle_group").notNull(),
+    priorityLevel: musclePriorityLevelEnum("priority_level").notNull().default("high"),
+    sideFocus: sideFocusEnum("side_focus").notNull().default("none"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [index("muscle_priority_athlete_profile_id_idx").on(table.athleteProfileId)],
+);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { composeProfileNotes, parseAthleteProfileFormData } from "./profile-schema";
+import { parseAthleteProfileFormData, parseProfileListInput } from "./profile-schema";
 
 describe("profile schema", () => {
   it("defaults MVP training targets to Spanish-first hypertrophy settings", () => {
@@ -21,17 +21,10 @@ describe("profile schema", () => {
     });
   });
 
-  it("keeps limitations and muscle priorities as explicit notes until dedicated tables exist", () => {
-    expect(
-      composeProfileNotes({
-        notes: "Entrena 5 días por semana.",
-        painSensitiveAreas: "Bursitis de hombro derecho.",
-        musclePriorities: "Cuádriceps y pantorrillas, énfasis lado derecho.",
-      }),
-    ).toBe(
-      "Notas: Entrena 5 días por semana.\n\n" +
-        "Limitaciones / zonas sensibles: Bursitis de hombro derecho.\n\n" +
-        "Prioridades musculares: Cuádriceps y pantorrillas, énfasis lado derecho.",
-    );
+  it("normalizes multiline limitations and priorities for dedicated persistence", () => {
+    expect(parseProfileListInput(" Bursitis hombro derecho \n\n Cuádriceps lado derecho ")).toEqual([
+      "Bursitis hombro derecho",
+      "Cuádriceps lado derecho",
+    ]);
   });
 });

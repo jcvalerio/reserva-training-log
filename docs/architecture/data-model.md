@@ -64,6 +64,11 @@ Fields:
 - `avoidPatterns` — e.g. painful overhead pressing
 - `notes`
 - `active`
+- `createdAt`
+- `updatedAt`
+
+MVP input note:
+- `/perfil` accepts one limitation per line and persists each line as a dedicated `Limitation` row with conservative defaults (`bodyRegion=unknown`, `side=unknown`, `severity=moderate`, `requiresPainTracking=true`). Structured editing can be added after field testing.
 
 ## MusclePriority
 
@@ -76,6 +81,11 @@ Fields:
 - `priorityLevel` — normal, high, very_high
 - `sideFocus` — right, left, bilateral, none
 - `notes`
+- `createdAt`
+- `updatedAt`
+
+MVP input note:
+- `/perfil` accepts one priority per line and persists each line as a dedicated `MusclePriority` row with defaults (`priorityLevel=high`, `sideFocus=none`). Structured side/priority editing can be added after field testing.
 
 ## BodyMeasurement
 

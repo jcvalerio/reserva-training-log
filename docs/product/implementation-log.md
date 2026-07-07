@@ -203,3 +203,26 @@ Verification:
 Next iteration:
 - Confirm Google OAuth end-to-end locally and create/update a tester profile through `/perfil`.
 - Add dedicated persistence for limitations and muscle priorities, or continue with baseline working-weight intake if the profile flow is sufficient for M1 testing.
+
+## 2026-07-06 — Dedicated profile details persistence
+
+Status: completed.
+
+Implemented:
+- Added Drizzle tables and migration for `limitation` and `muscle_priority` records tied to `athlete_profile` with cascade deletes and profile indexes.
+- Updated `/perfil` to load and preserve existing limitations/priorities from dedicated rows instead of folding them into general notes.
+- Updated profile save logic to replace the current profile's limitations/priorities from one-item-per-line text areas.
+- Kept conservative MVP defaults for structured fields: unknown limitation side/body region, moderate severity, pain tracking required, high muscle priority, and no side focus.
+- Updated data model docs with the MVP line-based input behavior.
+- Added unit coverage for multiline normalization.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 5 files, 11 tests.
+- `npm run build` passes.
+- `npm run db:migrate` applied `drizzle/0002_simple_wolf_cub.sql` successfully against the configured Neon development database.
+
+Next iteration:
+- Confirm Google OAuth end-to-end locally and create/update a tester profile through `/perfil`.
+- Start baseline working-weight intake with kg, reps, sets, RIR, pain score, notes, and unilateral left/right support.

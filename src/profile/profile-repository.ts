@@ -1,15 +1,23 @@
 import { randomUUID } from "node:crypto";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { athleteProfile } from "@/db/schema";
+import { athleteProfile, limitation, musclePriority } from "@/db/schema";
 import { assertOwnedByUser } from "@/lib/ownership";
 
 import type { AthleteProfileInput } from "./profile-schema";
-import { composeProfileNotes } from "./profile-schema";
+import { parseProfileListInput } from "./profile-schema";
 
 export type AthleteProfile = typeof athleteProfile.$inferSelect;
+export type Limitation = typeof limitation.$inferSelect;
+export type MusclePriority = typeof musclePriority.$inferSelect;
+
+export type AthleteProfileContext = {
+  profile: AthleteProfile | null;
+  limitations: Limitation[];
+  musclePriorities: MusclePriority[];
+};
 
 export async function getAthleteProfileForUser(userId: string): Promise<AthleteProfile | null> {
   const [profile] = await db
@@ -25,6 +33,33 @@ export async function getAthleteProfileForUser(userId: string): Promise<AthleteP
 
   assertOwnedByUser(profile, userId, "perfil");
   return profile;
+}
+
+export async function getAthleteProfileContextForUser(userId: string): Promise<AthleteProfileContext> {
+  const profile = await getAthleteProfileForUser(userId);
+
+  if (!profile) {
+    return {
+      profile: null,
+      limitations: [],
+      musclePriorities: [],
+    };
+  }
+
+  const [limitations, musclePriorities] = await Promise.all([
+    db
+      .select()
+      .from(limitation)
+      .where(eq(limitation.athleteProfileId, profile.id))
+      .orderBy(asc(limitation.createdAt)),
+    db
+      .select()
+      .from(musclePriority)
+      .where(eq(musclePriority.athleteProfileId, profile.id))
+      .orderBy(asc(musclePriority.createdAt)),
+  ]);
+
+  return { profile, limitations, musclePriorities };
 }
 
 export async function saveAthleteProfileForUser(
@@ -47,6 +82,7 @@ export async function saveAthleteProfileForUser(
       throw new Error("No se pudo crear el perfil de atleta.");
     }
 
+    await replaceProfileDetails(createdProfile.id, input);
     return createdProfile;
   }
 
@@ -62,6 +98,7 @@ export async function saveAthleteProfileForUser(
     throw new Error("No se pudo actualizar el perfil de atleta.");
   }
 
+  await replaceProfileDetails(updatedProfile.id, input);
   return updatedProfile;
 }
 
@@ -81,6 +118,40 @@ function toAthleteProfileValues(userId: string, input: AthleteProfileInput) {
     preferredLocale: input.preferredLocale,
     timezone: input.timezone,
     gymContext: input.gymContext,
-    notes: composeProfileNotes(input) ?? null,
+    notes: input.notes ?? null,
   } satisfies Omit<typeof athleteProfile.$inferInsert, "id" | "createdAt" | "updatedAt">;
+}
+
+async function replaceProfileDetails(profileId: string, input: AthleteProfileInput) {
+  await Promise.all([
+    db.delete(limitation).where(eq(limitation.athleteProfileId, profileId)),
+    db.delete(musclePriority).where(eq(musclePriority.athleteProfileId, profileId)),
+  ]);
+
+  const limitationItems = parseProfileListInput(input.painSensitiveAreas);
+  const priorityItems = parseProfileListInput(input.musclePriorities);
+
+  await Promise.all([
+    limitationItems.length > 0
+      ? db.insert(limitation).values(
+          limitationItems.map((item) => ({
+            id: randomUUID(),
+            athleteProfileId: profileId,
+            bodyRegion: "unknown",
+            conditionName: item,
+            notes: item,
+          })),
+        )
+      : Promise.resolve(),
+    priorityItems.length > 0
+      ? db.insert(musclePriority).values(
+          priorityItems.map((item) => ({
+            id: randomUUID(),
+            athleteProfileId: profileId,
+            muscleGroup: item,
+            notes: item,
+          })),
+        )
+      : Promise.resolve(),
+  ]);
 }

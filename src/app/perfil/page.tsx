@@ -1,13 +1,15 @@
 import Link from "next/link";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import { getAthleteProfileContextForUser } from "@/profile/profile-repository";
 
 import { saveAthleteProfileAction } from "./actions";
 
 export default async function ProfilePage() {
   const user = await requireCurrentUser();
-  const profile = await getAthleteProfileForUser(user.id);
+  const { profile, limitations, musclePriorities } = await getAthleteProfileContextForUser(user.id);
+  const painSensitiveAreasValue = limitations.map((item) => item.notes ?? item.conditionName).join("\n");
+  const musclePrioritiesValue = musclePriorities.map((item) => item.notes ?? item.muscleGroup).join("\n");
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-5 py-6 text-zinc-50">
@@ -139,8 +141,9 @@ export default async function ProfilePage() {
           <textarea
             name="painSensitiveAreas"
             rows={3}
+            defaultValue={painSensitiveAreasValue}
             className="input resize-none"
-            placeholder="Ej. bursitis de hombro, rodilla sensible, patrones a evitar."
+            placeholder="Ej. bursitis de hombro, rodilla sensible, patrones a evitar. Una por línea."
           />
         </Field>
 
@@ -148,8 +151,9 @@ export default async function ProfilePage() {
           <textarea
             name="musclePriorities"
             rows={3}
+            defaultValue={musclePrioritiesValue}
             className="input resize-none"
-            placeholder="Ej. cuádriceps/pantorrillas, asimetría derecha/izquierda."
+            placeholder="Ej. cuádriceps/pantorrillas, asimetría derecha/izquierda. Una por línea."
           />
         </Field>
 
