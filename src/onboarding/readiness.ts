@@ -16,12 +16,19 @@ export type M1ReadinessStep = {
   href?: string;
 };
 
+export type M1ReadinessPrimaryAction = {
+  labelEs: string;
+  helperEs: string;
+  href?: string;
+};
+
 export type M1Readiness = {
   steps: M1ReadinessStep[];
   completedFoundationSteps: number;
   totalFoundationSteps: number;
   foundationReady: boolean;
   nextStep: M1ReadinessStep;
+  primaryAction: M1ReadinessPrimaryAction;
 };
 
 export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
@@ -90,13 +97,53 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
   ];
 
   const foundationSteps = steps.filter((step) => step.id !== "plan");
+  const foundationReady = foundationSteps.every((step) => step.status === "complete");
   const nextStep = foundationSteps.find((step) => step.status !== "complete") ?? steps[3];
 
   return {
     steps,
     completedFoundationSteps: foundationSteps.filter((step) => step.status === "complete").length,
     totalFoundationSteps: foundationSteps.length,
-    foundationReady: foundationSteps.every((step) => step.status === "complete"),
+    foundationReady,
     nextStep,
+    primaryAction: getPrimaryAction(nextStep, foundationReady),
+  };
+}
+
+function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): M1ReadinessPrimaryAction {
+  if (foundationReady) {
+    return {
+      labelEs: "Base lista; plan queda pendiente",
+      helperEs: "No se genera AI todavía. La siguiente iteración podrá revisar el plan cuando se priorice.",
+    };
+  }
+
+  if (nextStep.id === "profile") {
+    return {
+      labelEs: "Crear o completar perfil",
+      helperEs: "Empieza aquí para desbloquear pesos base y mediciones.",
+      href: "/perfil",
+    };
+  }
+
+  if (nextStep.id === "baseline") {
+    return {
+      labelEs: "Registrar pesos base",
+      helperEs: "Guarda al menos una fila completa con kg, reps, series, RIR y dolor.",
+      href: "/baseline",
+    };
+  }
+
+  if (nextStep.id === "measurements") {
+    return {
+      labelEs: "Guardar primera medición",
+      helperEs: "Una medida numérica basta para crear el punto de partida corporal.",
+      href: "/mediciones",
+    };
+  }
+
+  return {
+    labelEs: "Plan pendiente",
+    helperEs: "La generación del plan sigue bloqueada hasta una iteración futura.",
   };
 }

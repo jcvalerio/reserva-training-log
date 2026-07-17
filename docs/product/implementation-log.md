@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-17 — Authenticated onboarding polish
+
+Status: completed.
+
+Implemented:
+- Added a deterministic primary CTA to the M1 readiness helper so signed-in home guides the next safe onboarding step without starting AI plan generation.
+- Polished signed-in readiness cards for small iPhone widths with clearer wrapping, touch targets, and focus rings.
+- Clarified `/perfil`, `/baseline`, and `/mediciones` copy around profile-first navigation, replacement/history behavior, partial data, and the fact that AI plan generation is not triggered yet.
+- Added an explicit empty/pending state for missing baseline weights.
+
+Verification:
+- `npm run test` passes: 8 files, 21 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Validate the polished flows on a real iPhone-sized browser with authenticated tester data.
+- Continue non-AI onboarding foundations or plan-review scaffolding only when prioritized; do not start AI plan generation yet.
+
 ## 2026-07-17 — Onboarding readiness guidance
 
 Status: completed.

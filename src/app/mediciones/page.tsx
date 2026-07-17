@@ -17,11 +17,17 @@ export default async function MeasurementsPage() {
         <div className="rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
           <p className="text-sm font-semibold text-emerald-300">Perfil requerido</p>
           <h1 className="mt-2 text-2xl font-semibold">Primero crea tu perfil de atleta.</h1>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">
+            Las mediciones se guardan como historial privado del perfil y nunca sobrescriben filas anteriores.
+          </p>
           <Link
             href="/perfil"
             className="mt-5 block rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950"
           >
-            Ir a Perfil
+            Crear perfil primero
+          </Link>
+          <Link href="/" className="mt-3 block text-center text-sm font-medium text-zinc-400">
+            Volver a Inicio
           </Link>
         </div>
       </main>
@@ -42,7 +48,7 @@ export default async function MeasurementsPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Mediciones</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tendencias y asimetrías</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Guarda una nueva fila cada vez. No se sobrescribe el historial. Cadencia recomendada: cada 2 semanas.
+            Guarda una nueva fila cada vez. No se sobrescribe el historial. Cadencia recomendada: cada 2 semanas, no cada sesión.
           </p>
         </div>
       </header>
@@ -57,7 +63,9 @@ export default async function MeasurementsPage() {
       <form action={saveBodyMeasurementAction} className="mt-6 grid gap-5 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
         <div>
           <h2 className="text-lg font-semibold">Nueva medición</h2>
-          <p className="mt-1 text-sm text-zinc-400">Puedes guardar medidas parciales, pero al menos una debe ser numérica.</p>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">
+            Puedes guardar medidas parciales, pero al menos una debe ser numérica. Si dejas la fecha vacía, se usa el momento de guardado.
+          </p>
         </div>
 
         <Field label="Fecha/hora (opcional)">
@@ -100,7 +108,7 @@ export default async function MeasurementsPage() {
           type="submit"
           className="sticky bottom-4 rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30"
         >
-          Guardar medición
+          Guardar nueva medición
         </button>
       </form>
 

@@ -13,6 +13,10 @@ describe("getM1Readiness", () => {
     expect(readiness.completedFoundationSteps).toBe(0);
     expect(readiness.foundationReady).toBe(false);
     expect(readiness.nextStep.id).toBe("profile");
+    expect(readiness.primaryAction).toMatchObject({
+      labelEs: "Crear o completar perfil",
+      href: "/perfil",
+    });
     expect(readiness.steps.map((step) => [step.id, step.status])).toEqual([
       ["profile", "incomplete"],
       ["baseline", "blocked"],
@@ -32,6 +36,9 @@ describe("getM1Readiness", () => {
     expect(readiness.totalFoundationSteps).toBe(3);
     expect(readiness.foundationReady).toBe(true);
     expect(readiness.nextStep.id).toBe("plan");
+    expect(readiness.primaryAction.href).toBeUndefined();
+    expect(readiness.primaryAction.labelEs).toBe("Base lista; plan queda pendiente");
+    expect(readiness.primaryAction.helperEs).toContain("No se genera AI");
     expect(readiness.steps.find((step) => step.id === "baseline")?.descriptionEs).toContain("3 entradas");
     expect(readiness.steps.find((step) => step.id === "plan")?.statusLabelEs).toBe("No iniciado");
   });
@@ -46,6 +53,10 @@ describe("getM1Readiness", () => {
     expect(readiness.completedFoundationSteps).toBe(2);
     expect(readiness.foundationReady).toBe(false);
     expect(readiness.nextStep.id).toBe("measurements");
+    expect(readiness.primaryAction).toMatchObject({
+      labelEs: "Guardar primera medición",
+      href: "/mediciones",
+    });
     expect(readiness.steps.find((step) => step.id === "plan")?.status).toBe("pending");
   });
 });

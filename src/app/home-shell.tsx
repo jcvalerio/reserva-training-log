@@ -104,6 +104,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
                     {readiness.completedFoundationSteps}/{readiness.totalFoundationSteps} bases listas. Próximo: {" "}
                     <span className="font-semibold text-zinc-100">{readiness.nextStep.labelEs}</span>.
                   </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">{readiness.primaryAction.helperEs}</p>
                 </div>
 
                 <div className="grid gap-3">
@@ -112,9 +113,23 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
                   ))}
                 </div>
 
+                {readiness.primaryAction.href ? (
+                  <Link
+                    href={readiness.primaryAction.href}
+                    className="rounded-2xl bg-emerald-300 px-5 py-4 text-center text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30"
+                  >
+                    Continuar: {readiness.primaryAction.labelEs}
+                  </Link>
+                ) : (
+                  <div className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
+                    <p className="font-semibold text-zinc-200">{readiness.primaryAction.labelEs}</p>
+                    <p className="mt-1">Plan no iniciado; no se dispara generación AI desde esta pantalla.</p>
+                  </div>
+                )}
+
                 <p className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
                   {readiness.foundationReady
-                    ? "Perfil, pesos base y mediciones están listos para la siguiente iteración. El plan sigue pendiente."
+                    ? "Perfil, pesos base y mediciones están listos para una revisión manual antes del plan."
                     : "Completa perfil, pesos base y mediciones antes de iniciar cualquier plan."}
                 </p>
               </section>
@@ -136,12 +151,12 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
 
 function ReadinessStepCard({ step }: { step: M1ReadinessStep }) {
   const content = (
-    <div className="flex items-start gap-3 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+    <div className="flex min-h-20 items-start gap-3 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
       <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${statusDotClass(step.status)}`} aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-3">
+        <span className="grid gap-2 min-[380px]:flex min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
           <span className="font-semibold text-zinc-100">{step.labelEs}</span>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusPillClass(step.status)}`}>
+          <span className={`w-fit shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusPillClass(step.status)}`}>
             {step.statusLabelEs}
           </span>
         </span>
@@ -155,7 +170,11 @@ function ReadinessStepCard({ step }: { step: M1ReadinessStep }) {
   }
 
   return (
-    <Link href={step.href} aria-label={`Ir a ${step.labelEs}`}>
+    <Link
+      href={step.href}
+      aria-label={`Ir a ${step.labelEs}`}
+      className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+    >
       {content}
     </Link>
   );

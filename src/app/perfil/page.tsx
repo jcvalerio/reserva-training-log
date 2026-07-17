@@ -21,7 +21,7 @@ export default async function ProfilePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Perfil</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Contexto de atleta</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Base privada para generar el plan. Todo se guarda con el usuario autenticado.
+            Base privada para un plan futuro. Guarda este contexto primero; luego vuelve a Inicio para seguir con pesos base y mediciones.
           </p>
         </div>
       </header>
@@ -113,7 +113,7 @@ export default async function ProfilePage() {
             </Field>
           </div>
           <p className="mt-3 text-xs leading-5 text-zinc-400">
-            Plan inicial: hipertrofia + movilidad, con pérdida de grasa como objetivo secundario.
+            Plan inicial futuro: hipertrofia + movilidad, con pérdida de grasa como objetivo secundario. Esta pantalla no genera AI.
           </p>
         </div>
 
