@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-17 — Onboarding readiness guidance
+
+Status: completed.
+
+Implemented:
+- Added signed-in home guidance for M1 readiness: Perfil, Pesos base, Mediciones, and Plan.
+- Used authenticated profile, baseline, and measurement data to mark foundation steps as ready, pending, or blocked.
+- Kept the Plan step explicitly `No iniciado` and did not start AI plan generation.
+- Added deterministic readiness helper coverage for blocked, complete, and partial onboarding states.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 8 files, 21 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Manually validate the signed-in home, `/perfil`, `/baseline`, and `/mediciones` flows on an iPhone-sized viewport.
+- Continue non-AI foundations; do not start AI plan generation yet.
+
 ## 2026-07-06 — Body measurement tracking
 
 Status: completed.

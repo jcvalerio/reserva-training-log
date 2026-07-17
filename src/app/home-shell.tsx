@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { M1ReadinessStep, M1ReadinessStatus, M1Readiness } from "@/onboarding/readiness";
+
 import { GoogleSignInButton, SignOutButton } from "./auth-buttons";
 
 const navItems: Array<{ label: string; href: string } | { label: string; href?: never }> = [
@@ -19,9 +21,10 @@ type HomeShellProps = {
     email?: string | null;
   } | null;
   googleSignInEnabled: boolean;
+  readiness: M1Readiness | null;
 };
 
-export function HomeShell({ user, googleSignInEnabled }: HomeShellProps) {
+export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellProps) {
   const isSignedIn = Boolean(user);
   const displayName = user?.name || user?.email || "atleta";
 
@@ -90,13 +93,32 @@ export function HomeShell({ user, googleSignInEnabled }: HomeShellProps) {
         </div>
 
         {isSignedIn ? (
-          <div className="grid gap-3 rounded-3xl bg-zinc-900 p-4 ring-1 ring-emerald-400/30">
-            <div>
-              <p className="text-sm font-semibold text-emerald-300">Listo para M1 perfil</p>
-              <p className="mt-1 text-sm leading-6 text-zinc-300">
-                Próximo paso: crear tu perfil de atleta, registrar pesos base y guardar mediciones antes del plan.
-              </p>
-            </div>
+          <div className="grid gap-4 rounded-3xl bg-zinc-900 p-4 ring-1 ring-emerald-400/30">
+            {readiness ? (
+              <section aria-labelledby="m1-readiness-title" className="grid gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-300" id="m1-readiness-title">
+                    Preparación M1
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-300">
+                    {readiness.completedFoundationSteps}/{readiness.totalFoundationSteps} bases listas. Próximo: {" "}
+                    <span className="font-semibold text-zinc-100">{readiness.nextStep.labelEs}</span>.
+                  </p>
+                </div>
+
+                <div className="grid gap-3">
+                  {readiness.steps.map((step) => (
+                    <ReadinessStepCard key={step.id} step={step} />
+                  ))}
+                </div>
+
+                <p className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
+                  {readiness.foundationReady
+                    ? "Perfil, pesos base y mediciones están listos para la siguiente iteración. El plan sigue pendiente."
+                    : "Completa perfil, pesos base y mediciones antes de iniciar cualquier plan."}
+                </p>
+              </section>
+            ) : null}
             <SignOutButton />
           </div>
         ) : (
@@ -110,4 +132,49 @@ export function HomeShell({ user, googleSignInEnabled }: HomeShellProps) {
       </section>
     </main>
   );
+}
+
+function ReadinessStepCard({ step }: { step: M1ReadinessStep }) {
+  const content = (
+    <div className="flex items-start gap-3 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+      <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${statusDotClass(step.status)}`} aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-3">
+          <span className="font-semibold text-zinc-100">{step.labelEs}</span>
+          <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusPillClass(step.status)}`}>
+            {step.statusLabelEs}
+          </span>
+        </span>
+        <span className="mt-1 block text-sm leading-5 text-zinc-400">{step.descriptionEs}</span>
+      </span>
+    </div>
+  );
+
+  if (!step.href) {
+    return content;
+  }
+
+  return (
+    <Link href={step.href} aria-label={`Ir a ${step.labelEs}`}>
+      {content}
+    </Link>
+  );
+}
+
+function statusDotClass(status: M1ReadinessStatus) {
+  return {
+    complete: "bg-emerald-300",
+    incomplete: "bg-amber-300",
+    blocked: "bg-zinc-600",
+    pending: "bg-sky-300",
+  }[status];
+}
+
+function statusPillClass(status: M1ReadinessStatus) {
+  return {
+    complete: "bg-emerald-300/10 text-emerald-300",
+    incomplete: "bg-amber-300/10 text-amber-200",
+    blocked: "bg-zinc-800 text-zinc-400",
+    pending: "bg-sky-300/10 text-sky-200",
+  }[status];
 }
