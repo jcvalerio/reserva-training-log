@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Home navigation availability polish
+
+Status: completed.
+
+Implemented:
+- Made the signed-in/signed-out home navigation explicit about which destinations are available now versus future MVP areas.
+- Kept Inicio, Perfil, Pesos base, and Mediciones as navigable onboarding routes.
+- Marked Plan, Entrenar, and Progreso as disabled guidance with Spanish reasons instead of making them look like working links.
+- Added deterministic coverage for implemented versus disabled home navigation items.
+
+Verification:
+- `npm run test` passes: 9 files, 23 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Manual validation step: sign in on an iPhone-sized viewport, confirm the home readiness CTA and disabled nav labels are clear, then walk `/perfil` → `/baseline` → `/mediciones` with tester data.
+- If validation passes, document tester notes and only then consider non-AI plan-review scaffolding. Do not start AI plan generation yet.
+
 ## 2026-07-17 — Authenticated onboarding polish
 
 Status: completed.

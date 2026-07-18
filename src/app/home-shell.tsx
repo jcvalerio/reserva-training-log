@@ -3,16 +3,8 @@ import Link from "next/link";
 import type { M1ReadinessStep, M1ReadinessStatus, M1Readiness } from "@/onboarding/readiness";
 
 import { GoogleSignInButton, SignOutButton } from "./auth-buttons";
+import { getHomeNavItems } from "./home-nav";
 
-const navItems: Array<{ label: string; href: string } | { label: string; href?: never }> = [
-  { label: "Inicio", href: "/" },
-  { label: "Perfil", href: "/perfil" },
-  { label: "Base", href: "/baseline" },
-  { label: "Mediciones", href: "/mediciones" },
-  { label: "Plan" },
-  { label: "Entrenar" },
-  { label: "Progreso" },
-];
 const loggingFields = ["kg", "reps", "RIR", "dolor", "notas"];
 
 type HomeShellProps = {
@@ -36,21 +28,25 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
           <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300">ES / EN</span>
         </div>
         <nav aria-label="Principal" className="flex gap-2 overflow-x-auto pb-1">
-          {navItems.map((item) =>
+          {getHomeNavItems().map((item) =>
             item.href ? (
               <Link
-                key={item.label}
+                key={item.labelEs}
                 href={item.href}
+                aria-label={item.labelEs}
                 className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
               >
-                {item.label}
+                {item.shortLabelEs ?? item.labelEs}
               </Link>
             ) : (
               <span
-                key={item.label}
-                className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
+                key={item.labelEs}
+                aria-disabled="true"
+                title={item.disabledReasonEs}
+                className="shrink-0 rounded-full bg-zinc-950 px-3 py-2 text-sm text-zinc-600 ring-1 ring-zinc-900"
               >
-                {item.label}
+                {item.shortLabelEs ?? item.labelEs}
+                <span className="sr-only"> — {item.disabledReasonEs}</span>
               </span>
             ),
           )}
