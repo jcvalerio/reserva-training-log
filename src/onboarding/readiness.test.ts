@@ -39,12 +39,13 @@ describe("getM1Readiness", () => {
     expect(readiness.nextStep.id).toBe("plan");
     expect(readiness.primaryAction.href).toBe("/plan");
     expect(readiness.primaryAction.labelEs).toBe("Revisar preparación del plan");
+    expect(readiness.primaryAction.helperEs).toContain("revisión no-IA");
     expect(readiness.primaryAction.helperEs).toContain("no genera, guarda ni activa");
     expect(readiness.steps.find((step) => step.id === "baseline")?.descriptionEs).toContain("3 entradas");
     expect(readiness.steps.find((step) => step.id === "plan")).toMatchObject({
       href: "/plan",
       status: "pending",
-      statusLabelEs: "Revisión no-AI",
+      statusLabelEs: "Revisión no-IA",
     });
   });
 

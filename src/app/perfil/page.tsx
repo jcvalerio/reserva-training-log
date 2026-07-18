@@ -113,7 +113,7 @@ export default async function ProfilePage() {
             </Field>
           </div>
           <p className="mt-3 text-xs leading-5 text-zinc-400">
-            Plan inicial futuro: hipertrofia + movilidad, con pérdida de grasa como objetivo secundario. Esta pantalla no genera AI.
+            Plan inicial futuro: hipertrofia + movilidad, con pérdida de grasa como objetivo secundario. Esta pantalla no genera IA.
           </p>
         </div>
 

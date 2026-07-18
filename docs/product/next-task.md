@@ -2,8 +2,8 @@
 
 ## Real iPhone `/plan` seeded preview validation
 
-Latest known commit before this task:
-- `182f673 fix: polish seeded preview mobile boundaries`
+Automated supplement:
+- `src/app/plan/plan-page-content.test.tsx` covers deterministic complete/incomplete `/plan` review states, boundary copy, future set-log fields, and accordion expansion. This does not replace real-device validation.
 
 Objective:
 - Validate the complete-state `/plan` seeded preview on an actual iPhone-sized device with tester data, then record whether the read-only review UX is clear enough to proceed toward a future non-AI draft acceptance design.

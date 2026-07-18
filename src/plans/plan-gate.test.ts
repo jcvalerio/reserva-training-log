@@ -36,7 +36,7 @@ describe("getNonAiPlanGate", () => {
 
     expect(gate).toMatchObject({
       status: "manual_review_ready",
-      titleEs: "Base lista para revisión no-AI",
+      titleEs: "Base lista para revisión no-IA",
       ctaLabelEs: "Volver al resumen de Inicio",
       ctaHref: "/",
       canGenerateAi: false,

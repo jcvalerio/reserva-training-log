@@ -93,7 +93,7 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           id: "plan",
           labelEs: "Plan",
           status: "pending",
-          statusLabelEs: "Revisión no-AI",
+          statusLabelEs: "Revisión no-IA",
           descriptionEs: "Bases listas para revisión manual; generación y activación siguen apagadas.",
           href: "/plan",
         }
@@ -123,7 +123,7 @@ function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): 
   if (foundationReady) {
     return {
       labelEs: "Revisar preparación del plan",
-      helperEs: "Abre la revisión no-AI: no genera, guarda ni activa un plan todavía.",
+      helperEs: "Abre la revisión no-IA: no genera, guarda ni activa un plan todavía.",
       href: "/plan",
     };
   }

@@ -66,7 +66,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
       <section className="flex flex-1 flex-col justify-center gap-8 py-10">
         <div className="space-y-4">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300">
-            Entrenador Personal AI
+            Entrenador Personal IA
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-balance">
             Registra cada serie y progresa sin ignorar el dolor.
@@ -119,7 +119,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
                 ) : (
                   <div className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
                     <p className="font-semibold text-zinc-200">{readiness.primaryAction.labelEs}</p>
-                    <p className="mt-1">Plan no iniciado; no se dispara generación AI desde esta pantalla.</p>
+                    <p className="mt-1">Plan no iniciado; no se dispara generación IA desde esta pantalla.</p>
                   </div>
                 )}
 

@@ -2,6 +2,31 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Seeded preview validation harness
+
+Status: completed.
+
+Validation outcome:
+- Working tree was clean at iteration start; `next-env.d.ts` was not dirty.
+- Actual iPhone hardware was not available in the agent environment, so the real-device checklist in `docs/product/next-task.md` remains the required manual validation step.
+- Added automated coverage for the iPhone-sized review intent without calling AI, persisting a plan, accepting/editing a draft, activating a plan, or creating workout/log/progression data.
+
+Implemented:
+- Extracted `/plan` UI into a pure `PlanPageContent` component so complete/incomplete review states can be tested deterministically.
+- Added component coverage for complete-state read-only seeded preview copy, IA-off/Plan-sin-crear status, boundary badges, future set-log fields, exercise accordion expansion, exercise target details, and absence of accept/edit/activate/generate links.
+- Added component coverage that the seeded preview remains hidden until Perfil, Pesos base, and Mediciones are complete.
+- Switched remaining visible Spanish UX labels from AI/no-AI to IA/no-IA in plan readiness/home/profile copy.
+- Updated `docs/product/next-task.md` to note the automated supplement while keeping real-iPhone validation as the next required step.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 13 files, 30 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Run the manual real-iPhone `/plan` complete-state validation with tester data using `docs/product/next-task.md`. If it passes, the next implementation task can design non-AI draft acceptance boundaries without persisting or activating a plan yet.
+
 ## 2026-07-18 — Next task documented
 
 Status: completed.
