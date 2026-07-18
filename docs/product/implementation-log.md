@@ -2,6 +2,25 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Seeded plan preview scaffold
+
+Status: completed.
+
+Implemented:
+- Added a deterministic seeded-plan preview summary helper for non-persisted plan review scaffolding.
+- Updated `/plan` to show a compact “Vista previa no guardada” section only when Perfil, Pesos base, and Mediciones are complete.
+- The preview uses the existing seeded hypertrophy plan, shows week-1 session summaries and safety badges, and explicitly says it is not AI-generated, not persisted, and not activatable yet.
+- Added unit coverage for seeded preview summary counts.
+
+Verification:
+- `npm run test` passes: 12 files, 28 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Real-device sanity check of the complete-state `/plan` preview on iPhone, then decide whether to add manual edit/accept scaffolding or keep validating onboarding data. Do not start AI plan generation yet.
+
 ## 2026-07-18 — Non-AI plan readiness polish
 
 Status: completed.

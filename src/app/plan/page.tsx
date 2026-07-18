@@ -5,6 +5,8 @@ import { requireCurrentUser } from "@/lib/auth-server";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { getM1Readiness, type M1ReadinessStep, type M1ReadinessStatus } from "@/onboarding/readiness";
 import { getNonAiPlanGate } from "@/plans/plan-gate";
+import { getPlanPreviewSummary, type PlanPreviewSummary } from "@/plans/plan-preview";
+import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 export default async function PlanPage() {
@@ -24,6 +26,7 @@ export default async function PlanPage() {
     bodyMeasurementCount: bodyMeasurements.length,
   });
   const gate = getNonAiPlanGate(readiness);
+  const seededPreview = readiness.foundationReady ? getPlanPreviewSummary(createSeededHypertrophyPlan()) : null;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-4 py-5 text-zinc-50 min-[380px]:px-5 min-[380px]:py-6">
@@ -78,6 +81,8 @@ export default async function PlanPage() {
           <PlanChecklistItem key={step.id} step={step} />
         ))}
 
+        {seededPreview ? <SeededPlanPreview summary={seededPreview} /> : null}
+
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
           reducir, modificar o cambiar el movimiento.
@@ -123,6 +128,58 @@ function PlanChecklistItem({ step }: { step: M1ReadinessStep }) {
     >
       {content}
     </Link>
+  );
+}
+
+function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
+  return (
+    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-sky-300/30" aria-labelledby="seeded-preview-title">
+      <p id="seeded-preview-title" className="text-sm font-semibold text-sky-200">
+        Vista previa no guardada
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-zinc-100">{summary.nameEs}</h2>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        Estructura base predefinida para revisión futura. No viene de AI, no se persiste y todavía no se puede activar.
+      </p>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <StatusTile label="Semanas" value={String(summary.durationWeeks)} />
+        <StatusTile label="Días/sem" value={String(summary.daysPerWeek)} />
+        <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Semana 1</p>
+        <div className="mt-3 grid gap-3">
+          {summary.firstWeekSessions.map((session) => (
+            <article key={session.dayIndex} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Día {session.dayIndex}</p>
+              <h3 className="mt-1 font-semibold text-zinc-100">{session.nameEs}</h3>
+              <p className="mt-1 text-sm leading-5 text-zinc-400">{session.focus}</p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                <span className="rounded-full bg-zinc-950 px-2 py-1 text-zinc-300 ring-1 ring-zinc-800">
+                  {session.exerciseCount} ejercicios
+                </span>
+                {session.unilateralExerciseCount > 0 ? (
+                  <span className="rounded-full bg-emerald-300/10 px-2 py-1 text-emerald-300">
+                    unilateral
+                  </span>
+                ) : null}
+                {session.painSensitiveExerciseCount > 0 ? (
+                  <span className="rounded-full bg-amber-300/10 px-2 py-1 text-amber-200">
+                    dolor vigilado
+                  </span>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm leading-6 text-zinc-400">
+        Aceptar, editar y activar el plan quedan fuera de esta iteración.
+      </p>
+    </section>
   );
 }
 
