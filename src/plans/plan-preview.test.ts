@@ -19,5 +19,17 @@ describe("getPlanPreviewSummary", () => {
     expect(summary.firstWeekExerciseCount).toBe(20);
     expect(summary.firstWeekUnilateralExerciseCount).toBeGreaterThan(0);
     expect(summary.firstWeekPainSensitiveExerciseCount).toBeGreaterThan(0);
+    expect(summary.requiredSetLogFieldsEs).toEqual(["kg", "reps", "RIR", "dolor", "notas opcionales"]);
+    expect(summary.firstWeekSessions[0]?.exercises[0]).toMatchObject({
+      orderIndex: 1,
+      nameEs: "Prensa de piernas",
+      phaseLabelEs: "principal",
+      sideModeLabelEs: "bilateral",
+      targetSets: 4,
+      targetRepMin: 8,
+      targetRepMax: 12,
+      targetRir: 2,
+      restSeconds: 150,
+    });
   });
 });

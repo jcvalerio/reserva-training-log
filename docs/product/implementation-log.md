@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Seeded preview exercise details
+
+Status: completed.
+
+Implemented:
+- Expanded the deterministic plan preview summary to include week-1 exercise-level targets: order, phase, side mode, sets, rep range, numeric RIR, rest, pain-sensitive flag, and substitutions.
+- Updated `/plan` with iPhone-friendly expandable session details so complete onboarding users can inspect the seeded preview without persistence or activation.
+- Added explicit future set-log field badges: kg, reps, RIR, dolor, and notas opcionales.
+- Documented the current non-AI preview scaffold in `docs/specs/generated-plan-contract.md`.
+- Updated unit coverage for preview exercise targets and required set-log fields.
+
+Verification:
+- `npm run test` passes: 12 files, 28 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Real-device sanity check of expandable seeded preview details on iPhone. If clear, the next small step can define non-AI draft persistence boundaries before implementing any accept/edit action. Do not start AI plan generation yet.
+
 ## 2026-07-18 — Seeded plan preview scaffold
 
 Status: completed.

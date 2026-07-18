@@ -43,6 +43,16 @@ Reject or require review when:
 - lower-body asymmetry profile lacks unilateral/matched lower-body work,
 - plan lacks every-set logging targets needed for kg, reps, RIR, pain, and notes.
 
+## Current non-AI preview scaffold
+
+Before AI generation is enabled, `/plan` may show a read-only seeded preview from `createSeededHypertrophyPlan()` only after Perfil, Pesos base, and Mediciones are complete.
+
+Preview rules:
+- no AI call,
+- no `WorkoutPlan` persistence,
+- no draft acceptance or activation,
+- show enough week-1 exercise detail to review target sets, rep ranges, numeric RIR, rest, unilateral work, pain-sensitive choices, and future set-log fields (`kg`, `reps`, `RIR`, `dolor`, optional notes).
+
 ## AI failure fallback
 
 AI generation must not block field testing or set logging.

@@ -149,6 +149,17 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
       </div>
 
       <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {summary.requiredSetLogFieldsEs.map((field) => (
+            <span key={field} className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800">
+              {field}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Semana 1</p>
         <div className="mt-3 grid gap-3">
           {summary.firstWeekSessions.map((session) => (
@@ -171,6 +182,35 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
                   </span>
                 ) : null}
               </div>
+
+              <details className="mt-3 rounded-2xl bg-zinc-950 p-3 text-sm ring-1 ring-zinc-800">
+                <summary className="cursor-pointer font-semibold text-emerald-300">Ver ejercicios y objetivos</summary>
+                <div className="mt-3 grid gap-3">
+                  {session.exercises.map((exercise) => (
+                    <div key={exercise.orderIndex} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 shrink-0 rounded-full bg-zinc-950 px-2 py-1 text-xs font-semibold text-zinc-400 ring-1 ring-zinc-800">
+                          {exercise.orderIndex}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-zinc-100">{exercise.nameEs}</h4>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {exercise.phaseLabelEs} · {exercise.sideModeLabelEs}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm leading-5 text-zinc-300">
+                        {exercise.targetSets}×{exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRir} · descanso {exercise.restSeconds}s
+                      </p>
+                      {exercise.painSensitive ? (
+                        <p className="mt-2 text-xs leading-5 text-amber-200">
+                          Vigilar dolor. Sustituciones: {exercise.substitutionOptionsEs.join(", ")}.
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
             </article>
           ))}
         </div>
