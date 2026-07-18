@@ -34,6 +34,7 @@ export type PlanPreviewSummary = {
   firstWeekExerciseCount: number;
   firstWeekUnilateralExerciseCount: number;
   firstWeekPainSensitiveExerciseCount: number;
+  previewBoundaryLabelsEs: readonly string[];
   requiredSetLogFieldsEs: readonly string[];
   firstWeekSessions: PlanPreviewSessionSummary[];
 };
@@ -56,6 +57,7 @@ export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSu
       (total, session) => total + session.painSensitiveExerciseCount,
       0,
     ),
+    previewBoundaryLabelsEs: ["Solo lectura", "Sin IA", "No guardado", "No activable"],
     requiredSetLogFieldsEs: ["kg", "reps", "RIR", "dolor", "notas opcionales"],
     firstWeekSessions,
   };

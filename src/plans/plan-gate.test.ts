@@ -21,7 +21,7 @@ describe("getNonAiPlanGate", () => {
       ctaHref: "/baseline",
       canGenerateAi: false,
     });
-    expect(gate.descriptionEs).toContain("no genera AI");
+    expect(gate.descriptionEs).toContain("no genera IA");
     expect(gate.descriptionEs).toContain("no guarda");
   });
 

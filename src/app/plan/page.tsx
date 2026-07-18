@@ -40,7 +40,8 @@ export default async function PlanPage() {
             {gate.status === "manual_review_ready" ? "Revisión pre-plan" : "Preparación del plan"}
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Revisa si las bases mínimas están listas. Esta pantalla no genera AI, no persiste borradores y no activa planes.
+            Revisa si las bases mínimas están listas. Esta pantalla no genera IA, no persiste borradores y no activa
+            planes.
           </p>
         </div>
       </header>
@@ -52,7 +53,7 @@ export default async function PlanPage() {
 
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <StatusTile label="Bases" value={`${readiness.completedFoundationSteps}/${readiness.totalFoundationSteps}`} />
-          <StatusTile label="AI" value="Apagado" />
+          <StatusTile label="IA" value="Apagada" />
           <StatusTile label="Plan" value="Sin crear" />
         </div>
 
@@ -139,8 +140,20 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
       </p>
       <h2 className="mt-2 text-xl font-semibold text-zinc-100">{summary.nameEs}</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Estructura base predefinida para revisión futura. No viene de AI, no se persiste y todavía no se puede activar.
+        Estructura base predefinida para revisión futura. Es solo lectura: no viene de IA, no se guarda y todavía no se
+        puede activar.
       </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {summary.previewBoundaryLabelsEs.map((label) => (
+          <span
+            key={label}
+            className="rounded-full bg-sky-300/10 px-2 py-1 text-xs font-semibold text-sky-200 ring-1 ring-sky-300/20"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         <StatusTile label="Semanas" value={String(summary.durationWeeks)} />
@@ -152,7 +165,10 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {summary.requiredSetLogFieldsEs.map((field) => (
-            <span key={field} className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800">
+            <span
+              key={field}
+              className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800"
+            >
               {field}
             </span>
           ))}
@@ -184,7 +200,10 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
               </div>
 
               <details className="mt-3 rounded-2xl bg-zinc-950 p-3 text-sm ring-1 ring-zinc-800">
-                <summary className="cursor-pointer font-semibold text-emerald-300">Ver ejercicios y objetivos</summary>
+                <summary className="min-h-12 cursor-pointer rounded-xl py-3 font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+                  Ver ejercicios y objetivos
+                  <span className="ml-2 text-xs font-medium text-zinc-500">tocar para expandir</span>
+                </summary>
                 <div className="mt-3 grid gap-3">
                   {session.exercises.map((exercise) => (
                     <div key={exercise.orderIndex} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
@@ -200,7 +219,8 @@ function SeededPlanPreview({ summary }: { summary: PlanPreviewSummary }) {
                         </div>
                       </div>
                       <p className="mt-3 text-sm leading-5 text-zinc-300">
-                        {exercise.targetSets}×{exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRir} · descanso {exercise.restSeconds}s
+                        {exercise.targetSets}×{exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRir} ·
+                        descanso {exercise.restSeconds}s
                       </p>
                       {exercise.painSensitive ? (
                         <p className="mt-2 text-xs leading-5 text-amber-200">

@@ -182,6 +182,11 @@ Fields:
 Relationships:
 - has many `PlanSessionTemplate`
 
+MVP persistence boundary:
+- The current `/plan` seeded preview is read-only and does not create a `WorkoutPlan` row.
+- A future non-AI accept action may create `status=draft` only after explicit tester confirmation, schema validation, and deterministic guardrails.
+- `status=active` must remain a separate explicit activation step before any workout sessions or set logs are created.
+
 ## PlanSessionTemplate
 
 A planned training day inside a plan.

@@ -51,7 +51,22 @@ Preview rules:
 - no AI call,
 - no `WorkoutPlan` persistence,
 - no draft acceptance or activation,
+- label the preview as read-only, not saved, and not activatable,
 - show enough week-1 exercise detail to review target sets, rep ranges, numeric RIR, rest, unilateral work, pain-sensitive choices, and future set-log fields (`kg`, `reps`, `RIR`, `dolor`, optional notes).
+
+## Non-AI draft persistence boundaries
+
+The seeded preview is not a draft plan. It must not create identifiers, sessions, exercise prescriptions, workout sessions, set logs, or progression suggestions.
+
+Future non-AI draft persistence can be added only as an explicit tester action after review. That future action must:
+1. validate the source plan with `generatedWorkoutPlanSchema`,
+2. run deterministic guardrails before writing,
+3. persist a `WorkoutPlan` with `status=draft`,
+4. persist session templates and exercise prescriptions only for that draft plan,
+5. keep `WorkoutSession`, `ExerciseLog`, and `SetLog` empty until a plan is activated and a workout is started,
+6. preserve the every-set logging contract for kg, reps, numeric RIR, pain score, and optional notes.
+
+Accept/edit/activate actions remain out of current scope.
 
 ## AI failure fallback
 

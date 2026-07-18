@@ -2,6 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Seeded preview mobile boundary polish
+
+Status: completed.
+
+Validation outcome:
+- Working tree was clean at iteration start; `next-env.d.ts` was not dirty.
+- Real-device iPhone validation was not available in the agent environment, so the `/plan` complete-state preview was reviewed statically for iPhone-sized touch targets and copy.
+- The screen remains read-only and non-AI: no AI call, no plan persistence, no draft acceptance, and no activation.
+
+Implemented:
+- Switched remaining visible `/plan` AI labels to Spanish-first IA copy.
+- Added deterministic seeded-preview boundary badges: Solo lectura, Sin IA, No guardado, and No activable.
+- Improved the expandable exercise summary tap target and hint copy for mobile review.
+- Documented non-AI draft persistence boundaries before any future accept/edit/activate work.
+
+Verification:
+- `npm run test` passes: 12 files, 28 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Validate `/plan` complete-state seeded preview on a real iPhone with tester data. If clear, the next small step can add an explicit non-AI draft acceptance design only; do not start AI plan generation or persist/activate a plan yet.
+
 ## 2026-07-18 — Seeded preview exercise details
 
 Status: completed.

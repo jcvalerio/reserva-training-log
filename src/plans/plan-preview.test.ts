@@ -19,6 +19,7 @@ describe("getPlanPreviewSummary", () => {
     expect(summary.firstWeekExerciseCount).toBe(20);
     expect(summary.firstWeekUnilateralExerciseCount).toBeGreaterThan(0);
     expect(summary.firstWeekPainSensitiveExerciseCount).toBeGreaterThan(0);
+    expect(summary.previewBoundaryLabelsEs).toEqual(["Solo lectura", "Sin IA", "No guardado", "No activable"]);
     expect(summary.requiredSetLogFieldsEs).toEqual(["kg", "reps", "RIR", "dolor", "notas opcionales"]);
     expect(summary.firstWeekSessions[0]?.exercises[0]).toMatchObject({
       orderIndex: 1,
