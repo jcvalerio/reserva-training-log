@@ -16,11 +16,13 @@ describe("getNonAiPlanGate", () => {
 
     expect(gate).toMatchObject({
       status: "blocked",
-      ctaLabelEs: "Registrar pesos base",
+      titleEs: "Completa bases antes del plan",
+      ctaLabelEs: "Ir a Pesos base",
       ctaHref: "/baseline",
       canGenerateAi: false,
     });
-    expect(gate.descriptionEs).toContain("No se genera AI");
+    expect(gate.descriptionEs).toContain("no genera AI");
+    expect(gate.descriptionEs).toContain("no guarda");
   });
 
   it("allows only manual review when foundations are ready", () => {
@@ -34,9 +36,11 @@ describe("getNonAiPlanGate", () => {
 
     expect(gate).toMatchObject({
       status: "manual_review_ready",
-      ctaLabelEs: "Volver a Inicio",
+      titleEs: "Base lista para revisión no-AI",
+      ctaLabelEs: "Volver al resumen de Inicio",
       ctaHref: "/",
       canGenerateAi: false,
     });
+    expect(gate.descriptionEs).toContain("no se genera, guarda ni activa");
   });
 });

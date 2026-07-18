@@ -21,8 +21,9 @@ describe("getM1Readiness", () => {
       ["profile", "incomplete"],
       ["baseline", "blocked"],
       ["measurements", "blocked"],
-      ["plan", "pending"],
+      ["plan", "blocked"],
     ]);
+    expect(readiness.steps.find((step) => step.id === "plan")?.statusLabelEs).toBe("Esperando bases");
   });
 
   it("counts existing authenticated baseline and measurement data as complete", () => {
@@ -36,11 +37,15 @@ describe("getM1Readiness", () => {
     expect(readiness.totalFoundationSteps).toBe(3);
     expect(readiness.foundationReady).toBe(true);
     expect(readiness.nextStep.id).toBe("plan");
-    expect(readiness.primaryAction.href).toBeUndefined();
-    expect(readiness.primaryAction.labelEs).toBe("Base lista; plan queda pendiente");
-    expect(readiness.primaryAction.helperEs).toContain("No se genera AI");
+    expect(readiness.primaryAction.href).toBe("/plan");
+    expect(readiness.primaryAction.labelEs).toBe("Revisar preparación del plan");
+    expect(readiness.primaryAction.helperEs).toContain("no genera, guarda ni activa");
     expect(readiness.steps.find((step) => step.id === "baseline")?.descriptionEs).toContain("3 entradas");
-    expect(readiness.steps.find((step) => step.id === "plan")?.statusLabelEs).toBe("No iniciado");
+    expect(readiness.steps.find((step) => step.id === "plan")).toMatchObject({
+      href: "/plan",
+      status: "pending",
+      statusLabelEs: "Revisión no-AI",
+    });
   });
 
   it("keeps plan generation pending when foundations are incomplete", () => {
@@ -57,6 +62,9 @@ describe("getM1Readiness", () => {
       labelEs: "Guardar primera medición",
       href: "/mediciones",
     });
-    expect(readiness.steps.find((step) => step.id === "plan")?.status).toBe("pending");
+    expect(readiness.steps.find((step) => step.id === "plan")).toMatchObject({
+      status: "blocked",
+      statusLabelEs: "Esperando bases",
+    });
   });
 });

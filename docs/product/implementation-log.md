@@ -2,6 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Non-AI plan readiness polish
+
+Status: completed.
+
+Validation outcome:
+- Confirmed the working tree was clean after reverting the generated `next-env.d.ts` dev-types rewrite.
+- Reviewed `/plan` implementation and deterministic readiness states for iPhone-sized use with incomplete foundation state and complete Perfil + Pesos base + Mediciones state.
+- The screen remains a non-AI readiness gate only: no AI call, no generated-plan persistence, and no plan activation.
+
+Implemented:
+- Clarified `/plan` copy so CTA actions are explicitly safe and only open pending onboarding steps or return to Inicio.
+- Improved pending/ready state labels: Plan waits for bases when incomplete and becomes “Revisión no-AI” only after the foundations are complete.
+- Added compact mobile status tiles for Bases, AI, and Plan state, plus slightly tighter small-width padding and clearer checklist pill styling.
+- Updated deterministic readiness/gate tests for the safer CTA and state copy.
+
+Verification:
+- `npm run test` passes: 11 files, 27 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Real-device sanity check of the polished `/plan` copy on iPhone after tester data entry, then continue with non-AI plan review scaffolding only if prioritized. Do not start AI plan generation yet.
+
 ## 2026-07-18 — iPhone dev-origin configuration
 
 Status: completed.

@@ -34,6 +34,7 @@ export type M1Readiness = {
 export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
   const hasBaseline = input.baselineLiftCount > 0;
   const hasMeasurements = input.bodyMeasurementCount > 0;
+  const foundationReady = input.hasProfile && hasBaseline && hasMeasurements;
 
   const steps: M1ReadinessStep[] = [
     input.hasProfile
@@ -87,17 +88,25 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           descriptionEs: "Guarda al menos una medida numérica; cadencia sugerida: cada 2 semanas.",
           href: input.hasProfile ? "/mediciones" : "/perfil",
         },
-    {
-      id: "plan",
-      labelEs: "Plan",
-      status: "pending",
-      statusLabelEs: "No iniciado",
-      descriptionEs: "La generación del plan sigue pendiente; todavía no se ejecuta AI.",
-    },
+    foundationReady
+      ? {
+          id: "plan",
+          labelEs: "Plan",
+          status: "pending",
+          statusLabelEs: "Revisión no-AI",
+          descriptionEs: "Bases listas para revisión manual; generación y activación siguen apagadas.",
+          href: "/plan",
+        }
+      : {
+          id: "plan",
+          labelEs: "Plan",
+          status: "blocked",
+          statusLabelEs: "Esperando bases",
+          descriptionEs: "Completa perfil, pesos base y mediciones antes de revisar cualquier plan.",
+        },
   ];
 
   const foundationSteps = steps.filter((step) => step.id !== "plan");
-  const foundationReady = foundationSteps.every((step) => step.status === "complete");
   const nextStep = foundationSteps.find((step) => step.status !== "complete") ?? steps[3];
 
   return {
@@ -113,8 +122,9 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
 function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): M1ReadinessPrimaryAction {
   if (foundationReady) {
     return {
-      labelEs: "Base lista; plan queda pendiente",
-      helperEs: "No se genera AI todavía. La siguiente iteración podrá revisar el plan cuando se priorice.",
+      labelEs: "Revisar preparación del plan",
+      helperEs: "Abre la revisión no-AI: no genera, guarda ni activa un plan todavía.",
+      href: "/plan",
     };
   }
 
