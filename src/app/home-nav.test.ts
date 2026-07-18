@@ -11,13 +11,15 @@ describe("getHomeNavItems", () => {
       "Perfil",
       "Pesos base",
       "Mediciones",
+      "Plan",
     ]);
+    expect(navItems.find((item) => item.labelEs === "Plan")?.href).toBe("/plan");
   });
 
-  it("marks future plan, training, and progress areas as disabled guidance", () => {
+  it("marks future training and progress areas as disabled guidance", () => {
     const disabledItems = getHomeNavItems().filter((item) => !item.href);
 
-    expect(disabledItems.map((item) => item.labelEs)).toEqual(["Plan", "Entrenar", "Progreso"]);
-    expect(disabledItems.find((item) => item.labelEs === "Plan")?.disabledReasonEs).toContain("antes de generar AI");
+    expect(disabledItems.map((item) => item.labelEs)).toEqual(["Entrenar", "Progreso"]);
+    expect(disabledItems.find((item) => item.labelEs === "Entrenar")?.disabledReasonEs).toContain("plan activo");
   });
 });

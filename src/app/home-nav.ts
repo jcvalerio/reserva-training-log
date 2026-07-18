@@ -18,7 +18,7 @@ export function getHomeNavItems(): HomeNavItem[] {
     { labelEs: "Perfil", href: "/perfil" },
     { labelEs: "Pesos base", shortLabelEs: "Base", href: "/baseline" },
     { labelEs: "Mediciones", href: "/mediciones" },
-    { labelEs: "Plan", disabledReasonEs: "No iniciado todavía; requiere revisión manual antes de generar AI." },
+    { labelEs: "Plan", href: "/plan" },
     { labelEs: "Entrenar", disabledReasonEs: "Disponible después de tener un plan activo." },
     { labelEs: "Progreso", disabledReasonEs: "Disponible después de registrar sesiones." },
   ];

@@ -2,6 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Non-AI plan readiness screen
+
+Status: completed.
+
+Manual validation note:
+- Login and logout workflows were tested successfully before this iteration.
+
+Implemented:
+- Added authenticated `/plan` page as a non-AI readiness/review gate.
+- The plan screen summarizes Perfil, Pesos base, Mediciones, and Plan state without generating or persisting any plan.
+- Added deterministic plan gate helper that always keeps `canGenerateAi=false` and guides incomplete users back to the next onboarding step.
+- Updated home navigation so Plan is now a real link to the readiness screen, while Entrenar and Progreso remain disabled until a plan/session flow exists.
+- Included pain-aware progression reminder on the plan readiness screen.
+
+Verification:
+- `npm run test` passes: 10 files, 25 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Manually validate `/plan` on an iPhone-sized viewport with both incomplete and complete onboarding states.
+- If `/plan` copy is clear, the next small vertical slice can be non-AI plan persistence/review scaffolding or seeded fallback review only; do not call AI generation yet.
+
 ## 2026-07-18 — Home navigation availability polish
 
 Status: completed.
