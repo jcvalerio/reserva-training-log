@@ -37,6 +37,22 @@ npm run db:generate
 npm run db:migrate
 ```
 
+### iPhone local-network testing
+
+To open `next dev` from an iPhone on the same Wi-Fi, allow the Mac's LAN host in `.env.local` and restart the dev server:
+
+```env
+NEXT_ALLOWED_DEV_ORIGINS="192.168.68.69"
+```
+
+Then run Next bound to the network interface:
+
+```bash
+npm run dev -- --hostname 0.0.0.0
+```
+
+Open `http://192.168.68.69:3000` on the iPhone. For Google login from the phone, `BETTER_AUTH_URL` and the Google OAuth redirect URL must match the host you are using. If Google does not accept a private LAN IP as a redirect URL, use a stable HTTPS preview/tunnel or production URL for interactive phone login.
+
 ## Planning docs
 
 - [MVP plan](docs/product/mvp-plan.md)

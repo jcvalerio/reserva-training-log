@@ -15,6 +15,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: optionalNonEmptyString,
   GOOGLE_GENERATIVE_AI_API_KEY: optionalNonEmptyString,
   GOOGLE_GENERATIVE_AI_MODEL: optionalNonEmptyString,
+  NEXT_ALLOWED_DEV_ORIGINS: optionalNonEmptyString,
 });
 
 export const env = envSchema.parse(process.env);

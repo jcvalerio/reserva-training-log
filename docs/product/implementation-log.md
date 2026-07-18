@@ -2,6 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — iPhone dev-origin configuration
+
+Status: completed.
+
+Issue:
+- iPhone local-network testing against `http://192.168.68.69:3000` hit Next.js dev-resource cross-origin blocking for `__nextjs_font/geist-latin.woff2` and HMR websocket retries.
+- Login from a phone also requires the auth base URL and Google OAuth redirect URL to match the host used on the phone.
+
+Implemented:
+- Added `NEXT_ALLOWED_DEV_ORIGINS` parsing for `next.config.ts` so local LAN hosts can be allowed without hardcoding environment-specific IPs in source.
+- Documented iPhone local-network testing in `README.md`, including `npm run dev -- --hostname 0.0.0.0` and the OAuth host/redirect requirement.
+- Added `.env.example` guidance for `NEXT_ALLOWED_DEV_ORIGINS`.
+- Added deterministic coverage for parsing comma-separated dev origins.
+
+Verification:
+- `npm run test` passes: 11 files, 27 tests.
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run build` passes.
+
+Next iteration:
+- Restart local dev with `NEXT_ALLOWED_DEV_ORIGINS="192.168.68.69"` in `.env.local` and validate iPhone page load.
+- For iPhone Google login, set `BETTER_AUTH_URL` to the same reachable host and add the matching Google OAuth redirect URL, or use a stable HTTPS preview/tunnel if Google rejects private LAN IP callbacks.
+
 ## 2026-07-18 — Non-AI plan readiness screen
 
 Status: completed.
