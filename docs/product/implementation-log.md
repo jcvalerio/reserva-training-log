@@ -2,6 +2,27 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-18 — Next task documented
+
+Status: completed.
+
+Validation outcome:
+- Working tree was clean at iteration start; `next-env.d.ts` was not dirty.
+- No product code changed and no AI/plan persistence behavior was added.
+
+Implemented:
+- Added `docs/product/next-task.md` with an actionable real-iPhone `/plan` seeded-preview validation task.
+- Captured setup, hard constraints, review checklist, pass criteria, allowed follow-up changes, required verification commands, and conventional commit guidance.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 12 files, 28 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Execute `docs/product/next-task.md`: validate the complete-state `/plan` seeded preview on an actual iPhone with tester data. Do not start AI plan generation or persist/activate a plan.
+
 ## 2026-07-18 — Seeded preview mobile boundary polish
 
 Status: completed.
