@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
 import { createBodyMeasurementForProfile } from "@/measurements/measurement-repository";
-import { parseBodyMeasurementFormData } from "@/measurements/measurement-schema";
+import { parseBodyMeasurementFormData, type BodyMeasurementInput } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 export async function saveBodyMeasurementAction(formData: FormData) {
@@ -16,9 +16,17 @@ export async function saveBodyMeasurementAction(formData: FormData) {
     redirect("/perfil");
   }
 
-  const input = parseBodyMeasurementFormData(formData);
+  let input: BodyMeasurementInput;
+
+  try {
+    input = parseBodyMeasurementFormData(formData);
+  } catch {
+    redirect("/mediciones?error=validation");
+  }
+
   await createBodyMeasurementForProfile(profile.id, input);
 
+  revalidatePath("/");
   revalidatePath("/mediciones");
-  redirect("/mediciones");
+  redirect("/mediciones?saved=1");
 }

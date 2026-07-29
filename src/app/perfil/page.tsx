@@ -1,30 +1,40 @@
-import Link from "next/link";
-
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getAthleteProfileContextForUser } from "@/profile/profile-repository";
 
+import { AppShell } from "../app-shell";
+import { FormStatusBanner } from "../form-status-banner";
+import { SubmitButton } from "../submit-button";
 import { saveAthleteProfileAction } from "./actions";
 
-export default async function ProfilePage() {
+type ProfilePageProps = {
+  searchParams?: Promise<{ saved?: string; error?: string }>;
+};
+
+export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const user = await requireCurrentUser();
   const { profile, limitations, musclePriorities } = await getAthleteProfileContextForUser(user.id);
   const painSensitiveAreasValue = limitations.map((item) => item.notes ?? item.conditionName).join("\n");
   const musclePrioritiesValue = musclePriorities.map((item) => item.notes ?? item.muscleGroup).join("\n");
+  const params = searchParams ? await searchParams : {};
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-5 py-6 text-zinc-50">
+    <AppShell activeHref="/perfil">
       <header className="space-y-3">
-        <Link href="/" className="text-sm font-medium text-emerald-300">
-          ← Inicio
-        </Link>
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Perfil</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Contexto de atleta</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Base privada para un plan futuro. Guarda este contexto primero; luego vuelve a Inicio para seguir con pesos base y mediciones.
+            Base privada para un plan futuro. Guarda este contexto primero; luego sigue con pesos base o mediciones desde la navegación inferior.
           </p>
         </div>
       </header>
+
+      <FormStatusBanner
+        saved={params.saved === "1"}
+        error={params.error === "validation"}
+        savedMessage="Tu perfil quedó actualizado. Puedes seguir con pesos base o mediciones desde la navegación inferior."
+        errorMessage="Hay datos fuera de rango o falta el nombre. Corrige el formulario y vuelve a guardar."
+      />
 
       <form action={saveAthleteProfileAction} className="mt-8 grid gap-5 pb-10">
         <Field label="Nombre">
@@ -170,14 +180,11 @@ export default async function ProfilePage() {
         <input type="hidden" name="preferredLocale" value={profile?.preferredLocale ?? "es"} />
         <input type="hidden" name="timezone" value={profile?.timezone ?? "America/Costa_Rica"} />
 
-        <button
-          type="submit"
-          className="sticky bottom-4 rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30"
-        >
+        <SubmitButton className="sticky-submit rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
           Guardar perfil
-        </button>
+        </SubmitButton>
       </form>
-    </main>
+    </AppShell>
   );
 }
 

@@ -2,6 +2,27 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-19 — Mobile shell and baseline progress polish
+
+Status: completed.
+
+Implemented:
+- Added a shared iPhone-first `AppShell` with persistent bottom navigation across Inicio, Perfil, Pesos base, Mediciones, and Plan.
+- Replaced touch-hostile disabled nav spans with tappable/focusable disabled controls that show visible Spanish reasons for Entrenar and Progreso.
+- Clarified the non-functional locale pill as `ES · EN pronto`.
+- Added safe-area-aware sticky submit positioning and pending/disabled submit states for Perfil, Pesos base, and Mediciones.
+- Added success/error banners after form actions using `?saved=1` and `?error=validation`, with server-action validation catches to avoid generic error pages for expected validation misses.
+- Added a live Baseline progress card showing completed exercises/rows, a jump-to-pending link, and exercise anchors for the long optional scroll.
+
+Verification:
+- `npm run typecheck` passes.
+- `npm run lint` passes.
+- `npm run test` passes: 15 files, 34 tests.
+- `npm run build` passes.
+
+Next iteration:
+- Manually validate the shared bottom nav, form save feedback, safe-area sticky buttons, and Baseline progress anchors on a real iPhone with tester data. If this passes, continue with the remaining low-risk iPhone Web polish such as PWA manifest/home-screen install support.
+
 ## 2026-07-18 — Seeded preview validation harness
 
 Status: completed.

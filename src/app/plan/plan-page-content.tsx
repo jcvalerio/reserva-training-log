@@ -4,6 +4,8 @@ import type { M1Readiness, M1ReadinessStep, M1ReadinessStatus } from "@/onboardi
 import type { NonAiPlanGate } from "@/plans/plan-gate";
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
 
+import { AppShell } from "../app-shell";
+
 export function PlanPageContent({
   readiness,
   gate,
@@ -14,11 +16,8 @@ export function PlanPageContent({
   seededPreview: PlanPreviewSummary | null;
 }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-4 py-5 text-zinc-50 min-[380px]:px-5 min-[380px]:py-6">
+    <AppShell activeHref="/plan">
       <header className="space-y-3">
-        <Link href="/" className="text-sm font-medium text-emerald-300">
-          ← Inicio
-        </Link>
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
@@ -74,7 +73,7 @@ export function PlanPageContent({
           reducir, modificar o cambiar el movimiento.
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
 

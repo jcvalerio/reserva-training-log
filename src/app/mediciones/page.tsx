@@ -5,16 +5,24 @@ import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-
 import { calculateMeasurementGaps } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
+import { AppShell } from "../app-shell";
+import { FormStatusBanner } from "../form-status-banner";
+import { SubmitButton } from "../submit-button";
 import { saveBodyMeasurementAction } from "./actions";
 
-export default async function MeasurementsPage() {
+type MeasurementsPageProps = {
+  searchParams?: Promise<{ saved?: string; error?: string }>;
+};
+
+export default async function MeasurementsPage({ searchParams }: MeasurementsPageProps) {
   const user = await requireCurrentUser();
   const profile = await getAthleteProfileForUser(user.id);
+  const params = searchParams ? await searchParams : {};
 
   if (!profile) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center bg-zinc-950 px-5 py-6 text-zinc-50">
-        <div className="rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
+      <AppShell activeHref="/mediciones">
+        <div className="mt-20 rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
           <p className="text-sm font-semibold text-emerald-300">Perfil requerido</p>
           <h1 className="mt-2 text-2xl font-semibold">Primero crea tu perfil de atleta.</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
@@ -26,11 +34,8 @@ export default async function MeasurementsPage() {
           >
             Crear perfil primero
           </Link>
-          <Link href="/" className="mt-3 block text-center text-sm font-medium text-zinc-400">
-            Volver a Inicio
-          </Link>
         </div>
-      </main>
+      </AppShell>
     );
   }
 
@@ -39,11 +44,8 @@ export default async function MeasurementsPage() {
   const latestGaps = latestMeasurement ? calculateMeasurementGaps(latestMeasurement) : null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-5 py-6 text-zinc-50">
+    <AppShell activeHref="/mediciones">
       <header className="space-y-3">
-        <Link href="/" className="text-sm font-medium text-emerald-300">
-          ← Inicio
-        </Link>
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Mediciones</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tendencias y asimetrías</h1>
@@ -52,6 +54,13 @@ export default async function MeasurementsPage() {
           </p>
         </div>
       </header>
+
+      <FormStatusBanner
+        saved={params.saved === "1"}
+        error={params.error === "validation"}
+        savedMessage="Nueva medición guardada como fila histórica."
+        errorMessage="Registra al menos una medida numérica válida antes de guardar."
+      />
 
       {latestGaps ? (
         <section className="mt-6 grid grid-cols-2 gap-3">
@@ -104,12 +113,9 @@ export default async function MeasurementsPage() {
           />
         </Field>
 
-        <button
-          type="submit"
-          className="sticky bottom-4 rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30"
-        >
+        <SubmitButton className="sticky-submit rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
           Guardar nueva medición
-        </button>
+        </SubmitButton>
       </form>
 
       <section className="mt-8 pb-10">
@@ -163,7 +169,7 @@ export default async function MeasurementsPage() {
           </div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }
 

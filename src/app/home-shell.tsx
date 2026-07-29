@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import type { M1ReadinessStep, M1ReadinessStatus, M1Readiness } from "@/onboarding/readiness";
 
+import { AppShell } from "./app-shell";
 import { GoogleSignInButton, SignOutButton } from "./auth-buttons";
-import { getHomeNavItems } from "./home-nav";
 
 const loggingFields = ["kg", "reps", "RIR", "dolor", "notas"];
 
@@ -21,36 +21,8 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
   const displayName = user?.name || user?.email || "atleta";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-zinc-950 px-5 py-6 text-zinc-50">
+    <AppShell activeHref="/">
       <header className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-emerald-300">MVP personal · iPhone Web</p>
-          <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300">ES / EN</span>
-        </div>
-        <nav aria-label="Principal" className="flex gap-2 overflow-x-auto pb-1">
-          {getHomeNavItems().map((item) =>
-            item.href ? (
-              <Link
-                key={item.labelEs}
-                href={item.href}
-                aria-label={item.labelEs}
-                className="shrink-0 rounded-full bg-zinc-900 px-3 py-2 text-sm text-zinc-300 ring-1 ring-zinc-800"
-              >
-                {item.shortLabelEs ?? item.labelEs}
-              </Link>
-            ) : (
-              <span
-                key={item.labelEs}
-                aria-disabled="true"
-                title={item.disabledReasonEs}
-                className="shrink-0 rounded-full bg-zinc-950 px-3 py-2 text-sm text-zinc-600 ring-1 ring-zinc-900"
-              >
-                {item.shortLabelEs ?? item.labelEs}
-                <span className="sr-only"> — {item.disabledReasonEs}</span>
-              </span>
-            ),
-          )}
-        </nav>
         <div className="rounded-2xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             {isSignedIn ? "Sesión activa" : "Sesión requerida"}
@@ -141,7 +113,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
           </div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }
 

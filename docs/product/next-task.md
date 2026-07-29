@@ -1,12 +1,14 @@
 # Next Task
 
-## Real iPhone `/plan` seeded preview validation
+## Real iPhone mobile-shell validation
 
 Automated supplement:
-- `src/app/plan/plan-page-content.test.tsx` covers deterministic complete/incomplete `/plan` review states, boundary copy, future set-log fields, and accordion expansion. This does not replace real-device validation.
+- `src/app/mobile-bottom-nav.test.tsx` covers persistent bottom navigation links and visible disabled-area feedback.
+- `src/app/baseline/baseline-intake-form.test.tsx` covers Baseline progress copy, jump anchors, and live row-completion updates.
+- `src/app/plan/plan-page-content.test.tsx` still covers deterministic complete/incomplete `/plan` seeded preview states.
 
 Objective:
-- Validate the complete-state `/plan` seeded preview on an actual iPhone-sized device with tester data, then record whether the read-only review UX is clear enough to proceed toward a future non-AI draft acceptance design.
+- Validate the current iPhone web foundation on an actual device with tester data: persistent bottom navigation, form save feedback, safe-area sticky submit buttons, and the long Baseline progress/jump UX.
 
 Hard constraints:
 - Do not call AI.
@@ -19,22 +21,25 @@ Suggested validation setup:
 1. Start local dev reachable from the phone, e.g. `npm run dev -- --hostname 0.0.0.0`.
 2. Use the configured LAN/preview host already allowed by `NEXT_ALLOWED_DEV_ORIGINS`.
 3. Sign in with a tester account.
-4. Ensure Perfil, Pesos base, and Mediciones each have saved data so `/plan` reaches the complete state.
-5. Open `/plan` on the iPhone.
+4. Walk through `/perfil`, `/baseline`, `/mediciones`, and `/plan` from the bottom nav.
 
 Review checklist:
-- The top state says IA is off and Plan is not created.
-- The seeded preview appears only after all foundations are complete.
-- Boundary badges are visible and understandable: Solo lectura, Sin IA, No guardado, No activable.
-- Week 1 sessions are readable without horizontal scrolling.
-- Exercise detail accordions are easy to tap with one hand.
-- Expanded details show phase, side mode, sets, rep range, numeric RIR, rest seconds, pain-sensitive substitutions, and future set-log fields.
-- Pain-aware progression reminder is visible and not contradicted by any preview copy.
+- Bottom nav is visible on every implemented route and does not collide with the iPhone home indicator.
+- Tapping Entrenar or Progreso shows a visible reason instead of doing nothing.
+- The `ES · EN pronto` pill does not read as a working locale switcher.
+- Sticky submit buttons remain above the bottom nav/home indicator.
+- Submit buttons show a pending state on save.
+- Successful saves show a clear banner.
+- Invalid Perfil/Baseline/Mediciones inputs return to the form with an inline error banner, not a generic error page.
+- Baseline progress shows completed exercise/row counts while editing.
+- `Ir a pendiente` and exercise anchors make the long Baseline form easier to navigate.
+- `/plan` still clearly says IA is off, Plan is not created, and the seeded preview is read-only/non-persisted when foundations are complete.
 
 Pass criteria:
-- A tester can understand that this is only a review preview and cannot be saved or started yet.
+- A tester can move between foundation screens without bouncing through Inicio.
+- A tester can tell whether a save worked or failed.
+- No mobile layout issue blocks completing at least one Baseline row or reviewing `/plan`.
 - No UI element implies plan generation, persistence, acceptance, or activation is available.
-- No mobile layout issue blocks reviewing week-1 sessions and exercise details.
 
 If changes are needed:
 - Keep them deterministic and small.
@@ -42,4 +47,4 @@ If changes are needed:
 - Add/update tests for helper output or behavior changes.
 - Update `docs/product/implementation-log.md` with validation outcome and the next step.
 - Run before commit: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
-- Commit with a conventional commit, e.g. `fix: polish seeded preview iphone review` or `docs: document seeded preview validation`.
+- Commit with a conventional commit, e.g. `fix: polish iphone foundation nav` or `docs: document iphone foundation validation`.
