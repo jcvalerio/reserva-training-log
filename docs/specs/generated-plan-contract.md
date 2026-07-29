@@ -43,30 +43,29 @@ Reject or require review when:
 - lower-body asymmetry profile lacks unilateral/matched lower-body work,
 - plan lacks every-set logging targets needed for kg, reps, RIR, pain, and notes.
 
-## Current non-AI preview scaffold
+## Current non-AI preview and activation scaffold
 
-Before AI generation is enabled, `/plan` may show a read-only seeded preview from `createSeededHypertrophyPlan()` only after Perfil, Pesos base, and Mediciones are complete.
+Before AI generation is enabled, `/plan` shows a read-only seeded preview from `createSeededHypertrophyPlan()` once Perfil, Pesos base, and Mediciones are complete, with an explicit "Activar este plan" action.
 
-Preview rules:
+Preview rules (while no plan is active yet):
 - no AI call,
-- no `WorkoutPlan` persistence,
-- no draft acceptance or activation,
-- label the preview as read-only, not saved, and not activatable,
+- no `WorkoutPlan` persistence until the tester explicitly activates,
+- label the preview as read-only, not saved, and not activatable-by-default,
 - show enough week-1 exercise detail to review target sets, rep ranges, numeric RIR, rest, unilateral work, pain-sensitive choices, and future set-log fields (`kg`, `reps`, `RIR`, `dolor`, optional notes).
 
-## Non-AI draft persistence boundaries
+## Non-AI plan activation (implemented)
 
-The seeded preview is not a draft plan. It must not create identifiers, sessions, exercise prescriptions, workout sessions, set logs, or progression suggestions.
+`src/plans/plan-repository.ts` implements activation of the seeded plan as an explicit tester action, per the boundaries below:
+1. the source plan is the already-Zod-validated `createSeededHypertrophyPlan()` output (schema validation happens again on any read-path round-trip via `toGeneratedWorkoutPlan`),
+2. deterministic guardrails are inherited from the seeded generator; no separate guardrail pass is run since the source is not AI output,
+3. a `WorkoutPlan` row is persisted directly with `status=active` (no separate `draft` step for the seeded-template path — activation is a single action),
+4. session templates (`planSessionTemplate`) and exercise prescriptions (`exercisePrescription`) are persisted only for that plan,
+5. `WorkoutSession`, `ExerciseLog`, and `SetLog` tables exist in the schema but remain empty — no application code reads or writes them yet; that is the next iteration (per-set RIR/pain logging),
+6. the every-set logging contract (kg, reps, numeric RIR, pain score, optional notes) is unchanged and still pending implementation in `SetLog`.
 
-Future non-AI draft persistence can be added only as an explicit tester action after review. That future action must:
-1. validate the source plan with `generatedWorkoutPlanSchema`,
-2. run deterministic guardrails before writing,
-3. persist a `WorkoutPlan` with `status=draft`,
-4. persist session templates and exercise prescriptions only for that draft plan,
-5. keep `WorkoutSession`, `ExerciseLog`, and `SetLog` empty until a plan is activated and a workout is started,
-6. preserve the every-set logging contract for kg, reps, numeric RIR, pain score, and optional notes.
+A partial unique index enforces at most one `status='active'` plan per athlete profile. Activation is idempotent: re-submitting returns the existing active plan instead of creating a duplicate.
 
-Accept/edit/activate actions remain out of current scope.
+Edit and progression-suggestion actions remain out of current scope. A future plan-builder UI (picking exercises/sets from scratch rather than activating the seeded template) is also out of scope.
 
 ## AI failure fallback
 

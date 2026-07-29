@@ -2,6 +2,35 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-28 — Persist and activate the seeded plan (Slice 1)
+
+Status: completed.
+
+Context:
+- User goal: reach a point where they can manually create a training plan and start recording progress with an RIR approach. Clarified "manually create" to mean activating the existing seeded hypertrophy template as-is (no custom exercise-picker builder yet), scoped as two slices. This is Slice 1: persistence + activation only. Slice 2 (today's-session UI + per-set RIR/pain logging) is the next task.
+- This intentionally supersedes the prior guardrail that said not to add activate/workout-session/exercise-log/set-log behavior — that guardrail was protecting scope while onboarding foundations were being built.
+
+Implemented:
+- Added 4 new enums and 6 tables to `src/db/schema.ts`: `workoutPlan`, `planSessionTemplate`, `exercisePrescription` (used by this slice), plus `workoutSession`, `exerciseLog`, `setLog` (schema only, no application code reads/writes them yet — prep for Slice 2 so it doesn't need another migration).
+- Added a partial unique index (`workout_plan_active_per_profile_idx`) enforcing at most one active plan per athlete profile, used both as a DB constraint and as the `onConflictDoNothing` arbiter that closes an activation race condition without needing multi-statement transactions (the `neon-http` driver in use doesn't support `db.transaction()`).
+- Added `src/plans/plan-repository.ts`: `getActivePlanForProfile`, `activateSeededPlanForProfile` (idempotent — a second activation returns the existing plan instead of duplicating), and `toGeneratedWorkoutPlan` (a pure mapper that reconstructs the exact `GeneratedWorkoutPlan` Zod shape from relational rows and re-validates it, so the existing `getPlanPreviewSummary()` renderer could be reused unchanged for a persisted active plan).
+- Added `src/app/plan/actions.ts` (`activatePlanAction`), mirroring the existing baseline/perfil/mediciones server-action pattern, with a server-side foundation-readiness re-check as defense in depth.
+- Updated `/plan` to load the active plan (if any) and render it as "Tu plan activo" instead of the unsaved preview, with a `?saved=1` success banner. When no plan is active yet, the seeded preview keeps its existing read-only copy but now has an "Activar este plan" button beneath it.
+- Generated and applied migration `drizzle/0005_tough_daredevil.sql` against the configured Neon development database.
+- Updated `docs/specs/generated-plan-contract.md` to describe activation as implemented instead of future/out-of-scope.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 16 files, 38 tests (added `src/plans/plan-repository.test.ts` for the mapper round-trip/sort-order/null-coalescing behavior; extended `plan-page-content.test.tsx` with an active-plan render-path case).
+- `npm run build` passes.
+- `npm run db:generate` produced a single clean migration for all 6 tables + 4 enums; reviewed the SQL before applying. `npm run db:migrate` applied successfully.
+- Did not perform an end-to-end browser/device activation click-through against the real tester account in this iteration — that write against the user's real dev-DB profile was left as their manual step rather than performed autonomously.
+
+Next iteration:
+- Slice 2 per `docs/product/next-task.md`: today's-session UI and per-set RIR/pain logging against the now-activated plan, using the already-created `workout_session`/`exercise_log`/`set_log` tables.
+- Before that, it would help to have the user do the one manual pass this iteration deferred: sign in, complete foundations if needed, click "Activar este plan" on `/plan`, and confirm it shows "Tu plan activo" without duplicating on reload.
+
 ## 2026-07-19 — Mobile shell and baseline progress polish
 
 Status: completed.

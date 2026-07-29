@@ -36,6 +36,13 @@
       "when": 1783395010531,
       "tag": "0004_old_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785288219072,
+      "tag": "0005_tough_daredevil",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   integer,
@@ -25,6 +26,19 @@ export const limitationSeverityEnum = pgEnum("limitation_severity", ["mild", "mo
 export const musclePriorityLevelEnum = pgEnum("muscle_priority_level", ["normal", "high", "very_high"]);
 export const sideFocusEnum = pgEnum("side_focus", ["right", "left", "bilateral", "none"]);
 export const baselineSideEnum = pgEnum("baseline_side", ["bilateral", "left", "right"]);
+export const workoutPlanStatusEnum = pgEnum("workout_plan_status", ["draft", "active", "completed", "archived"]);
+export const exercisePhaseEnum = pgEnum("exercise_phase", ["warmup", "main", "accessory", "mobility"]);
+export const exerciseSideModeEnum = pgEnum("exercise_side_mode", [
+  "bilateral",
+  "unilateral_separate",
+  "unilateral_matched",
+]);
+export const workoutSessionStatusEnum = pgEnum("workout_session_status", [
+  "planned",
+  "active",
+  "completed",
+  "skipped",
+]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -225,4 +239,153 @@ export const baselineLift = pgTable(
     index("baseline_lift_athlete_profile_id_idx").on(table.athleteProfileId),
     index("baseline_lift_exercise_id_idx").on(table.exerciseId),
   ],
+);
+
+export const workoutPlan = pgTable(
+  "workout_plan",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    nameEs: text("name_es").notNull(),
+    nameEn: text("name_en"),
+    goal: text("goal").notNull().default("hypertrophy"),
+    durationWeeks: integer("duration_weeks").notNull(),
+    daysPerWeek: integer("days_per_week").notNull(),
+    sessionDurationMinutes: integer("session_duration_minutes").notNull(),
+    locale: localeEnum("locale").notNull().default("es"),
+    safetySummaryEs: text("safety_summary_es").notNull(),
+    status: workoutPlanStatusEnum("status").notNull().default("draft"),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [
+    // Enforces at most one active plan per profile; also the onConflictDoNothing
+    // arbiter used by activateSeededPlanForProfile to close the activation race.
+    uniqueIndex("workout_plan_active_per_profile_idx")
+      .on(table.athleteProfileId)
+      .where(sql`${table.status} = 'active'`),
+  ],
+);
+
+export const planSessionTemplate = pgTable(
+  "plan_session_template",
+  {
+    id: text("id").primaryKey(),
+    workoutPlanId: text("workout_plan_id")
+      .notNull()
+      .references(() => workoutPlan.id, { onDelete: "cascade" }),
+    weekNumber: integer("week_number").notNull(),
+    dayIndex: integer("day_index").notNull(),
+    nameEs: text("name_es").notNull(),
+    nameEn: text("name_en"),
+    focus: text("focus").notNull(),
+    estimatedDurationMinutes: integer("estimated_duration_minutes").notNull(),
+    mobilityNotesEs: text("mobility_notes_es").notNull(),
+  },
+  (table) => [
+    index("plan_session_template_workout_plan_id_idx").on(table.workoutPlanId),
+    uniqueIndex("plan_session_template_plan_week_day_unique").on(
+      table.workoutPlanId,
+      table.weekNumber,
+      table.dayIndex,
+    ),
+  ],
+);
+
+export const exercisePrescription = pgTable(
+  "exercise_prescription",
+  {
+    id: text("id").primaryKey(),
+    planSessionTemplateId: text("plan_session_template_id")
+      .notNull()
+      .references(() => planSessionTemplate.id, { onDelete: "cascade" }),
+    orderIndex: integer("order_index").notNull(),
+    exerciseNameEs: text("exercise_name_es").notNull(),
+    exerciseNameEn: text("exercise_name_en"),
+    phase: exercisePhaseEnum("phase").notNull(),
+    sideMode: exerciseSideModeEnum("side_mode").notNull(),
+    targetSets: integer("target_sets").notNull(),
+    targetRepMin: integer("target_rep_min").notNull(),
+    targetRepMax: integer("target_rep_max").notNull(),
+    targetRir: integer("target_rir").notNull(),
+    restSeconds: integer("rest_seconds").notNull(),
+    notesEs: text("notes_es").notNull(),
+    notesEn: text("notes_en"),
+    painSensitive: boolean("pain_sensitive").notNull().default(false),
+    substitutionOptionsEs: jsonb("substitution_options_es").$type<string[]>().notNull().default([]),
+  },
+  (table) => [
+    index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),
+    uniqueIndex("exercise_prescription_template_order_unique").on(table.planSessionTemplateId, table.orderIndex),
+  ],
+);
+
+// Slice-2-prep tables: created now so a future set-logging iteration doesn't
+// need another migration. No application code reads/writes these yet.
+
+export const workoutSession = pgTable(
+  "workout_session",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    workoutPlanId: text("workout_plan_id")
+      .notNull()
+      .references(() => workoutPlan.id, { onDelete: "cascade" }),
+    planSessionTemplateId: text("plan_session_template_id")
+      .notNull()
+      .references(() => planSessionTemplate.id, { onDelete: "cascade" }),
+    status: workoutSessionStatusEnum("status").notNull().default("planned"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [
+    index("workout_session_athlete_profile_id_idx").on(table.athleteProfileId),
+    index("workout_session_workout_plan_id_idx").on(table.workoutPlanId),
+  ],
+);
+
+export const exerciseLog = pgTable(
+  "exercise_log",
+  {
+    id: text("id").primaryKey(),
+    workoutSessionId: text("workout_session_id")
+      .notNull()
+      .references(() => workoutSession.id, { onDelete: "cascade" }),
+    // Restrict, not cascade: protects logged history from disappearing if a
+    // prescription row is ever touched. A plan with logged history should be
+    // soft-deleted via workoutPlan.status = "archived", never hard-deleted.
+    exercisePrescriptionId: text("exercise_prescription_id")
+      .notNull()
+      .references(() => exercisePrescription.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [index("exercise_log_workout_session_id_idx").on(table.workoutSessionId)],
+);
+
+export const setLog = pgTable(
+  "set_log",
+  {
+    id: text("id").primaryKey(),
+    exerciseLogId: text("exercise_log_id")
+      .notNull()
+      .references(() => exerciseLog.id, { onDelete: "cascade" }),
+    setNumber: integer("set_number").notNull(),
+    side: baselineSideEnum("side").notNull().default("bilateral"),
+    actualWeightKg: numeric("actual_weight_kg", { precision: 6, scale: 2 }).notNull(),
+    actualReps: integer("actual_reps").notNull(),
+    rir: integer("rir").notNull(),
+    painScore: integer("pain_score").notNull(),
+    notes: text("notes"),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("set_log_exercise_log_id_idx").on(table.exerciseLogId)],
 );
