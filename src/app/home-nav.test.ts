@@ -12,14 +12,16 @@ describe("getHomeNavItems", () => {
       "Pesos base",
       "Mediciones",
       "Plan",
+      "Entrenar",
     ]);
     expect(navItems.find((item) => item.labelEs === "Plan")?.href).toBe("/plan");
+    expect(navItems.find((item) => item.labelEs === "Entrenar")?.href).toBe("/entrenar");
   });
 
-  it("marks future training and progress areas as disabled guidance", () => {
+  it("marks future progress area as disabled guidance", () => {
     const disabledItems = getHomeNavItems().filter((item) => !item.href);
 
-    expect(disabledItems.map((item) => item.labelEs)).toEqual(["Entrenar", "Progreso"]);
-    expect(disabledItems.find((item) => item.labelEs === "Entrenar")?.disabledReasonEs).toContain("plan activo");
+    expect(disabledItems.map((item) => item.labelEs)).toEqual(["Progreso"]);
+    expect(disabledItems.find((item) => item.labelEs === "Progreso")?.disabledReasonEs).toContain("sesiones");
   });
 });

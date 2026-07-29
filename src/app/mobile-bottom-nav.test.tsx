@@ -16,7 +16,7 @@ describe("MobileBottomNav", () => {
   it("shows sighted feedback for disabled future areas on tap", () => {
     render(<MobileBottomNav items={getHomeNavItems()} activeHref="/" />);
 
-    expect(screen.getByText("Disponible después de tener un plan activo.")).toBeVisible();
+    expect(screen.getByText("Disponible después de registrar sesiones.")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Progreso" }));
 

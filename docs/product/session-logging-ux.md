@@ -1,5 +1,13 @@
 # Session Logging UX
 
+## Implemented (Slice 2)
+
+The one-exercise-at-a-time flow described below is implemented at `/entrenar` (session picker, `src/app/entrenar/`) and `/entrenar/[sessionId]` (`src/app/entrenar/[sessionId]/session-runner.tsx`). Notes on where implementation diverges slightly from this doc:
+- No rest timer yet.
+- No exercise swap/modify action yet (substitution options are shown as read-only text on the exercise card).
+- "Weight defaults from plan or last set": the plan has no weight target field, so weight only defaults from the exercise's last logged set in the current session, otherwise blank.
+- `docs/architecture/data-model.md`'s `WorkoutSession`/`ExerciseLog`/`SetLog` field lists (e.g. `scheduledDate`, `plannedWeightKg`) are conceptual; the actual shipped schema in `src/db/schema.ts` is leaner — see `src/workouts/workout-repository.ts` for the real shape.
+
 ## UX principle
 
 The gym screen must be faster than a spreadsheet and usable with one hand on iPhone.

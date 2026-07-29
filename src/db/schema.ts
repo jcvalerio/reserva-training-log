@@ -368,7 +368,15 @@ export const exerciseLog = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: updatedAtColumn(),
   },
-  (table) => [index("exercise_log_workout_session_id_idx").on(table.workoutSessionId)],
+  (table) => [
+    index("exercise_log_workout_session_id_idx").on(table.workoutSessionId),
+    // Also doubles as the onConflictDoNothing arbiter for the lazy-create
+    // race in saveSetForSession (first set logged for an exercise).
+    uniqueIndex("exercise_log_session_prescription_unique").on(
+      table.workoutSessionId,
+      table.exercisePrescriptionId,
+    ),
+  ],
 );
 
 export const setLog = pgTable(

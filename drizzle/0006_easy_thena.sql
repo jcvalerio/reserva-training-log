@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "exercise_log_session_prescription_unique" ON "exercise_log" USING btree ("workout_session_id","exercise_prescription_id");

@@ -43,6 +43,13 @@
       "when": 1785288219072,
       "tag": "0005_tough_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785290177769,
+      "tag": "0006_easy_thena",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,7 @@ export function getHomeNavItems(): HomeNavItem[] {
     { labelEs: "Pesos base", shortLabelEs: "Base", href: "/baseline" },
     { labelEs: "Mediciones", shortLabelEs: "Med.", href: "/mediciones" },
     { labelEs: "Plan", href: "/plan" },
-    { labelEs: "Entrenar", shortLabelEs: "Entr.", disabledReasonEs: "Disponible después de tener un plan activo." },
+    { labelEs: "Entrenar", shortLabelEs: "Entr.", href: "/entrenar" },
     { labelEs: "Progreso", shortLabelEs: "Prog.", disabledReasonEs: "Disponible después de registrar sesiones." },
   ];
 }

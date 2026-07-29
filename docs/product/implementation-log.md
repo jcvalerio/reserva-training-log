@@ -2,6 +2,35 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-28 — Today's-session UI and per-set RIR/pain logging (Slice 2)
+
+Status: completed.
+
+Context:
+- Direct continuation of Slice 1, confirmed working by the user in real usage (activated the seeded plan via `/plan`, saw "Tu plan activo"). This slice delivers the actual stated goal: recording training progress using RIR.
+- Two UX decisions were confirmed with the user via mockup previews before implementation: (1) `/entrenar` highlights the next incomplete session as a suggestion but also lists every session manually-pickable, since the plan has no calendar dates; (2) the logging screen is a one-exercise-at-a-time wizard (matching `docs/product/session-logging-ux.md`'s documented ideal), not an all-exercises-on-one-page form.
+
+Implemented:
+- Added a unique index on `exercise_log(workout_session_id, exercise_prescription_id)` (migration `drizzle/0006_easy_thena.sql`) so first-set-of-an-exercise creation can use the same `onConflictDoNothing` race-closing pattern proven in Slice 1's plan activation.
+- Added `src/workouts/`: `workout-repository.ts` (session start/resume, ownership-scoped fetch, run-details loader joining exercise/set logs, server-authoritative set-number computation, session completion), `set-log-schema.ts` (Zod validation mirroring `baseline-schema.ts`'s style), `session-progress.ts` (pure, unit-tested: session status derivation, suggested-session selection, week-grouped view-model builder for the picker).
+- Added `/entrenar` (`src/app/entrenar/page.tsx` + `entrenar-page-content.tsx`): suggested-session card plus full week-by-week list with status badges (No iniciada / En progreso / Completada); an empty state links to `/plan` when there's no active plan yet.
+- Added `/entrenar/[sessionId]` (`session-runner.tsx`, a client wizard): one exercise at a time, "Anterior"/"Siguiente ejercicio" navigation, per-set form (weight/reps default from the exercise's last logged set or target rep max, RIR defaults to the exercise's target RIR, pain defaults to 0, side toggle only for unilateral exercises defaulting to whichever side has fewer logged sets), inline save confirmation, and a pain->=7 warning banner. A completed session renders a read-only summary instead of forms.
+- Departed from this app's usual redirect-per-save form convention for `saveSetAction`: it uses React 19's `useActionState` (validate, persist, `revalidatePath`, return a result — no redirect) since a tester logs many sets per sitting and a full navigation per set would be jarring. `startOrResumeSessionAction` and `completeSessionAction` keep the existing redirect convention since those are one-shot, page-leaving actions.
+- Every entry point taking a client-supplied `workoutSessionId` re-verifies it belongs to the current user's profile via a `WHERE id = ? AND athleteProfileId = ?` query (no separate assertion helper needed — `src/lib/ownership.ts` is typed for resources with a literal `userId` field, which none of the domain tables have).
+- Turned "Entrenar" from a disabled nav stub into a real link (`src/app/home-nav.ts`).
+- Updated `docs/product/session-logging-ux.md` with an "Implemented" note and known deviations (no rest timer, no exercise-swap action yet, weight has no plan-level target to default from).
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 20 files, 64 tests (added `session-progress.test.ts`, `set-log-schema.test.ts`, `entrenar-page-content.test.tsx`, `session-runner.test.tsx`; updated `home-nav.test.ts` and `mobile-bottom-nav.test.tsx` for the nav change).
+- `npm run build` passes; `/entrenar` and `/entrenar/[sessionId]` compile as dynamic routes.
+- `npm run db:generate` produced one clean single-statement migration (the new unique index only); reviewed before applying. `npm run db:migrate` applied successfully against dev.
+- Did not perform an end-to-end browser click-through against the real tester account in this iteration — left as the user's manual step, same as Slice 1.
+
+Next iteration:
+- See `docs/product/next-task.md` for candidate next steps (progression-suggestion UI, progress history, real-device validation, or a custom plan builder) — no single one was assumed; it's presented as an open decision.
+
 ## 2026-07-28 — Persist and activate the seeded plan (Slice 1)
 
 Status: completed.
