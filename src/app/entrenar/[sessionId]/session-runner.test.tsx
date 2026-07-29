@@ -73,6 +73,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     painSensitive: false,
     substitutionOptionsEs: [],
     loggedSets: [],
+    previousPerformance: null,
     ...overrides,
   };
 }
@@ -201,5 +202,80 @@ describe("SessionRunner", () => {
     expect(screen.getByText("Sesión completada")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Completar entrenamiento" })).toBeNull();
+  });
+
+  it("shows previous performance and a suggestion, prefilling weight/reps from it, before the first set is logged", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        targetRepMax: 12,
+        targetSets: 2,
+        sets: [
+          buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText("Última vez")).toBeVisible();
+    expect(screen.getAllByText(/80\.00kg × 12 · RIR 2 · dolor 0/)).toHaveLength(2);
+    expect(screen.getByText(/Sube carga/)).toBeVisible();
+    expect(screen.getByText(/84\.00kg/)).toBeVisible();
+
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
+    expect(screen.getByLabelText("Reps")).toHaveValue(12);
+  });
+
+  it("hides the previous-performance card once a set has been logged this session", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
+      previousPerformance: {
+        sessionId: "session-previous",
+        targetRepMax: 12,
+        targetSets: 1,
+        sets: [buildSet({ id: "prev-1", setNumber: 1 })],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.queryByText("Última vez")).toBeNull();
+  });
+
+  it("does not show a previous-performance card when there is none", () => {
+    const exercise = buildExercise({ previousPerformance: null });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.queryByText("Última vez")).toBeNull();
   });
 });

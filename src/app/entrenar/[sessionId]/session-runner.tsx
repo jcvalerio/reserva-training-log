@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { rirValues, toDisplayRir } from "@/training/rir";
+import type { ProgressionAction } from "@/training/progression";
+import { buildProgressionSuggestion, suggestNextWeightKg } from "@/workouts/progression-view";
 import type { ExerciseWithLoggedSets, WorkoutSession } from "@/workouts/workout-repository";
 
 import { AppShell } from "../../app-shell";
@@ -53,6 +55,17 @@ export function SessionRunner({
   const rightCount = currentExercise.loggedSets.filter((set) => set.side === "right").length;
   const defaultSide = leftCount <= rightCount ? "left" : "right";
   const justSavedThisExercise = saveState.status === "saved" && saveState.exercisePrescriptionId === currentExercise.id;
+
+  const previousPerformance = loggedCount === 0 ? currentExercise.previousPerformance : null;
+  const previousLastSet = previousPerformance?.sets.at(-1) ?? null;
+  const previousSuggestion = previousPerformance
+    ? buildProgressionSuggestion(previousPerformance.sets, previousPerformance.targetRepMax, previousPerformance.targetSets)
+    : null;
+  const suggestedWeightKg =
+    previousLastSet && previousSuggestion ? suggestNextWeightKg(previousLastSet.actualWeightKg, previousSuggestion.action) : null;
+
+  const defaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
+  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax;
 
   return (
     <AppShell activeHref="/entrenar">
@@ -105,6 +118,26 @@ export function SessionRunner({
           </div>
         ) : null}
 
+        {previousPerformance && previousSuggestion ? (
+          <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Última vez</p>
+            <div className="mt-2 grid gap-1 text-sm text-zinc-300">
+              {previousPerformance.sets.map((set) => (
+                <p key={set.id}>
+                  Set {set.setNumber}
+                  {set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : ""}: {set.actualWeightKg}
+                  kg × {set.actualReps} · RIR {formatStoredRir(set.rir)} · dolor {set.painScore}
+                </p>
+              ))}
+            </div>
+            <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
+              {suggestionLabelEs(previousSuggestion.action)}
+              {suggestedWeightKg ? ` → ${suggestedWeightKg}kg` : ""}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{previousSuggestion.reasonEs}</p>
+          </div>
+        ) : null}
+
         {loggedCount < currentExercise.targetSets ? (
           <form key={`${currentExercise.id}:${nextSetNumber}`} action={formAction} className="mt-4 grid gap-3">
             <input type="hidden" name="workoutSessionId" value={session.id} />
@@ -147,7 +180,7 @@ export function SessionRunner({
                   step="0.5"
                   min={0.5}
                   max={999}
-                  defaultValue={lastSet?.actualWeightKg ?? ""}
+                  defaultValue={defaultWeightKg}
                   required
                   className="input"
                 />
@@ -160,7 +193,7 @@ export function SessionRunner({
                   inputMode="numeric"
                   min={1}
                   max={50}
-                  defaultValue={lastSet?.actualReps ?? currentExercise.targetRepMax}
+                  defaultValue={defaultReps}
                   required
                   className="input"
                 />
@@ -303,4 +336,16 @@ function CompletedSessionSummary({
 
 function formatStoredRir(rir: number) {
   return rir >= 4 ? "4+" : String(rir);
+}
+
+function suggestionLabelEs(action: ProgressionAction) {
+  return { increase: "Sube carga", hold: "Mantén la carga", reduce_or_modify: "Reduce o modifica" }[action];
+}
+
+function suggestionClass(action: ProgressionAction) {
+  return {
+    increase: "bg-emerald-300/10 text-emerald-300",
+    hold: "bg-sky-300/10 text-sky-200",
+    reduce_or_modify: "bg-amber-300/10 text-amber-200",
+  }[action];
 }

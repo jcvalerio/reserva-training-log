@@ -91,16 +91,16 @@ Acceptance:
 Goal: turn logs into next-session guidance.
 
 Deliverables:
-- Previous session baseline display per exercise.
-- Progression suggestion engine.
-- Accept/override suggested weight/reps.
-- Pain-aware exercise warnings.
+- Previous session baseline display per exercise. **Done** — `/entrenar/[sessionId]` shows "Última vez" (kg/reps/RIR/dolor) before the first set of a repeated exercise, matched across weeks by exercise name.
+- Progression suggestion engine. **Done** — `src/training/progression.ts`, surfaced via `src/workouts/progression-view.ts`.
+- Accept/override suggested weight/reps. **Done** — the suggested weight (flat ±5%, see `docs/product/progression-rules.md`) prefills the weight/reps inputs; freely editable before saving.
+- Pain-aware exercise warnings. **Done** (carried over from Slice 2) — high-pain save warning in the logging wizard, plus the suggestion engine's own pain-based hold/reduce logic.
 
 Acceptance:
-- Repeated exercises show previous kg/reps/RIR/pain.
-- The app suggests increases when performance and pain permit.
-- The app holds/reduces/replaces when pain or fatigue flags appear.
-- A 5% improvement signal can be shown after repeated sessions.
+- Repeated exercises show previous kg/reps/RIR/pain. **Done.**
+- The app suggests increases when performance and pain permit. **Done.**
+- The app holds/reduces/replaces when pain or fatigue flags appear. **Done.**
+- A 5% improvement signal can be shown after repeated sessions. **Not done** — this is a different feature (comparing session-over-session volume/reps-at-load/load-at-reps/pain trends, likely a `/progreso` history page), not "what should I lift today." Left open in `docs/product/next-task.md`.
 
 ## M6 — Two-week field validation
 

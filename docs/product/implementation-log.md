@@ -2,6 +2,31 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-28 — Previous performance and progression suggestions (Slice 3)
+
+Status: completed.
+
+Context:
+- Direct continuation of Slice 2, confirmed working by the user in real usage (logged real sets with RIR/pain via `/entrenar`). User asked to continue with "progression suggestions" — `docs/product/milestones.md` M5.
+- The suggestion engine (`suggestProgression()` in `src/training/progression.ts`) already existed, fully tested, but nothing called it and nothing looked up previous performance. `docs/product/session-logging-ux.md`'s documented "Primary screen" already listed "Previous performance" as a UI element Slice 2 didn't implement.
+- Discussed weight-suggestion approach with the user before implementing: they want a concrete suggested weight (not just a qualitative label) to avoid doing percentage math mid-workout, while keeping it a fully overridable default rather than a rule. Agreed on a flat +5% (increase) / -5% (reduce_or_modify), rounded to the nearest 0.5kg, since `exercisePrescription` doesn't store an equipment/movement category needed for `progression-rules.md`'s per-category increment ranges — documented as a known simplification, not silently assumed.
+
+Implemented:
+- `src/workouts/workout-repository.ts`: added `getPreviousExercisePerformance(athleteProfileId, exerciseNameEs, excludeWorkoutSessionId)` — matches "last time" across weeks by exercise name (each week has its own `exercisePrescription` row for the same exercise), not by prescription id. Wired into `getSessionRunDetails` so every exercise in a session carries its previous instance's sets, if any.
+- `src/workouts/progression-view.ts` (new, pure, unit-tested): `buildProgressionSuggestion()` maps `setLog` rows to the engine's input shape and delegates to `suggestProgression()`; `suggestNextWeightKg()` computes the flat ±5% suggested weight with half-kilo rounding.
+- `src/app/entrenar/[sessionId]/session-runner.tsx`: added an "Última vez" card (previous sets + suggestion label/reason/suggested weight) shown before the first set of a repeated exercise; extended the weight/reps default-value precedence to fall back to the suggestion/previous reps when there's no set logged yet this session (this-session last set still wins once one exists, unchanged from Slice 2).
+- Updated `docs/product/progression-rules.md` and `docs/product/milestones.md` (M5 deliverables marked done, "5% improvement signal" acceptance line explicitly left open as a different, future feature).
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 21 files, 74 tests (added `progression-view.test.ts`; extended `session-runner.test.tsx` with previous-performance-shown/hidden cases).
+- `npm run build` passes. No schema/migration changes this slice.
+- Did not perform an end-to-end browser click-through against the real tester account in this iteration — left as the user's manual step, same as Slices 1-2.
+
+Next iteration:
+- See `docs/product/next-task.md`: candidate next steps are a `/progreso` history page (also where M5's still-open "5% improvement signal" belongs), per-category increment accuracy (needs an equipment/movement category field), real-device validation of the new suggestion card, or a custom plan builder — presented as an open decision, not assumed.
+
 ## 2026-07-28 — Today's-session UI and per-set RIR/pain logging (Slice 2)
 
 Status: completed.

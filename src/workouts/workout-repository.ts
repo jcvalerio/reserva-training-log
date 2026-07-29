@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
@@ -10,7 +10,17 @@ export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
 export type SetLog = typeof setLog.$inferSelect;
 
-export type ExerciseWithLoggedSets = ExercisePrescription & { loggedSets: SetLog[] };
+export type PreviousExercisePerformance = {
+  sessionId: string;
+  targetRepMax: number;
+  targetSets: number;
+  sets: SetLog[];
+};
+
+export type ExerciseWithLoggedSets = ExercisePrescription & {
+  loggedSets: SetLog[];
+  previousPerformance: PreviousExercisePerformance | null;
+};
 
 export type SessionRunDetails = {
   template: PlanSessionTemplate;
@@ -106,12 +116,69 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     }
   }
 
-  return {
-    template,
-    exercises: exercises.map((exercise) => {
+  const exercisesWithLoggedSets = await Promise.all(
+    exercises.map(async (exercise) => {
       const logId = logIdByPrescriptionId.get(exercise.id);
-      return { ...exercise, loggedSets: logId ? (setsByLogId.get(logId) ?? []) : [] };
+      const previousPerformance = await getPreviousExercisePerformance(
+        session.athleteProfileId,
+        exercise.exerciseNameEs,
+        session.id,
+      );
+      return {
+        ...exercise,
+        loggedSets: logId ? (setsByLogId.get(logId) ?? []) : [],
+        previousPerformance,
+      };
     }),
+  );
+
+  return { template, exercises: exercisesWithLoggedSets };
+}
+
+export async function getPreviousExercisePerformance(
+  athleteProfileId: string,
+  exerciseNameEs: string,
+  excludeWorkoutSessionId: string,
+): Promise<PreviousExercisePerformance | null> {
+  const [mostRecent] = await db
+    .select({
+      exerciseLogId: exerciseLog.id,
+      workoutSessionId: exerciseLog.workoutSessionId,
+      targetRepMax: exercisePrescription.targetRepMax,
+      targetSets: exercisePrescription.targetSets,
+    })
+    .from(exerciseLog)
+    .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
+    .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
+    .where(
+      and(
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+        eq(exercisePrescription.exerciseNameEs, exerciseNameEs),
+        ne(exerciseLog.workoutSessionId, excludeWorkoutSessionId),
+      ),
+    )
+    .orderBy(desc(workoutSession.startedAt))
+    .limit(1);
+
+  if (!mostRecent) {
+    return null;
+  }
+
+  const sets = await db
+    .select()
+    .from(setLog)
+    .where(eq(setLog.exerciseLogId, mostRecent.exerciseLogId))
+    .orderBy(asc(setLog.setNumber));
+
+  if (sets.length === 0) {
+    return null;
+  }
+
+  return {
+    sessionId: mostRecent.workoutSessionId,
+    targetRepMax: mostRecent.targetRepMax,
+    targetSets: mostRecent.targetSets,
+    sets,
   };
 }
 

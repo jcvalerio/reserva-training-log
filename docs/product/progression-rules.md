@@ -1,5 +1,11 @@
 # Progression Rules
 
+## Implemented (Slice 3)
+
+`suggestProgression()` in `src/training/progression.ts` implements the "Basic progression algorithm v1" below and is now surfaced in the UI at `/entrenar/[sessionId]` (`session-runner.tsx`, via `src/workouts/progression-view.ts`), showing previous performance + a suggestion before the first set of a repeated exercise.
+
+Known simplification: the "Suggested increase"/"Reduce load" percentages below are per exercise category (machines/lower body, upper body compound, isolation, dumbbells), but `exercisePrescription` doesn't currently store an equipment/movement category. The shipped suggestion uses a flat **+5% on increase / -5% on reduce_or_modify**, rounded to the nearest 0.5kg — the conservative low end of every category's range below. Adding real per-category increments would need a category field added to the plan schema/seeded data first.
+
 ## Effort model
 
 Use RIR in the UI. Store RIR numerically as `0 | 1 | 2 | 3 | 4`; `4` represents `4+` for calculations and UI labels.
