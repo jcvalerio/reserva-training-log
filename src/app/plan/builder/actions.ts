@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import {
   activateDraftPlan,
   createDraftPlan,
@@ -124,7 +125,7 @@ export async function activateDraftPlanAction(formData: FormData) {
     draft.sessions.map((session) => [session.template.dayIndex, session.exercises.length]),
   );
   const isComplete = Array.from({ length: draft.plan.daysPerWeek }, (_, index) => index + 1).every(
-    (dayIndex) => (exerciseCountByDayIndex.get(dayIndex) ?? 0) > 0,
+    (dayIndex) => (exerciseCountByDayIndex.get(dayIndex) ?? 0) >= MIN_SESSION_EXERCISES,
   );
 
   if (!isComplete) {

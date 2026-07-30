@@ -8,7 +8,7 @@ import { getActivePlanForProfile, toGeneratedWorkoutPlan } from "@/plans/plan-re
 import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
-import { activatePlanAction } from "./actions";
+import { activatePlanAction, editActivePlanAction } from "./actions";
 import { PlanPageContent } from "./plan-page-content";
 
 type PlanPageProps = {
@@ -36,7 +36,21 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
   const gate = getNonAiPlanGate(readiness);
   const seededPreview =
     !activePlan && readiness.foundationReady ? getPlanPreviewSummary(createSeededHypertrophyPlan()) : null;
-  const activePlanPreview = activePlan ? getPlanPreviewSummary(toGeneratedWorkoutPlan(activePlan)) : null;
+
+  // A custom plan built through /plan/builder can activate without every
+  // session meeting toGeneratedWorkoutPlan's stricter read-side schema (e.g.
+  // minimum exercises per day) if the builder's own checks ever drift out of
+  // sync with it again. Guard against that here so a bad active plan shows a
+  // recoverable error instead of crashing the whole page on every visit.
+  let activePlanPreview = null;
+  let activePlanError = false;
+  if (activePlan) {
+    try {
+      activePlanPreview = getPlanPreviewSummary(toGeneratedWorkoutPlan(activePlan));
+    } catch {
+      activePlanError = true;
+    }
+  }
 
   return (
     <PlanPageContent
@@ -44,9 +58,11 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
       gate={gate}
       seededPreview={seededPreview}
       activePlanPreview={activePlanPreview}
+      activePlanError={activePlanError}
       activatedAt={activePlan?.plan.activatedAt ?? null}
       justSaved={params.saved === "1"}
       activatePlanAction={activatePlanAction}
+      editActivePlanAction={editActivePlanAction}
     />
   );
 }

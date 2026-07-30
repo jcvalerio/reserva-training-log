@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
+
 import { AppShell } from "../../app-shell";
 import { FormStatusBanner } from "../../form-status-banner";
 import { SubmitButton } from "../../submit-button";
@@ -83,7 +85,9 @@ export function BuilderPageContent({
 
   const dayIndexes = Array.from({ length: draft.daysPerWeek }, (_, index) => index + 1);
   const sessionsByDayIndex = new Map(draft.sessions.map((session) => [session.dayIndex, session]));
-  const isComplete = dayIndexes.every((dayIndex) => (sessionsByDayIndex.get(dayIndex)?.exerciseCount ?? 0) > 0);
+  const isComplete = dayIndexes.every(
+    (dayIndex) => (sessionsByDayIndex.get(dayIndex)?.exerciseCount ?? 0) >= MIN_SESSION_EXERCISES,
+  );
 
   return (
     <AppShell activeHref="/plan">
@@ -103,7 +107,7 @@ export function BuilderPageContent({
         savedMessage="Guardado en tu borrador."
         errorMessage={
           errorType === "incomplete"
-            ? "Completa todos los días con al menos un ejercicio antes de activar."
+            ? `Completa todos los días con al menos ${MIN_SESSION_EXERCISES} ejercicios antes de activar.`
             : "No se pudo activar el plan. Intenta de nuevo."
         }
       />
@@ -122,7 +126,12 @@ export function BuilderPageContent({
                 {session ? (
                   <>
                     <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
-                    <p className="text-xs text-zinc-500">{session.exerciseCount} ejercicios</p>
+                    <p
+                      className={`text-xs ${session.exerciseCount < MIN_SESSION_EXERCISES ? "text-amber-200" : "text-zinc-500"}`}
+                    >
+                      {session.exerciseCount} ejercicios
+                      {session.exerciseCount < MIN_SESSION_EXERCISES ? ` (mínimo ${MIN_SESSION_EXERCISES})` : ""}
+                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-amber-200">Sin definir</p>
@@ -159,7 +168,7 @@ export function BuilderPageContent({
         </form>
       ) : (
         <p className="pb-10 text-sm leading-6 text-zinc-400">
-          Completa los días pendientes para poder activar este plan.
+          Completa cada día con al menos {MIN_SESSION_EXERCISES} ejercicios para poder activar este plan.
         </p>
       )}
     </AppShell>

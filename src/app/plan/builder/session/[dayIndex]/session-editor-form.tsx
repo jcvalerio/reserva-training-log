@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import { rirLabelsEs, rirValues } from "@/training/rir";
 
 import { SubmitButton } from "../../../../submit-button";
@@ -109,6 +110,11 @@ export function SessionEditorForm({
           />
         </label>
       </section>
+
+      <p className="text-xs leading-5 text-zinc-500">
+        Necesitas al menos {MIN_SESSION_EXERCISES} ejercicios en esta sesión para poder activar el plan
+        ({rows.length}/{MIN_SESSION_EXERCISES} por ahora).
+      </p>
 
       <div className="grid gap-3">
         {rows.map((row, index) => (

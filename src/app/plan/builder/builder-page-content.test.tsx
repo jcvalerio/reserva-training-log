@@ -54,10 +54,36 @@ describe("BuilderPageContent", () => {
     expect(screen.getByRole("link", { name: "+ Agregar" })).toHaveAttribute("href", "/plan/builder/session/3");
     expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
-    expect(screen.getByText("Completa los días pendientes para poder activar este plan.")).toBeVisible();
+    expect(screen.getByText("Completa cada día con al menos 3 ejercicios para poder activar este plan.")).toBeVisible();
   });
 
-  it("shows the activate button once every day has at least one exercise", () => {
+  it("blocks activation and flags a day that has exercises but fewer than the minimum of 3", () => {
+    const draft: DraftPlanSummary = {
+      id: "draft-1",
+      nameEs: "Mi rutina",
+      daysPerWeek: 2,
+      sessions: [
+        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4 },
+        { dayIndex: 2, nameEs: "Torso", exerciseCount: 2 },
+      ],
+    };
+
+    render(
+      <BuilderPageContent
+        draft={draft}
+        justSaved={false}
+        errorType={null}
+        createDraftPlanAction={noopCreateDraftPlanAction}
+        deleteSessionAction={noopDeleteSessionAction}
+        activateDraftPlanAction={noopActivateDraftPlanAction}
+      />,
+    );
+
+    expect(screen.getByText("2 ejercicios (mínimo 3)")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
+  });
+
+  it("shows the activate button once every day has at least the minimum of 3 exercises", () => {
     const draft: DraftPlanSummary = {
       id: "draft-1",
       nameEs: "Mi rutina",
@@ -98,7 +124,7 @@ describe("BuilderPageContent", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Completa todos los días con al menos un ejercicio antes de activar.",
+      "Completa todos los días con al menos 3 ejercicios antes de activar.",
     );
   });
 });

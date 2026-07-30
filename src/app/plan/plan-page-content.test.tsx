@@ -9,6 +9,7 @@ import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 import { PlanPageContent } from "./plan-page-content";
 
 const noopActivatePlanAction = vi.fn(async () => {});
+const noopEditActivePlanAction = vi.fn(async () => {});
 
 describe("PlanPageContent", () => {
   it("renders the complete-state seeded preview as read-only review copy for iPhone-sized use", () => {
@@ -26,9 +27,11 @@ describe("PlanPageContent", () => {
         gate={gate}
         seededPreview={seededPreview}
         activePlanPreview={null}
+        activePlanError={false}
         activatedAt={null}
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
       />,
     );
 
@@ -76,9 +79,11 @@ describe("PlanPageContent", () => {
         gate={gate}
         seededPreview={null}
         activePlanPreview={null}
+        activePlanError={false}
         activatedAt={null}
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
       />,
     );
 
@@ -103,9 +108,11 @@ describe("PlanPageContent", () => {
         gate={gate}
         seededPreview={null}
         activePlanPreview={activePlanPreview}
+        activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={true}
         activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
       />,
     );
 
@@ -133,13 +140,44 @@ describe("PlanPageContent", () => {
         gate={gate}
         seededPreview={null}
         activePlanPreview={activePlanPreview}
+        activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
       />,
     );
 
     expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toHaveAttribute("href", "/plan/builder");
     expect(screen.getByText(/reemplaza el plan activo actual/)).toBeVisible();
+  });
+
+  it("shows a recoverable error state and no crash when the active plan fails to render", () => {
+    const readiness = getM1Readiness({
+      hasProfile: true,
+      baselineLiftCount: 6,
+      bodyMeasurementCount: 1,
+    });
+    const gate = getNonAiPlanGate(readiness);
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        seededPreview={null}
+        activePlanPreview={null}
+        activePlanError={true}
+        activatedAt={null}
+        justSaved={false}
+        activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Tu plan" })).toBeVisible();
+    expect(screen.getByText("Tu plan activo tiene un problema")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Editar este plan" })).toBeVisible();
+    expect(screen.getByText("Con errores")).toBeVisible();
+    expect(screen.queryByText("Crear mi propio plan")).toBeNull();
   });
 });

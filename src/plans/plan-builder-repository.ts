@@ -185,6 +185,20 @@ export async function deleteDraftSession(draftPlanId: string, dayIndex: number) 
     .where(and(eq(planSessionTemplate.workoutPlanId, draftPlanId), eq(planSessionTemplate.dayIndex, dayIndex)));
 }
 
+export async function revertActivePlanToDraft(athleteProfileId: string): Promise<void> {
+  const active = await getActivePlanForProfile(athleteProfileId);
+  if (!active) {
+    throw new Error("No hay un plan activo para editar.");
+  }
+
+  const existingDraft = await getDraftPlanForProfile(athleteProfileId);
+  if (existingDraft) {
+    throw new Error("Ya existe un borrador en progreso. Termínalo o elimínalo antes de editar el plan activo.");
+  }
+
+  await db.update(workoutPlan).set({ status: "draft", activatedAt: null }).where(eq(workoutPlan.id, active.plan.id));
+}
+
 export async function activateDraftPlan(athleteProfileId: string, draftPlanId: string): Promise<void> {
   const currentActive = await getActivePlanForProfile(athleteProfileId);
 

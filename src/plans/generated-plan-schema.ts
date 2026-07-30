@@ -34,6 +34,14 @@ export const generatedExercisePrescriptionSchema = z
     path: ["targetRepMin"],
   });
 
+// A session must have enough exercises to be a real training day. Anything
+// that writes sessions later read through this schema (the plan builder,
+// specifically) must enforce this same bound at write time — a plan that
+// satisfies the builder's own "day complete" check but not this one will
+// activate successfully yet fail every subsequent read of /plan.
+export const MIN_SESSION_EXERCISES = 3;
+export const MAX_SESSION_EXERCISES = 10;
+
 export const generatedPlanSessionSchema = z.object({
   dayIndex: z.number().int().min(1).max(7),
   nameEs: z.string().min(1),
@@ -41,7 +49,7 @@ export const generatedPlanSessionSchema = z.object({
   focus: z.string().min(1),
   estimatedDurationMinutes: z.number().int().min(15).max(180),
   mobilityNotesEs: z.string().min(1),
-  exercises: z.array(generatedExercisePrescriptionSchema).min(3).max(10),
+  exercises: z.array(generatedExercisePrescriptionSchema).min(MIN_SESSION_EXERCISES).max(MAX_SESSION_EXERCISES),
 });
 
 export const generatedWorkoutPlanSchema = z.object({

@@ -13,25 +13,31 @@ export function PlanPageContent({
   gate,
   seededPreview,
   activePlanPreview,
+  activePlanError,
   activatedAt,
   justSaved,
   activatePlanAction,
+  editActivePlanAction,
 }: {
   readiness: M1Readiness;
   gate: NonAiPlanGate;
   seededPreview: PlanPreviewSummary | null;
   activePlanPreview: PlanPreviewSummary | null;
+  activePlanError: boolean;
   activatedAt: Date | null;
   justSaved: boolean;
   activatePlanAction: () => Promise<void>;
+  editActivePlanAction: () => Promise<void>;
 }) {
+  const hasActivePlan = Boolean(activePlanPreview) || activePlanError;
+
   return (
     <AppShell activeHref="/plan">
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            {activePlanPreview
+            {hasActivePlan
               ? "Tu plan"
               : gate.status === "manual_review_ready"
                 ? "Revisión pre-plan"
@@ -40,7 +46,9 @@ export function PlanPageContent({
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             {activePlanPreview
               ? "Este es tu plan real, guardado y activo. Todavía no genera IA ni registra series."
-              : "Revisa si las bases mínimas están listas. Esta pantalla no genera IA y no persiste borradores."}
+              : activePlanError
+                ? "Tu plan activo tiene datos inválidos y no se puede mostrar. Corrígelo desde el editor."
+                : "Revisa si las bases mínimas están listas. Esta pantalla no genera IA y no persiste borradores."}
           </p>
         </div>
       </header>
@@ -59,7 +67,7 @@ export function PlanPageContent({
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <StatusTile label="Bases" value={`${readiness.completedFoundationSteps}/${readiness.totalFoundationSteps}`} />
           <StatusTile label="IA" value="Apagada" />
-          <StatusTile label="Plan" value={activePlanPreview ? "Activo" : "Sin crear"} />
+          <StatusTile label="Plan" value={activePlanPreview ? "Activo" : activePlanError ? "Con errores" : "Sin crear"} />
         </div>
 
         <div className="mt-5 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
@@ -89,11 +97,13 @@ export function PlanPageContent({
 
         {activePlanPreview ? (
           <ActivePlanSummary summary={activePlanPreview} activatedAt={activatedAt} />
+        ) : activePlanError ? (
+          <ActivePlanErrorNotice editActivePlanAction={editActivePlanAction} />
         ) : seededPreview ? (
           <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} />
         ) : null}
 
-        <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />
+        {activePlanError ? null : <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />}
 
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
@@ -203,6 +213,25 @@ function SeededPlanPreview({
         Al activar, este plan pasa a ser tu plan real y guardado. Editar y registrar series quedan fuera de esta
         iteración.
       </p>
+    </section>
+  );
+}
+
+function ActivePlanErrorNotice({ editActivePlanAction }: { editActivePlanAction: () => Promise<void> }) {
+  return (
+    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-amber-300/30" aria-labelledby="active-plan-error-title">
+      <p id="active-plan-error-title" className="text-sm font-semibold text-amber-200">
+        Tu plan activo tiene un problema
+      </p>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        Alguna sesión no cumple los requisitos mínimos (al menos 3 ejercicios por día). Edítalo para corregirlo; tu
+        historial registrado no se pierde.
+      </p>
+      <form action={editActivePlanAction} className="mt-4">
+        <SubmitButton className="w-full rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
+          Editar este plan
+        </SubmitButton>
+      </form>
     </section>
   );
 }
