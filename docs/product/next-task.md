@@ -1,19 +1,21 @@
 # Next Task
 
-## Status: Slices 1-3 complete
+## Status: Slices 1-4 complete
 
 - Slice 1: `/plan` lets a tester activate the seeded plan as a real, persisted, active plan.
 - Slice 2: `/entrenar` lets a tester pick a session and log real sets — kg, reps, RIR (0-4), pain (0-10), optional notes — one exercise at a time, and mark a session complete.
-- Slice 3: `/entrenar/[sessionId]` shows "Última vez" (previous performance) and a progression suggestion (increase/hold/reduce, with a concrete suggested weight) before the first set of a repeated exercise, prefilling the logging form. This is M5 in `docs/product/milestones.md`, minus its "5% improvement signal" acceptance line (see below).
+- Slice 3: `/entrenar/[sessionId]` shows "Última vez" (previous performance) and a progression suggestion before the first set of a repeated exercise, prefilling the logging form.
+- Slice 4: `/progreso` shows session-over-session improvement per exercise (volume load +5%, pain -2, per `docs/product/progression-rules.md`'s "5% improvement definition" — 2 of 6 signals implemented) plus a full completed-session history linking back into the read-only session view. "Progreso" is now a real nav link (no more disabled destinations in the bottom nav).
 
-This delivers, and now extends past, the user's original goal: manually create a plan, record training progress using RIR, and get pain-aware guidance on what to lift next. There is no further hard-constrained "next task" queued — the next step is a product decision.
+This covers the full loop from `docs/product/mvp-plan.md`'s "user journey": create a plan, execute sessions, log every set with RIR/pain, see previous performance and suggestions, and see improvement signals. There is no further hard-constrained "next task" queued — the next step is a product decision.
 
 ## Candidate next steps (pick one, or something else)
 
-1. **Progress history / `/progreso`.** Currently disabled in the bottom nav ("Disponible después de registrar sesiones."). Real `setLog` history now exists across multiple sessions per exercise. This is also where M5's still-open "5% improvement signal" acceptance criterion belongs — comparing session N to session N-1 on volume, reps-at-load, load-at-reps, pain trend, and asymmetry (`docs/product/progression-rules.md`'s "5% improvement definition" section already specifies the exact comparison rules; only the engine + UI are missing).
-2. **Per-category increment accuracy.** Slice 3's weight suggestion is a flat ±5% because `exercisePrescription` doesn't store an equipment/movement category. `docs/product/progression-rules.md` specifies +5-10% for machines/lower body, +2.5-5% for upper compound, smallest jump for isolation. Adding a category field to the plan schema/seeded data would let the suggestion match that guidance more precisely.
-3. **Real-device validation.** No physical-iPhone pass has been done on Slice 3's "Última vez"/suggestion card together with the rest of the wizard. Worth a manual walkthrough, especially the case where the suggested weight looks wrong (should always be trivially overridable).
-4. **Custom plan builder.** Out of scope so far — activation has only ever offered the single seeded template. A real builder (choosing exercises/sets/weeks) is a materially larger feature with no existing spec.
+1. **Fill out the remaining "5% improvement" signals.** `/progreso` currently only checks volume load and pain. `docs/product/progression-rules.md` also defines reps-at-same-load, load-at-same-reps, estimated-1RM, and asymmetry-improvement signals — all computable from existing `setLog` data, just not implemented (reps/load-at-X need per-set matching logic, 1RM needs a formula choice, asymmetry needs a left/right comparison across `baselineLift`/`setLog`).
+2. **Per-category weight-increment accuracy.** Slice 3's suggested weight is a flat ±5% because `exercisePrescription` doesn't store an equipment/movement category. `docs/product/progression-rules.md` specifies +5-10% for machines/lower body, +2.5-5% for upper compound, smallest jump for isolation.
+3. **Body measurement trends on `/progreso`.** `/mediciones` already shows recent history and left/right gaps; `/progreso` doesn't currently surface measurement trends alongside workout progress — could be pulled in for a single "everything that's improving" view.
+4. **Real-device validation.** No physical-iPhone pass has been done on `/progreso` or the accumulated Slice 1-4 flow together in one sitting.
+5. **Custom plan builder.** Out of scope so far — activation has only ever offered the single seeded template. A real builder (choosing exercises/sets/weeks) is a materially larger feature with no existing spec.
 
 ## Constraints that still apply regardless of which is picked
 

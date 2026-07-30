@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { getHomeNavItems } from "./home-nav";
@@ -13,13 +13,11 @@ describe("MobileBottomNav", () => {
     expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
   });
 
-  it("shows sighted feedback for disabled future areas on tap", () => {
+  it("renders every implemented destination as a real link with no disabled areas left", () => {
     render(<MobileBottomNav items={getHomeNavItems()} activeHref="/" />);
 
-    expect(screen.getByText("Disponible después de registrar sesiones.")).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: "Progreso" }));
-
-    expect(screen.getByText("Disponible después de registrar sesiones.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Entrenar" })).toHaveAttribute("href", "/entrenar");
+    expect(screen.getByRole("link", { name: "Progreso" })).toHaveAttribute("href", "/progreso");
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

@@ -13,15 +13,14 @@ describe("getHomeNavItems", () => {
       "Mediciones",
       "Plan",
       "Entrenar",
+      "Progreso",
     ]);
     expect(navItems.find((item) => item.labelEs === "Plan")?.href).toBe("/plan");
     expect(navItems.find((item) => item.labelEs === "Entrenar")?.href).toBe("/entrenar");
+    expect(navItems.find((item) => item.labelEs === "Progreso")?.href).toBe("/progreso");
   });
 
-  it("marks future progress area as disabled guidance", () => {
-    const disabledItems = getHomeNavItems().filter((item) => !item.href);
-
-    expect(disabledItems.map((item) => item.labelEs)).toEqual(["Progreso"]);
-    expect(disabledItems.find((item) => item.labelEs === "Progreso")?.disabledReasonEs).toContain("sesiones");
+  it("has no disabled placeholder destinations left", () => {
+    expect(getHomeNavItems().filter((item) => !item.href)).toEqual([]);
   });
 });

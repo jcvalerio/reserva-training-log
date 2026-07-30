@@ -2,6 +2,31 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-28 — Progress history page (Slice 4)
+
+Status: completed.
+
+Context:
+- Direct continuation of Slice 3. User asked to keep going autonomously with `/progreso` and explicitly delegated ongoing scope/task decisions ("I will be away so after each task do an assessment and decide the best next task and continue the implementation") — so this and subsequent slices are implemented without interactive plan-mode approval gates, since that would block on a user who isn't there to approve. Decisions below were made directly and documented rather than asked.
+- `docs/product/mvp-plan.md`'s acceptance criteria include "At least one 5% improvement signal is visible for each tester where appropriate" and "Previous performance is visible before each exercise" (the latter already done in Slice 3). `docs/product/progression-rules.md`'s "5% improvement definition" section lists 6 possible signals; implementing all 6 in one pass was judged disproportionate (some need rep-matching logic, an estimated-1RM formula choice, or asymmetry data not yet modeled) — implemented 2 (total volume load, pain improvement), documented the other 4 as deferred rather than silently skipped.
+
+Implemented:
+- `src/workouts/improvement.ts` (new, pure, unit-tested): `computeExerciseImprovement(latest, previous)` — flags `volume_load` (total reps×kg up >=5% while max pain stays <=2) and `pain` (max pain down >=2 points at a maintained-or-higher workload); `buildExerciseImprovements()` turns a per-exercise instance map into a sorted (improved-first) view-model, skipping exercises with fewer than 2 completed instances.
+- `src/workouts/workout-repository.ts`: added `getCompletedWorkoutSessionsForProfile` (joined with `planSessionTemplate` for display) and `getRecentExerciseInstancesByName` (the 2 most recent completed instances per distinct exercise name, across the whole history — reuses the same cross-week name-matching approach as Slice 3's "Última vez").
+- `/progreso` (`src/app/progreso/page.tsx` + `progreso-page-content.tsx`): "Mejoras recientes" cards per exercise (improved/neutral badge, volume/pain before-after, matched signal chips) plus a full completed-session history list; each history row links to `/entrenar/[sessionId]`, reusing the read-only `CompletedSessionSummary` view Slice 2 already built there — no new detail page needed. Empty state (no completed sessions yet) links to `/entrenar`.
+- Turned "Progreso" from a disabled nav stub into a real link (`src/app/home-nav.ts`) — the bottom nav now has zero disabled destinations.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 23 files, 85 tests (added `improvement.test.ts`, `progreso-page-content.test.tsx`; updated `home-nav.test.ts` and `mobile-bottom-nav.test.tsx` for the nav change).
+- `npm run build` passes; `/progreso` compiles as a dynamic route.
+- No schema/migration changes this slice.
+- Did not perform an end-to-end browser click-through against the real tester account — left as a manual step, same as prior slices.
+
+Next iteration:
+- Continuing autonomously per the user's instruction. See `docs/product/next-task.md` for the candidate list; picking the next one directly rather than waiting for confirmation.
+
 ## 2026-07-28 — Previous performance and progression suggestions (Slice 3)
 
 Status: completed.

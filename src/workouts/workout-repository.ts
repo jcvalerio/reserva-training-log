@@ -261,3 +261,95 @@ export async function completeWorkoutSession(workoutSessionId: string): Promise<
     .set({ status: "completed", completedAt: new Date() })
     .where(eq(workoutSession.id, workoutSessionId));
 }
+
+export type CompletedSessionSummary = {
+  session: WorkoutSession;
+  template: PlanSessionTemplate;
+};
+
+export async function getCompletedWorkoutSessionsForProfile(
+  athleteProfileId: string,
+): Promise<CompletedSessionSummary[]> {
+  return db
+    .select({ session: workoutSession, template: planSessionTemplate })
+    .from(workoutSession)
+    .innerJoin(planSessionTemplate, eq(workoutSession.planSessionTemplateId, planSessionTemplate.id))
+    .where(and(eq(workoutSession.athleteProfileId, athleteProfileId), eq(workoutSession.status, "completed")))
+    .orderBy(desc(workoutSession.completedAt));
+}
+
+export type ExerciseInstance = {
+  exerciseNameEs: string;
+  sessionId: string;
+  completedAt: Date | null;
+  sets: SetLog[];
+};
+
+/**
+ * Returns, per distinct exercise name, the N most recent completed instances
+ * (most recent first) across the athlete's whole history — used to compute
+ * session-over-session improvement on /progreso.
+ */
+export async function getRecentExerciseInstancesByName(
+  athleteProfileId: string,
+  instancesPerExercise = 2,
+): Promise<Map<string, ExerciseInstance[]>> {
+  const rows = await db
+    .select({
+      exerciseLogId: exerciseLog.id,
+      exerciseNameEs: exercisePrescription.exerciseNameEs,
+      sessionId: workoutSession.id,
+      completedAt: workoutSession.completedAt,
+    })
+    .from(exerciseLog)
+    .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
+    .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
+    .where(and(eq(workoutSession.athleteProfileId, athleteProfileId), eq(workoutSession.status, "completed")))
+    .orderBy(desc(workoutSession.completedAt));
+
+  const rowsByExerciseName = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const bucket = rowsByExerciseName.get(row.exerciseNameEs);
+    if (bucket) {
+      bucket.push(row);
+    } else {
+      rowsByExerciseName.set(row.exerciseNameEs, [row]);
+    }
+  }
+
+  const recentRows = [...rowsByExerciseName.values()].flatMap((group) => group.slice(0, instancesPerExercise));
+  const exerciseLogIds = recentRows.map((row) => row.exerciseLogId);
+
+  const sets = exerciseLogIds.length
+    ? await db
+        .select()
+        .from(setLog)
+        .where(inArray(setLog.exerciseLogId, exerciseLogIds))
+        .orderBy(asc(setLog.setNumber))
+    : [];
+
+  const setsByLogId = new Map<string, SetLog[]>();
+  for (const set of sets) {
+    const bucket = setsByLogId.get(set.exerciseLogId);
+    if (bucket) {
+      bucket.push(set);
+    } else {
+      setsByLogId.set(set.exerciseLogId, [set]);
+    }
+  }
+
+  const instancesByExerciseName = new Map<string, ExerciseInstance[]>();
+  for (const [exerciseNameEs, group] of rowsByExerciseName) {
+    instancesByExerciseName.set(
+      exerciseNameEs,
+      group.slice(0, instancesPerExercise).map((row) => ({
+        exerciseNameEs,
+        sessionId: row.sessionId,
+        completedAt: row.completedAt,
+        sets: setsByLogId.get(row.exerciseLogId) ?? [],
+      })),
+    );
+  }
+
+  return instancesByExerciseName;
+}

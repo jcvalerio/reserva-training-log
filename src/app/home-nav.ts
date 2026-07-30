@@ -20,6 +20,6 @@ export function getHomeNavItems(): HomeNavItem[] {
     { labelEs: "Mediciones", shortLabelEs: "Med.", href: "/mediciones" },
     { labelEs: "Plan", href: "/plan" },
     { labelEs: "Entrenar", shortLabelEs: "Entr.", href: "/entrenar" },
-    { labelEs: "Progreso", shortLabelEs: "Prog.", disabledReasonEs: "Disponible después de registrar sesiones." },
+    { labelEs: "Progreso", shortLabelEs: "Prog.", href: "/progreso" },
   ];
 }
