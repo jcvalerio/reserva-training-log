@@ -140,6 +140,7 @@ export async function activateSeededPlanForProfile(athleteProfileId: string): Pr
       notesEn: exercise.notesEn ?? null,
       painSensitive: exercise.painSensitive,
       substitutionOptionsEs: exercise.substitutionOptionsEs,
+      incrementCategory: exercise.incrementCategory ?? null,
     })),
   );
 
@@ -202,6 +203,7 @@ export function toGeneratedWorkoutPlan(active: ActivePlanWithSessions): Generate
               notesEn: orUndefined(exercise.notesEn),
               painSensitive: exercise.painSensitive,
               substitutionOptionsEs: exercise.substitutionOptionsEs,
+              incrementCategory: orUndefined(exercise.incrementCategory),
             })),
         })),
     })),

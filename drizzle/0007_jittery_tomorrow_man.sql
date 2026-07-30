@@ -1,0 +1,2 @@
+CREATE TYPE "public"."exercise_increment_category" AS ENUM('machine_or_lower_body', 'upper_compound', 'isolation', 'dumbbell');--> statement-breakpoint
+ALTER TABLE "exercise_prescription" ADD COLUMN "increment_category" "exercise_increment_category";

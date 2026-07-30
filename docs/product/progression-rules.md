@@ -1,10 +1,18 @@
 # Progression Rules
 
-## Implemented (Slice 3)
+## Implemented (Slice 3, extended in Slice 6)
 
 `suggestProgression()` in `src/training/progression.ts` implements the "Basic progression algorithm v1" below and is now surfaced in the UI at `/entrenar/[sessionId]` (`session-runner.tsx`, via `src/workouts/progression-view.ts`), showing previous performance + a suggestion before the first set of a repeated exercise.
 
-Known simplification: the "Suggested increase"/"Reduce load" percentages below are per exercise category (machines/lower body, upper body compound, isolation, dumbbells), but `exercisePrescription` doesn't currently store an equipment/movement category. The shipped suggestion uses a flat **+5% on increase / -5% on reduce_or_modify**, rounded to the nearest 0.5kg — the conservative low end of every category's range below. Adding real per-category increments would need a category field added to the plan schema/seeded data first.
+`exercisePrescription.incrementCategory` (nullable enum: `machine_or_lower_body | upper_compound | isolation | dumbbell`) now drives the suggested-increase percentage per the table below, using the conservative low end of each range:
+- `machine_or_lower_body`: +5% (low end of +5-10%).
+- `upper_compound`: +2.5% (low end of +2.5-5%). Unused by the current seeded plan (no barbell work in it) but supported for future plans.
+- `isolation`: weight unchanged — the UI instead suggests "Añade una repetición" (add a rep first), per "smallest available jump or add reps first."
+- `dumbbell`: a fixed +2kg step rather than a percentage (the app doesn't model a specific gym's available dumbbell increments, so this is an approximation, not "follow available dumbbell increments" literally).
+- Reduce (`reduce_or_modify`) stays a flat -5% for every category — the docs don't vary the reduce range by category.
+- `null`/missing category (plans activated before this field existed) falls back to the original flat ±5%.
+
+The 20 seeded-plan exercises were hand-classified in `src/plans/seeded-plan.ts` by equipment type (see the comment above `baseSessions` there for the exact rationale per exercise) — this is a judgment call given the source doc's category names aren't a perfectly clean partition (e.g. "machines" spans both upper and lower body movements); treat it as a defensible starting point, not an authoritative taxonomy.
 
 ## Effort model
 

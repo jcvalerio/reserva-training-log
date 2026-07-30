@@ -125,6 +125,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     notesEn: null,
     painSensitive: false,
     substitutionOptionsEs: [],
+    incrementCategory: "machine_or_lower_body" as const,
   };
 
   return {

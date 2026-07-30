@@ -72,6 +72,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     notesEn: null,
     painSensitive: false,
     substitutionOptionsEs: [],
+    incrementCategory: "machine_or_lower_body",
     loggedSets: [],
     previousPerformance: null,
     ...overrides,
@@ -236,6 +237,60 @@ describe("SessionRunner", () => {
 
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
     expect(screen.getByLabelText("Reps")).toHaveValue(12);
+  });
+
+  it("suggests adding a rep instead of a weight jump for isolation exercises", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      loggedSets: [],
+      incrementCategory: "isolation",
+      previousPerformance: {
+        sessionId: "session-previous",
+        targetRepMax: 15,
+        targetSets: 1,
+        sets: [buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "20.00", actualReps: 15, rir: 2, painScore: 0 })],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText("Añade una repetición")).toBeVisible();
+    expect(screen.queryByText(/→ 21\.00kg/)).toBeNull();
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(20);
+  });
+
+  it("suggests a smaller +2.5% jump for upper_compound exercises", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      loggedSets: [],
+      incrementCategory: "upper_compound",
+      previousPerformance: {
+        sessionId: "session-previous",
+        targetRepMax: 10,
+        targetSets: 1,
+        sets: [buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 10, rir: 2, painScore: 0 })],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText(/82\.00kg/)).toBeVisible();
   });
 
   it("hides the previous-performance card once a set has been logged this session", () => {

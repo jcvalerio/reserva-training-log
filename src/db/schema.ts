@@ -39,6 +39,12 @@ export const workoutSessionStatusEnum = pgEnum("workout_session_status", [
   "completed",
   "skipped",
 ]);
+export const exerciseIncrementCategoryEnum = pgEnum("exercise_increment_category", [
+  "machine_or_lower_body",
+  "upper_compound",
+  "isolation",
+  "dumbbell",
+]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -316,6 +322,10 @@ export const exercisePrescription = pgTable(
     notesEn: text("notes_en"),
     painSensitive: boolean("pain_sensitive").notNull().default(false),
     substitutionOptionsEs: jsonb("substitution_options_es").$type<string[]>().notNull().default([]),
+    // Nullable (no default): existing rows from plans activated before this
+    // column existed have no category, and the suggestion logic falls back
+    // to a flat increment for those rather than requiring a backfill.
+    incrementCategory: exerciseIncrementCategoryEnum("increment_category"),
   },
   (table) => [
     index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),

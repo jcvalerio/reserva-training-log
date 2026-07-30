@@ -50,6 +50,13 @@
       "when": 1785290177769,
       "tag": "0006_easy_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785371104832,
+      "tag": "0007_jittery_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

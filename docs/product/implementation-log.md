@@ -2,6 +2,32 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-29 — Per-category weight-increment accuracy (Slice 6)
+
+Status: completed.
+
+Context:
+- Continuation of Slice 5, chosen autonomously as flagged in the prior entry: Slice 3's suggested weight was a flat ±5% because `exercisePrescription` had no equipment/movement category. `docs/product/progression-rules.md` specifies different increase ranges per category (machines/lower body +5-10%, upper compound +2.5-5%, isolation "smallest jump or add reps first," dumbbell "follow available increments").
+- Real risk considered before implementing: the user's dev database already had a real, previously-activated `exercisePrescription` row set from testing Slices 1-5. A NOT NULL category column would have required a backfill migration touching that live test data. Chose a **nullable** column with no default instead — zero backfill needed, old rows just read as "no category" and fall back to the pre-Slice-6 flat ±5% behavior, new activations always get a real category from the (now-updated) seeded plan. This traded a small amount of correctness (very old rows stay uncategorized forever unless someone deactivates/reactivates) for zero risk to existing data.
+- Classification of the 20 seeded exercises into machine_or_lower_body/upper_compound/isolation/dumbbell is a judgment call — the source doc's taxonomy isn't a clean partition (e.g., "machines" bucket spans upper and lower body). Documented the rationale directly in `seeded-plan.ts` and flagged it in `next-task.md` as worth a second look by the user, who knows the actual gym equipment.
+
+Implemented:
+- `src/db/schema.ts`: added `exerciseIncrementCategoryEnum` and a nullable `incrementCategory` column on `exercisePrescription`. Migration `drizzle/0007_jittery_tomorrow_man.sql` — a single `CREATE TYPE` + `ADD COLUMN`, no data changes.
+- `src/plans/generated-plan-schema.ts`: added `incrementCategory` as `.optional()` (not required) — this is what makes the nullable-DB/no-backfill approach safe, since `toGeneratedWorkoutPlan`'s round-trip re-validation (used to render `/plan`) would otherwise reject old rows with a missing category.
+- `src/plans/seeded-plan.ts`: classified all 20 exercises; `activateSeededPlanForProfile` now persists the category on every new activation.
+- `src/workouts/progression-view.ts`: `suggestNextWeightKg` takes an optional category — machine/lower body +5%, upper compound +2.5%, dumbbell +2kg fixed step, isolation unchanged weight (paired with a new `isRepsFirstIncrease()` helper the UI uses to show "Añade una repetición" instead of a weight arrow), missing category falls back to the original flat ±5%. Reduce stays flat -5% regardless of category, matching the docs (only the increase side is categorized).
+- `src/app/entrenar/[sessionId]/session-runner.tsx`: passes `currentExercise.incrementCategory` through; isolation exercises show "Añade una repetición" with an explanatory line instead of a weight-jump suggestion.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 23 files, 99 tests (extended `progression-view.test.ts` with 8 category cases, `session-runner.test.tsx` with isolation/upper_compound cases; updated fixtures across `plan-repository.test.ts` and `session-progress.test.ts` for the new field).
+- `npm run build` passes.
+- `npm run db:generate` produced a single clean migration (one enum, one nullable column); reviewed before applying. `npm run db:migrate` applied successfully against dev, confirmed non-destructive to the existing activated plan.
+
+Next iteration:
+- Continuing autonomously. See `docs/product/next-task.md`. Next candidate under consideration: estimated 1RM / asymmetry signals, but flagged for a methodology check rather than a silent implementation given both need a real choice (1RM formula, asymmetry data join) that's easy to get subtly wrong.
+
 ## 2026-07-29 — Remaining 5% improvement signals (Slice 5)
 
 Status: completed.

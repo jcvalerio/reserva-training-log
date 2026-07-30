@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import type { ProgressionAction } from "@/training/progression";
-import { buildProgressionSuggestion, suggestNextWeightKg } from "@/workouts/progression-view";
+import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
 import type { ExerciseWithLoggedSets, WorkoutSession } from "@/workouts/workout-repository";
 
 import { AppShell } from "../../app-shell";
@@ -61,8 +61,13 @@ export function SessionRunner({
   const previousSuggestion = previousPerformance
     ? buildProgressionSuggestion(previousPerformance.sets, previousPerformance.targetRepMax, previousPerformance.targetSets)
     : null;
+  const repsFirstIncrease = previousSuggestion
+    ? isRepsFirstIncrease(previousSuggestion.action, currentExercise.incrementCategory)
+    : false;
   const suggestedWeightKg =
-    previousLastSet && previousSuggestion ? suggestNextWeightKg(previousLastSet.actualWeightKg, previousSuggestion.action) : null;
+    previousLastSet && previousSuggestion
+      ? suggestNextWeightKg(previousLastSet.actualWeightKg, previousSuggestion.action, currentExercise.incrementCategory)
+      : null;
 
   const defaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
   const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax;
@@ -131,10 +136,14 @@ export function SessionRunner({
               ))}
             </div>
             <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
-              {suggestionLabelEs(previousSuggestion.action)}
-              {suggestedWeightKg ? ` → ${suggestedWeightKg}kg` : ""}
+              {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
+              {suggestedWeightKg && !repsFirstIncrease ? ` → ${suggestedWeightKg}kg` : ""}
             </div>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">{previousSuggestion.reasonEs}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              {repsFirstIncrease
+                ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
+                : previousSuggestion.reasonEs}
+            </p>
           </div>
         ) : null}
 
