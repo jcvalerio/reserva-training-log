@@ -89,12 +89,11 @@ export function PlanPageContent({
 
         {activePlanPreview ? (
           <ActivePlanSummary summary={activePlanPreview} activatedAt={activatedAt} />
-        ) : (
-          <>
-            {seededPreview ? <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} /> : null}
-            <CustomPlanBuilderEntry />
-          </>
-        )}
+        ) : seededPreview ? (
+          <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} />
+        ) : null}
+
+        <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />
 
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
@@ -208,14 +207,16 @@ function SeededPlanPreview({
   );
 }
 
-function CustomPlanBuilderEntry() {
+function CustomPlanBuilderEntry({ hasActivePlan }: { hasActivePlan: boolean }) {
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-labelledby="custom-plan-builder-title">
       <p id="custom-plan-builder-title" className="text-sm font-semibold text-zinc-100">
         ¿Prefieres tu propia rutina?
       </p>
       <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Define tus propios días de entrenamiento y ejercicios, revísalos y actívalos cuando estén listos.
+        {hasActivePlan
+          ? "Define tus propios días de entrenamiento y ejercicios, revísalos y actívalos cuando estén listos. Al activar tu plan personalizado, reemplaza el plan activo actual (tu historial registrado se mantiene visible en Progreso)."
+          : "Define tus propios días de entrenamiento y ejercicios, revísalos y actívalos cuando estén listos."}
       </p>
       <Link
         href="/plan/builder"

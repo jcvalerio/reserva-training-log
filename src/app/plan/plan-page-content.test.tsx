@@ -117,4 +117,29 @@ describe("PlanPageContent", () => {
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
     expect(screen.queryByText("No activable")).toBeNull();
   });
+
+  it("still offers the custom plan builder entry point when a plan is already active", () => {
+    const readiness = getM1Readiness({
+      hasProfile: true,
+      baselineLiftCount: 6,
+      bodyMeasurementCount: 1,
+    });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        seededPreview={null}
+        activePlanPreview={activePlanPreview}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        activatePlanAction={noopActivatePlanAction}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toHaveAttribute("href", "/plan/builder");
+    expect(screen.getByText(/reemplaza el plan activo actual/)).toBeVisible();
+  });
 });
