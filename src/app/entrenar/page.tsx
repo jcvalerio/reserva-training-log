@@ -1,7 +1,7 @@
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getActivePlanForProfile } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
-import { buildEntrenarWeeks } from "@/workouts/session-progress";
+import { buildEntrenarSessions } from "@/workouts/session-progress";
 import { getWorkoutSessionsForProfile } from "@/workouts/workout-repository";
 
 import { startOrResumeSessionAction } from "./actions";
@@ -22,7 +22,7 @@ export default async function EntrenarPage({ searchParams }: EntrenarPageProps) 
   return (
     <EntrenarPageContent
       hasActivePlan={Boolean(activePlan)}
-      weeks={activePlan ? buildEntrenarWeeks(activePlan, workoutSessions) : []}
+      sessions={activePlan ? buildEntrenarSessions(activePlan, workoutSessions) : []}
       justCompleted={params.completed === "1"}
       startOrResumeSessionAction={startOrResumeSessionAction}
     />

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivePlanWithSessions } from "@/plans/plan-repository";
 
 import {
-  buildEntrenarWeeks,
+  buildEntrenarSessions,
   getLatestSessionByTemplateId,
   getSessionStatus,
   getSuggestedTemplateId,
@@ -71,23 +71,57 @@ describe("getLatestSessionByTemplateId", () => {
 });
 
 describe("getSuggestedTemplateId", () => {
-  it("returns the first non-completed template id in order", () => {
-    const statusByTemplateId = new Map([
-      ["t1", "completed"],
-      ["t2", "in_progress"],
-      ["t3", "not_started"],
-    ] as const);
-
-    expect(getSuggestedTemplateId(["t1", "t2", "t3"], statusByTemplateId)).toBe("t2");
+  it("returns null for an empty plan", () => {
+    expect(getSuggestedTemplateId([], new Map())).toBeNull();
   });
 
-  it("returns null when every session is completed", () => {
-    const statusByTemplateId = new Map([
-      ["t1", "completed"],
-      ["t2", "completed"],
-    ] as const);
+  it("suggests the lowest-dayIndex template when a brand new plan has no sessions yet", () => {
+    expect(getSuggestedTemplateId(["t1", "t2", "t3"], new Map())).toBe("t1");
+  });
 
-    expect(getSuggestedTemplateId(["t1", "t2"], statusByTemplateId)).toBeNull();
+  it("always suggests an in-progress session, regardless of recency of others", () => {
+    const latest = new Map<string, WorkoutSession>([
+      ["t1", buildSession({ id: "s1", status: "completed", completedAt: new Date("2026-07-01") })],
+      ["t2", buildSession({ id: "s2", status: "active", startedAt: new Date("2026-07-29") })],
+    ]);
+
+    expect(getSuggestedTemplateId(["t1", "t2"], latest)).toBe("t2");
+  });
+
+  it("breaks in-progress ties by lowest dayIndex (array order)", () => {
+    const latest = new Map<string, WorkoutSession>([
+      ["t1", buildSession({ id: "s1", status: "active", startedAt: new Date("2026-07-20") })],
+      ["t2", buildSession({ id: "s2", status: "active", startedAt: new Date("2026-07-29") })],
+    ]);
+
+    expect(getSuggestedTemplateId(["t1", "t2"], latest)).toBe("t1");
+  });
+
+  it("suggests the template trained longest ago when nothing is in progress", () => {
+    const latest = new Map<string, WorkoutSession>([
+      ["t1", buildSession({ id: "s1", status: "completed", completedAt: new Date("2026-07-20") })],
+      ["t2", buildSession({ id: "s2", status: "completed", completedAt: new Date("2026-07-01") })],
+      ["t3", buildSession({ id: "s3", status: "completed", completedAt: new Date("2026-07-29") })],
+    ]);
+
+    expect(getSuggestedTemplateId(["t1", "t2", "t3"], latest)).toBe("t2");
+  });
+
+  it("treats a never-trained template as infinitely old, ahead of any completed template", () => {
+    const latest = new Map<string, WorkoutSession>([
+      ["t1", buildSession({ id: "s1", status: "completed", completedAt: new Date("2026-07-01") })],
+    ]);
+
+    expect(getSuggestedTemplateId(["t1", "t2"], latest)).toBe("t2");
+  });
+
+  it("never returns null for a non-empty plan, even once every session has been completed", () => {
+    const latest = new Map<string, WorkoutSession>([
+      ["t1", buildSession({ id: "s1", status: "completed", completedAt: new Date("2026-07-20") })],
+      ["t2", buildSession({ id: "s2", status: "completed", completedAt: new Date("2026-07-21") })],
+    ]);
+
+    expect(getSuggestedTemplateId(["t1", "t2"], latest)).not.toBeNull();
   });
 });
 
@@ -98,8 +132,8 @@ function buildActivePlan(): ActivePlanWithSessions {
     nameEs: "Plan base",
     nameEn: null,
     goal: "hypertrophy",
-    durationWeeks: 4,
-    daysPerWeek: 5,
+    durationWeeks: 1,
+    daysPerWeek: 2,
     sessionDurationMinutes: 60,
     locale: "es" as const,
     safetySummaryEs: "Registra dolor en cada serie.",
@@ -133,21 +167,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     sessions: [
       {
         template: {
-          id: "template-w1d1",
-          workoutPlanId: "plan-1",
-          weekNumber: 1,
-          dayIndex: 1,
-          nameEs: "Pierna",
-          nameEn: null,
-          focus: "Cuádriceps",
-          estimatedDurationMinutes: 60,
-          mobilityNotesEs: "Movilidad.",
-        },
-        exercises: [{ ...exerciseBase, planSessionTemplateId: "template-w1d1" }],
-      },
-      {
-        template: {
-          id: "template-w1d2",
+          id: "template-d2",
           workoutPlanId: "plan-1",
           weekNumber: 1,
           dayIndex: 2,
@@ -157,13 +177,13 @@ function buildActivePlan(): ActivePlanWithSessions {
           estimatedDurationMinutes: 60,
           mobilityNotesEs: "Movilidad.",
         },
-        exercises: [{ ...exerciseBase, id: "exercise-2", planSessionTemplateId: "template-w1d2" }],
+        exercises: [{ ...exerciseBase, id: "exercise-2", planSessionTemplateId: "template-d2" }],
       },
       {
         template: {
-          id: "template-w2d1",
+          id: "template-d1",
           workoutPlanId: "plan-1",
-          weekNumber: 2,
+          weekNumber: 1,
           dayIndex: 1,
           nameEs: "Pierna",
           nameEn: null,
@@ -171,25 +191,24 @@ function buildActivePlan(): ActivePlanWithSessions {
           estimatedDurationMinutes: 60,
           mobilityNotesEs: "Movilidad.",
         },
-        exercises: [{ ...exerciseBase, id: "exercise-3", planSessionTemplateId: "template-w2d1" }],
+        exercises: [{ ...exerciseBase, planSessionTemplateId: "template-d1" }],
       },
     ],
   };
 }
 
-describe("buildEntrenarWeeks", () => {
-  it("groups sessions by week, sorted by day, with status and suggestion flags", () => {
+describe("buildEntrenarSessions", () => {
+  it("returns a flat list sorted by day, with status and suggestion flags", () => {
     const activePlan = buildActivePlan();
     const workoutSessions = [
-      buildSession({ id: "s-completed", planSessionTemplateId: "template-w1d1", status: "completed" }),
+      buildSession({ id: "s-completed", planSessionTemplateId: "template-d1", status: "completed" }),
     ];
 
-    const weeks = buildEntrenarWeeks(activePlan, workoutSessions);
+    const sessions = buildEntrenarSessions(activePlan, workoutSessions);
 
-    expect(weeks.map((week) => week.weekNumber)).toEqual([1, 2]);
-    expect(weeks[0]?.sessions.map((session) => session.dayIndex)).toEqual([1, 2]);
+    expect(sessions.map((session) => session.dayIndex)).toEqual([1, 2]);
 
-    const [day1, day2] = weeks[0]?.sessions ?? [];
+    const [day1, day2] = sessions;
     expect(day1?.status).toBe("completed");
     expect(day1 && "sessionId" in day1 ? day1.sessionId : null).toBe("s-completed");
     expect(day1?.isSuggested).toBe(false);
@@ -199,16 +218,27 @@ describe("buildEntrenarWeeks", () => {
     expect(day2?.isSuggested).toBe(true);
   });
 
-  it("suggests nothing once every session is completed", () => {
+  it("still suggests a session once every session has been completed, rotating to the least-recent one", () => {
     const activePlan = buildActivePlan();
-    const workoutSessions = activePlan.sessions.map((session, index) =>
-      buildSession({ id: `s-${index}`, planSessionTemplateId: session.template.id, status: "completed" }),
-    );
+    const workoutSessions = [
+      buildSession({
+        id: "s-d1",
+        planSessionTemplateId: "template-d1",
+        status: "completed",
+        completedAt: new Date("2026-07-25T12:00:00Z"),
+      }),
+      buildSession({
+        id: "s-d2",
+        planSessionTemplateId: "template-d2",
+        status: "completed",
+        completedAt: new Date("2026-07-20T12:00:00Z"),
+      }),
+    ];
 
-    const weeks = buildEntrenarWeeks(activePlan, workoutSessions);
-    const allSessions = weeks.flatMap((week) => week.sessions);
+    const sessions = buildEntrenarSessions(activePlan, workoutSessions);
 
-    expect(allSessions.every((session) => session.status === "completed")).toBe(true);
-    expect(allSessions.every((session) => !session.isSuggested)).toBe(true);
+    expect(sessions.every((session) => session.status === "completed")).toBe(true);
+    expect(sessions.find((session) => session.dayIndex === 2)?.isSuggested).toBe(true);
+    expect(sessions.filter((session) => session.isSuggested)).toHaveLength(1);
   });
 });

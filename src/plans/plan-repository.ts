@@ -85,7 +85,9 @@ export async function activateSeededPlanForProfile(athleteProfileId: string): Pr
       nameEs: seeded.nameEs,
       nameEn: seeded.nameEn ?? null,
       goal: seeded.goal,
-      durationWeeks: seeded.durationWeeks,
+      // Vestigial: the plan repeats indefinitely, there's no fixed week
+      // count, but the DB column is NOT NULL. Always 1 going forward.
+      durationWeeks: 1,
       daysPerWeek: seeded.daysPerWeek,
       sessionDurationMinutes: seeded.sessionDurationMinutes,
       locale: seeded.locale,
@@ -105,14 +107,15 @@ export async function activateSeededPlanForProfile(athleteProfileId: string): Pr
     return activated;
   }
 
-  const sessions = seeded.weeks.flatMap((week) => week.sessions);
+  const sessions = seeded.sessions;
   const templateIds = sessions.map(() => randomUUID());
 
   await db.insert(planSessionTemplate).values(
     sessions.map((session, sessionIndex) => ({
       id: templateIds[sessionIndex],
       workoutPlanId: insertedPlan.id,
-      weekNumber: session.weekNumber,
+      // Vestigial: always 1, the plan repeats indefinitely (see durationWeeks above).
+      weekNumber: 1,
       dayIndex: session.dayIndex,
       nameEs: session.nameEs,
       nameEn: session.nameEn ?? null,
@@ -160,52 +163,48 @@ function orUndefined<T>(value: T | null): T | undefined {
 }
 
 export function toGeneratedWorkoutPlan(active: ActivePlanWithSessions): GeneratedWorkoutPlan {
-  const weekNumbers = [...new Set(active.sessions.map((session) => session.template.weekNumber))].sort(
-    (a, b) => a - b,
-  );
-
+  // Plans repeat indefinitely, so only week 1's templates are meaningful.
+  // Plans activated before this model existed have real weekNumber 1-4 data
+  // (4 duplicated weeks) — filtering to week 1 here is a display
+  // simplification, not data loss: weeks 2-4 template rows and any logged
+  // history against them stay in the DB and remain visible via /progreso.
   return generatedWorkoutPlanSchema.parse({
     schemaVersion: 1,
     locale: active.plan.locale,
     nameEs: active.plan.nameEs,
     nameEn: orUndefined(active.plan.nameEn),
     goal: active.plan.goal,
-    durationWeeks: active.plan.durationWeeks,
     daysPerWeek: active.plan.daysPerWeek,
     sessionDurationMinutes: active.plan.sessionDurationMinutes,
     safetySummaryEs: active.plan.safetySummaryEs,
-    weeks: weekNumbers.map((weekNumber) => ({
-      weekNumber,
-      sessions: active.sessions
-        .filter((session) => session.template.weekNumber === weekNumber)
-        .sort((a, b) => a.template.dayIndex - b.template.dayIndex)
-        .map((session) => ({
-          weekNumber,
-          dayIndex: session.template.dayIndex,
-          nameEs: session.template.nameEs,
-          nameEn: orUndefined(session.template.nameEn),
-          focus: session.template.focus,
-          estimatedDurationMinutes: session.template.estimatedDurationMinutes,
-          mobilityNotesEs: session.template.mobilityNotesEs,
-          exercises: [...session.exercises]
-            .sort((a, b) => a.orderIndex - b.orderIndex)
-            .map((exercise) => ({
-              exerciseNameEs: exercise.exerciseNameEs,
-              exerciseNameEn: orUndefined(exercise.exerciseNameEn),
-              phase: exercise.phase,
-              sideMode: exercise.sideMode,
-              targetSets: exercise.targetSets,
-              targetRepMin: exercise.targetRepMin,
-              targetRepMax: exercise.targetRepMax,
-              targetRir: exercise.targetRir,
-              restSeconds: exercise.restSeconds,
-              notesEs: exercise.notesEs,
-              notesEn: orUndefined(exercise.notesEn),
-              painSensitive: exercise.painSensitive,
-              substitutionOptionsEs: exercise.substitutionOptionsEs,
-              incrementCategory: orUndefined(exercise.incrementCategory),
-            })),
-        })),
-    })),
+    sessions: active.sessions
+      .filter((session) => session.template.weekNumber === 1)
+      .sort((a, b) => a.template.dayIndex - b.template.dayIndex)
+      .map((session) => ({
+        dayIndex: session.template.dayIndex,
+        nameEs: session.template.nameEs,
+        nameEn: orUndefined(session.template.nameEn),
+        focus: session.template.focus,
+        estimatedDurationMinutes: session.template.estimatedDurationMinutes,
+        mobilityNotesEs: session.template.mobilityNotesEs,
+        exercises: [...session.exercises]
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .map((exercise) => ({
+            exerciseNameEs: exercise.exerciseNameEs,
+            exerciseNameEn: orUndefined(exercise.exerciseNameEn),
+            phase: exercise.phase,
+            sideMode: exercise.sideMode,
+            targetSets: exercise.targetSets,
+            targetRepMin: exercise.targetRepMin,
+            targetRepMax: exercise.targetRepMax,
+            targetRir: exercise.targetRir,
+            restSeconds: exercise.restSeconds,
+            notesEs: exercise.notesEs,
+            notesEn: orUndefined(exercise.notesEn),
+            painSensitive: exercise.painSensitive,
+            substitutionOptionsEs: exercise.substitutionOptionsEs,
+            incrementCategory: orUndefined(exercise.incrementCategory),
+          })),
+      })),
   });
 }

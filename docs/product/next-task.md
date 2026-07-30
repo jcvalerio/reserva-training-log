@@ -1,29 +1,36 @@
 # Next Task
 
-## Status: Slices 1-6 complete
+## Status: Phase A code complete — deploy and verify, then start Phase B
 
-- Slice 1: `/plan` lets a tester activate the seeded plan as a real, persisted, active plan.
-- Slice 2: `/entrenar` lets a tester pick a session and log real sets — kg, reps, RIR (0-4), pain (0-10), optional notes — one exercise at a time, and mark a session complete.
-- Slice 3: `/entrenar/[sessionId]` shows "Última vez" (previous performance) and a progression suggestion before the first set of a repeated exercise, prefilling the logging form.
-- Slice 4: `/progreso` shows session-over-session improvement per exercise plus a full completed-session history linking back into the read-only session view. "Progreso" is now a real nav link (no more disabled destinations in the bottom nav).
-- Slice 5: `/progreso` now checks 4 of the 6 "5% improvement" signals from `docs/product/progression-rules.md` — added reps-at-same-load and load-at-same-reps (both RIR-gated) alongside Slice 4's volume load and pain signals.
-- Slice 6: weight suggestions in `/entrenar/[sessionId]` now vary by exercise category (`exercisePrescription.incrementCategory`, nullable, added via migration `0007`) instead of a flat ±5% — machines/lower body +5%, upper compound +2.5%, isolation suggests adding a rep instead of weight, dumbbell adds a fixed +2kg step. All 20 seeded exercises hand-classified in `src/plans/seeded-plan.ts`.
+Slices 1-6 (see `docs/product/implementation-log.md` for their history) shipped and are live in production. Since then, work has been underway on letting each person (the user, Athlete B, Athlete C — separate logins already supported) define their own real routine instead of everyone sharing the one hardcoded seeded plan. **Phase A (flatten the week-block model into one indefinitely-repeating routine) is now code-complete**: `lint`, `typecheck`, `test` (105 passing), and `build` are all green, but the changes are not yet committed, deployed, or verified against real production data.
 
-This covers the full loop from `docs/product/mvp-plan.md`'s "user journey": create a plan, execute sessions, log every set with RIR/pain, see previous performance and suggestions, and see improvement signals. There is no further hard-constrained "next task" queued — the next step is a product decision. Work has continued autonomously across Slices 4-6 per the user's standing instruction to keep assessing and implementing without waiting for check-ins.
+**Read `docs/product/implementation-log.md`'s "2026-07-30 — Custom plan builder: Phase A complete" entry and the full design plan at `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md` before doing anything else.** This file only summarizes the immediate next steps; those two are the source of truth for the design and exact status.
 
-## Candidate next steps (pick one, or something else)
+## Immediate next steps
 
-1. **Estimated 1RM and asymmetry-improvement signals.** The last 2 of 6 signals from `docs/product/progression-rules.md`'s "5% improvement definition." 1RM needs a formula choice (Epley/Brzycki or similar) — a genuinely new "made-up number" the user would need to trust, worth flagging explicitly rather than quietly picking one. Asymmetry needs a left/right comparison joined against `baselineLift`, a materially different data shape than the current instance-level `setLog` comparison.
-2. **Body measurement trends on `/progreso`.** `/mediciones` already shows recent history and left/right gaps; `/progreso` doesn't currently surface measurement trends alongside workout progress — could be pulled in for a single "everything that's improving" view.
-3. **Real-device validation.** No physical-iPhone pass has been done on `/progreso`, the category-aware weight suggestions, or the accumulated Slice 1-6 flow together in one sitting.
-4. **Custom plan builder.** Out of scope so far — activation has only ever offered the single seeded template. A real builder (choosing exercises/sets/weeks) is a materially larger feature with no existing spec.
-5. **Revisit the seeded-plan exercise classification.** Slice 6's `incrementCategory` assignments in `seeded-plan.ts` are a defensible but subjective judgment call (see the rationale comment there and in `docs/product/progression-rules.md`) — worth a second pass by the user, who knows their actual gym equipment better than the classification heuristic does.
+In order:
+1. Commit the Phase A changes (conventional commit, e.g. `refactor: flatten plan schema to indefinite-repeat model`) — keep it separate from the unrelated, already-staged deployment-config commit (see below).
+2. Deploy to Vercel production (`vercel deploy --prod --yes`).
+3. Manually verify `/plan`, `/entrenar`, `/progreso` against the real production DB's existing 4-week activated plan: plan overview shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion (never a dead "you're done" state), progress history cards show "Día N" not "Semana 1 · Día N," nothing crashes.
 
-## Constraints that still apply regardless of which is picked
+Only after that: **Phase B** — the actual draft plan builder (`plan-builder-schema.ts`, `plan-builder-repository.ts`, `/app/plan/builder/*` routes and actions, tests) — not started yet. Full design already worked out in the plan file.
+
+## Separate loose end (unrelated to the plan builder, also still open)
+
+The prior session's Vercel deployment-config commit (`vercel.json`, `package.json` engines fix, `.gitignore` entry) is **still only staged, never committed** — hit `1Password: failed to fill whole buffer` twice and was never retried. It's already deployed and working in production regardless, but git history doesn't reflect it. Worth committing (retry once 1Password is unlocked) whenever convenient, independently of the plan-builder work — don't let it block Phase A/B.
+
+## Constraints that still apply
 
 - No AI plan generation yet.
 - Spanish-first UX; English support must not be removed.
 - Preserve pain-aware framing: pain >2 blocks aggressive progression, pain >3 flags reduce/modify, pain >=7 flags stop/professional-guidance.
+- No DB migration needed for the plan-builder work (confirmed during design review) — if you find yourself reaching for `npm run db:generate`, stop and re-check the plan file, that wasn't the design.
 - Run before commit: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build` (use `nvm use v24.18.0` — the ambient shell may default to a Node version that breaks Vitest's config loader).
-- If schema changes are needed, run `npm run db:generate` then `npm run db:migrate` against the configured dev database, and review the generated SQL before applying.
 - Update `docs/product/implementation-log.md` with outcome and next step.
+
+## Deferred candidates (from before the plan-builder work started, still valid, lower priority than finishing this)
+
+1. **Estimated 1RM and asymmetry-improvement signals** for `/progreso` (4 of 6 "5% improvement" signals from `docs/product/progression-rules.md` are done; these 2 need a formula/methodology choice worth flagging to the user, not picking silently).
+2. **Body measurement trends on `/progreso`** — `/mediciones` has the data, not surfaced there yet.
+3. **Real-device validation** of the full accumulated flow in one sitting.
+4. **Revisit the seeded-plan exercise classification** (`incrementCategory` assignments in `seeded-plan.ts`) — a defensible but subjective judgment call the user may want to correct with real gym knowledge. Less relevant once Phase B ships, since the user's own custom plan will replace the seeded one as their active plan anyway.

@@ -79,7 +79,7 @@ export function ProgresoPageContent({
               className="block rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                Semana {template.weekNumber} · Día {template.dayIndex} · {formatDate(session.completedAt)}
+                Día {template.dayIndex} · {formatDate(session.completedAt)}
               </p>
               <p className="mt-1 font-semibold text-zinc-100">{template.nameEs}</p>
             </Link>

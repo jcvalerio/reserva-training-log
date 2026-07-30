@@ -75,9 +75,7 @@ export function SessionRunner({
   return (
     <AppShell activeHref="/entrenar">
       <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
-          Semana {template.weekNumber} · Día {template.dayIndex}
-        </p>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
         <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
       </header>
@@ -312,9 +310,7 @@ function CompletedSessionSummary({
   return (
     <AppShell activeHref="/entrenar">
       <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
-          Semana {template.weekNumber} · Día {template.dayIndex}
-        </p>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
         <p className="text-sm font-semibold text-emerald-300">Sesión completada</p>
       </header>

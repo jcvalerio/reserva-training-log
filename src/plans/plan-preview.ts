@@ -1,6 +1,6 @@
 import type { GeneratedWorkoutPlan } from "./generated-plan-schema";
 
-type GeneratedPlanSession = GeneratedWorkoutPlan["weeks"][number]["sessions"][number];
+type GeneratedPlanSession = GeneratedWorkoutPlan["sessions"][number];
 
 export type PlanPreviewExerciseSummary = {
   orderIndex: number;
@@ -28,38 +28,29 @@ export type PlanPreviewSessionSummary = {
 
 export type PlanPreviewSummary = {
   nameEs: string;
-  durationWeeks: number;
   daysPerWeek: number;
   sessionDurationMinutes: number;
-  firstWeekExerciseCount: number;
-  firstWeekUnilateralExerciseCount: number;
-  firstWeekPainSensitiveExerciseCount: number;
+  exerciseCount: number;
+  unilateralExerciseCount: number;
+  painSensitiveExerciseCount: number;
   previewBoundaryLabelsEs: readonly string[];
   requiredSetLogFieldsEs: readonly string[];
-  firstWeekSessions: PlanPreviewSessionSummary[];
+  sessions: PlanPreviewSessionSummary[];
 };
 
 export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSummary {
-  const firstWeek = plan.weeks.find((week) => week.weekNumber === 1) ?? plan.weeks[0];
-  const firstWeekSessions = firstWeek.sessions.map(getSessionPreviewSummary);
+  const sessions = plan.sessions.map(getSessionPreviewSummary);
 
   return {
     nameEs: plan.nameEs,
-    durationWeeks: plan.durationWeeks,
     daysPerWeek: plan.daysPerWeek,
     sessionDurationMinutes: plan.sessionDurationMinutes,
-    firstWeekExerciseCount: firstWeekSessions.reduce((total, session) => total + session.exerciseCount, 0),
-    firstWeekUnilateralExerciseCount: firstWeekSessions.reduce(
-      (total, session) => total + session.unilateralExerciseCount,
-      0,
-    ),
-    firstWeekPainSensitiveExerciseCount: firstWeekSessions.reduce(
-      (total, session) => total + session.painSensitiveExerciseCount,
-      0,
-    ),
+    exerciseCount: sessions.reduce((total, session) => total + session.exerciseCount, 0),
+    unilateralExerciseCount: sessions.reduce((total, session) => total + session.unilateralExerciseCount, 0),
+    painSensitiveExerciseCount: sessions.reduce((total, session) => total + session.painSensitiveExerciseCount, 0),
     previewBoundaryLabelsEs: ["Solo lectura", "Sin IA", "No guardado", "No activable"],
     requiredSetLogFieldsEs: ["kg", "reps", "RIR", "dolor", "notas opcionales"],
-    firstWeekSessions,
+    sessions,
   };
 }
 

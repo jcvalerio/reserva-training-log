@@ -11,17 +11,16 @@ describe("getPlanPreviewSummary", () => {
 
     expect(summary).toMatchObject({
       nameEs: "Plan base 5 días — hipertrofia",
-      durationWeeks: 4,
       daysPerWeek: 5,
       sessionDurationMinutes: 60,
     });
-    expect(summary.firstWeekSessions).toHaveLength(5);
-    expect(summary.firstWeekExerciseCount).toBe(20);
-    expect(summary.firstWeekUnilateralExerciseCount).toBeGreaterThan(0);
-    expect(summary.firstWeekPainSensitiveExerciseCount).toBeGreaterThan(0);
+    expect(summary.sessions).toHaveLength(5);
+    expect(summary.exerciseCount).toBe(20);
+    expect(summary.unilateralExerciseCount).toBeGreaterThan(0);
+    expect(summary.painSensitiveExerciseCount).toBeGreaterThan(0);
     expect(summary.previewBoundaryLabelsEs).toEqual(["Solo lectura", "Sin IA", "No guardado", "No activable"]);
     expect(summary.requiredSetLogFieldsEs).toEqual(["kg", "reps", "RIR", "dolor", "notas opcionales"]);
-    expect(summary.firstWeekSessions[0]?.exercises[0]).toMatchObject({
+    expect(summary.sessions[0]?.exercises[0]).toMatchObject({
       orderIndex: 1,
       nameEs: "Prensa de piernas",
       phaseLabelEs: "principal",

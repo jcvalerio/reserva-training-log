@@ -35,19 +35,13 @@ export const generatedExercisePrescriptionSchema = z
   });
 
 export const generatedPlanSessionSchema = z.object({
-  weekNumber: z.number().int().min(1).max(4),
-  dayIndex: z.number().int().min(1).max(5),
+  dayIndex: z.number().int().min(1).max(7),
   nameEs: z.string().min(1),
   nameEn: z.string().min(1).optional(),
   focus: z.string().min(1),
-  estimatedDurationMinutes: z.number().int().min(30).max(60),
+  estimatedDurationMinutes: z.number().int().min(15).max(180),
   mobilityNotesEs: z.string().min(1),
   exercises: z.array(generatedExercisePrescriptionSchema).min(3).max(10),
-});
-
-export const generatedPlanWeekSchema = z.object({
-  weekNumber: z.number().int().min(1).max(4),
-  sessions: z.array(generatedPlanSessionSchema).length(5),
 });
 
 export const generatedWorkoutPlanSchema = z.object({
@@ -56,11 +50,12 @@ export const generatedWorkoutPlanSchema = z.object({
   nameEs: z.string().min(1),
   nameEn: z.string().min(1).optional(),
   goal: z.literal("hypertrophy"),
-  durationWeeks: z.literal(4),
-  daysPerWeek: z.literal(5),
-  sessionDurationMinutes: z.literal(60),
+  // A plan is one routine that repeats indefinitely (no fixed week count) —
+  // daysPerWeek is the number of distinct training days in the rotation.
+  daysPerWeek: z.number().int().min(1).max(7),
+  sessionDurationMinutes: z.number().int().min(15).max(180),
   safetySummaryEs: z.string().min(1),
-  weeks: z.array(generatedPlanWeekSchema).length(4),
+  sessions: z.array(generatedPlanSessionSchema).min(1).max(7),
 });
 
 export type GeneratedWorkoutPlan = z.infer<typeof generatedWorkoutPlanSchema>;

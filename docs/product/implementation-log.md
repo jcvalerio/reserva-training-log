@@ -2,6 +2,56 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Custom plan builder: Phase A complete
+
+Status: completed (code). Deploy to Vercel production + manual verification against real prod data is the immediate next step, not yet done as of this entry.
+
+Context:
+- User wants each person using the app (three separate people — each with their own login, already supported by the existing per-`athleteProfile` multi-tenancy) to define their own real training routine, instead of everyone getting the same hardcoded example plan from `src/plans/seeded-plan.ts`.
+- Full design worked out in plan mode and independently reviewed by a Plan agent against the actual codebase before implementation started. Three decisions confirmed with the user: (1) a plan is one routine (K training days) that **repeats indefinitely** — no fixed week count, matching how the seeded plan already behaved (identical content every week; progression happens via logged weights, not different weekly content); (2) **free-text exercise entry**, matching the existing design; (3) **draft-first flow** — build incrementally, review, explicit "Activar" (reusing the `workoutPlan.status` `draft`/`archived` enum values that existed but were never used by any code path).
+- **No DB migration needed anywhere in this plan.** The live production DB (with the user's real activated plan + logged workout history from real-device testing) keeps its existing columns — `planSessionTemplate.weekNumber` and `workoutPlan.durationWeeks` become vestigial (always hardcoded to `1` for all plans going forward) rather than being dropped/altered. This was a deliberate choice to avoid any migration risk against live prod data.
+- Full design rationale, the two-phase split, and exact file-by-file plan are written out in `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md` — read that file for anything not covered here.
+- This entry replaces the prior "Phase A in progress (paused)" checkpoint from earlier the same day — that entry's TODO list is exactly what this iteration finished.
+
+Phase A ("flatten the week-block model into one repeating routine") — **done**:
+- `src/plans/generated-plan-schema.ts`, `src/plans/seeded-plan.ts`, `src/plans/plan-repository.ts`, `src/plans/plan-preview.ts`, `src/app/plan/plan-page-content.tsx`, `src/workouts/session-progress.ts` — all flattened as described in the paused checkpoint (see plan file for detail); these were already done and green before this iteration started.
+- Finished this iteration: `src/app/entrenar/entrenar-page-content.tsx` (+ test) now consumes flat `EntrenarSessionItem[]` from `buildEntrenarSessions` directly — no week grouping/headers, and the now-unreachable "completaste todas las sesiones" empty state was removed (the suggestion is never `null` for a non-empty plan). `src/app/entrenar/page.tsx` calls the renamed `buildEntrenarSessions`. `src/workouts/session-progress.test.ts` was fully rewritten against the new `getSuggestedTemplateId(templateIdsInOrder, latestByTemplateId: Map<string, WorkoutSession>)` signature — covers in-progress-always-wins, recency-based rotation, lowest-`dayIndex` tie-breaks (both for in-progress ties and "brand new plan" never-trained ties), and that it never returns `null` for a non-empty plan. `src/app/entrenar/[sessionId]/session-runner.tsx` and `src/app/progreso/progreso-page-content.tsx` both changed "Semana {weekNumber} · Día {dayIndex}" to just "Día {dayIndex}" (session-runner in both the active wizard header and `CompletedSessionSummary`; progreso on the session-history cards). Updated `entrenar-page-content.test.tsx` and `progreso-page-content.test.tsx` accordingly. `plan-page-content.test.tsx` needed no changes — it exercises `getPlanPreviewSummary`/`createSeededHypertrophyPlan` directly rather than hardcoding the renamed `PlanPreviewSummary` fields, so it was already compatible with the earlier flattening work.
+
+Phase B (the actual draft plan builder UI: `plan-builder-schema.ts`, `plan-builder-repository.ts`, `/app/plan/builder/*` routes and actions, tests) — **not started**. Full design already worked out in the plan file; start there once Phase A is deployed and verified.
+
+Separate, unrelated loose end also still open: the previous session's Vercel deployment-config commit (`vercel.json`, `package.json` engines fix, `.gitignore` entry) is **still only staged, never actually committed** — it hit the same intermittent `1Password: failed to fill whole buffer` git-signing error twice and was never retried after the conversation moved on to OAuth troubleshooting. It's already deployed and working in production regardless (Vercel doesn't need the commit to have already built from that working tree), but git history doesn't reflect it yet. Deliberately left staged-but-uncommitted again this iteration (kept out of the Phase A commit, since it's unrelated) — commit it whenever 1Password cooperates.
+
+Verification:
+- `nvm use v24.18.0`, then `npm run lint`, `npm run typecheck`, `npm run test` (23 files, 105 tests, all passing), `npm run build` — all green.
+
+Next iteration:
+- Deploy to Vercel production (`vercel deploy --prod --yes`) and manually verify `/plan`, `/entrenar`, `/progreso` against the real production DB's existing 4-week activated plan: plan overview shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion (never a dead "you're done" state), progress history cards show "Día N" not "Semana 1 · Día N," nothing crashes. Only after that, start Phase B.
+
+## 2026-07-29 — First production deploy on Vercel
+
+Status: completed.
+
+Context:
+- User wants to test the accumulated Slices 1-6 work on a real iPhone. Vercel deployment solves this more reliably than LAN dev-server tunneling (past iterations struggled with iPhone-reachable dev origins and OAuth redirect matching).
+- The existing Vercel project (`my-ai-personal-trainer`, custom domain `trainer.jcvalerio.com`) turned out to have unrelated content live on it (Clerk auth, `/en` redirect — doesn't match this app's Better Auth / no-locale-prefix setup). Confirmed with the user before touching anything; created a fresh project (`ai-personal-trainer-mvp`) instead of overwriting it.
+- Per `docs/architecture/release-workflow.md`'s already-documented environment model, production uses a separate Neon database from the dev database this session's testing has been using — the user created it and added `DATABASE_URL` directly via the Vercel dashboard as a **Sensitive** env var (write-only; not retrievable via `vercel env pull` or CLI by design).
+
+Implemented:
+- Linked a new Vercel project via `vercel link`; set `BETTER_AUTH_SECRET` (freshly generated), `BETTER_AUTH_URL` (`https://ai-personal-trainer-mvp.vercel.app`), and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (reused from local dev — same OAuth client, redirect URI added for the new domain) as production env vars via `vercel env add`.
+- Since `DATABASE_URL` is Sensitive and can't be pulled locally, added `vercel.json` with `"buildCommand": "npm run db:migrate && npm run build"` so migrations run as part of Vercel's own build (where the env var is available) instead of needing the secret locally. This also matches the release workflow doc's existing intent ("apply the same migration to production during/after the main deployment") — now automated. Migrations are idempotent (drizzle tracks applied ones), so this is safe on every future deploy too.
+- Fixed `package.json`'s `engines.node` from an exact patch pin (`"24.18.0"`) to `"24.x"` — Vercel's build environment rejects exact patch versions and only accepts major/range specifiers.
+- Deployed to production: `https://ai-personal-trainer-mvp.vercel.app`. Verified the homepage renders correctly (Spanish title, correct app shell) and migrations applied successfully during the build log.
+
+Verification:
+- Local `npm run lint` and `npm run typecheck` pass after the `package.json`/`vercel.json` changes.
+- Vercel build log shows migrations applying successfully against production, then `next build` completing with all expected routes.
+- `curl` confirms the deployed homepage returns 200 with correct content.
+- Did not verify Google sign-in end-to-end (needs the user to actually click through) — that plus real iPhone testing is the immediate next manual step.
+
+Next iteration:
+- User to test sign-in and the full flow (plan activation → session logging → progress) on a real iPhone against the production URL, and confirm the Google OAuth redirect URI was added correctly in Google Cloud Console.
+- Otherwise continuing per `docs/product/next-task.md`'s candidate list.
+
 ## 2026-07-29 — Per-category weight-increment accuracy (Slice 6)
 
 Status: completed.

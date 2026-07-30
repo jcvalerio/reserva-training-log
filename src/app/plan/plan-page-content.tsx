@@ -171,7 +171,7 @@ function SeededPlanPreview({
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <StatusTile label="Semanas" value={String(summary.durationWeeks)} />
+        <StatusTile label="Ejercicios" value={String(summary.exerciseCount)} />
         <StatusTile label="Días/sem" value={String(summary.daysPerWeek)} />
         <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
       </div>
@@ -190,7 +190,7 @@ function SeededPlanPreview({
         </div>
       </div>
 
-      <WeekOneSessions sessions={summary.firstWeekSessions} />
+      <PlanSessionsList sessions={summary.sessions} />
 
       <form action={activatePlanAction} className="mt-4">
         <SubmitButton className="w-full rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
@@ -231,7 +231,7 @@ function ActivePlanSummary({ summary, activatedAt }: { summary: PlanPreviewSumma
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <StatusTile label="Semanas" value={String(summary.durationWeeks)} />
+        <StatusTile label="Ejercicios" value={String(summary.exerciseCount)} />
         <StatusTile label="Días/sem" value={String(summary.daysPerWeek)} />
         <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
       </div>
@@ -250,15 +250,15 @@ function ActivePlanSummary({ summary, activatedAt }: { summary: PlanPreviewSumma
         </div>
       </div>
 
-      <WeekOneSessions sessions={summary.firstWeekSessions} />
+      <PlanSessionsList sessions={summary.sessions} />
     </section>
   );
 }
 
-function WeekOneSessions({ sessions }: { sessions: PlanPreviewSummary["firstWeekSessions"] }) {
+function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions"] }) {
   return (
     <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Semana 1</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Tu rutina</p>
       <div className="mt-3 grid gap-3">
         {sessions.map((session) => (
           <article key={session.dayIndex} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">

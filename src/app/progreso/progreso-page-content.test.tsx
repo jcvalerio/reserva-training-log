@@ -76,7 +76,7 @@ describe("ProgresoPageContent", () => {
     render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={completedSessions} />);
 
     expect(screen.getByRole("link", { name: /Pierna — cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
-    expect(screen.getByText(/Semana 1 · Día 1/)).toBeVisible();
+    expect(screen.getByText(/Día 1/)).toBeVisible();
     expect(
       screen.getByText("Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí."),
     ).toBeVisible();

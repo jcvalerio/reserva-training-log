@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { EntrenarSessionItem, EntrenarWeek } from "@/workouts/session-progress";
+import type { EntrenarSessionItem } from "@/workouts/session-progress";
 
 import { AppShell } from "../app-shell";
 import { FormStatusBanner } from "../form-status-banner";
@@ -8,12 +8,12 @@ import { SubmitButton } from "../submit-button";
 
 export function EntrenarPageContent({
   hasActivePlan,
-  weeks,
+  sessions,
   justCompleted,
   startOrResumeSessionAction,
 }: {
   hasActivePlan: boolean;
-  weeks: EntrenarWeek[];
+  sessions: EntrenarSessionItem[];
   justCompleted: boolean;
   startOrResumeSessionAction: (formData: FormData) => Promise<void>;
 }) {
@@ -40,8 +40,7 @@ export function EntrenarPageContent({
     );
   }
 
-  const allSessions = weeks.flatMap((week) => week.sessions);
-  const suggested = allSessions.find((session) => session.isSuggested);
+  const suggested = sessions.find((session) => session.isSuggested);
 
   return (
     <AppShell activeHref="/entrenar">
@@ -66,43 +65,30 @@ export function EntrenarPageContent({
           <p id="suggested-session-title" className="text-sm font-semibold text-emerald-200">
             Sugerido para hoy
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-zinc-100">
-            Semana {weeks.find((week) => week.sessions.includes(suggested))?.weekNumber} · Día {suggested.dayIndex}
-          </h2>
+          <h2 className="mt-2 text-xl font-semibold text-zinc-100">Día {suggested.dayIndex}</h2>
           <p className="mt-1 font-semibold text-zinc-100">{suggested.nameEs}</p>
           <p className="mt-1 text-sm leading-6 text-zinc-400">{suggested.focus}</p>
           <SessionAction session={suggested} action={startOrResumeSessionAction} emphasize />
         </section>
-      ) : (
-        <section className="mt-7 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-emerald-300/30">
-          Completaste todas las sesiones planificadas de tu plan activo.
-        </section>
-      )}
+      ) : null}
 
-      <section className="mt-6 grid gap-5 pb-10">
-        {weeks.map((week) => (
-          <div key={week.weekNumber}>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Semana {week.weekNumber}</p>
-            <div className="mt-3 grid gap-2">
-              {week.sessions.map((session) => (
-                <article
-                  key={session.templateId}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                      Día {session.dayIndex}
-                    </p>
-                    <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
-                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(session.status)}`}>
-                      {statusLabelEs(session.status)}
-                    </span>
-                  </div>
-                  <SessionAction session={session} action={startOrResumeSessionAction} />
-                </article>
-              ))}
+      <section className="mt-6 grid gap-2 pb-10">
+        {sessions.map((session) => (
+          <article
+            key={session.templateId}
+            className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Día {session.dayIndex}
+              </p>
+              <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
+              <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(session.status)}`}>
+                {statusLabelEs(session.status)}
+              </span>
             </div>
-          </div>
+            <SessionAction session={session} action={startOrResumeSessionAction} />
+          </article>
         ))}
       </section>
     </AppShell>

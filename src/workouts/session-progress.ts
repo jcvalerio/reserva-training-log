@@ -40,16 +40,42 @@ export function getSessionStatus(latest: WorkoutSession | undefined): SessionSta
   return "not_started";
 }
 
+/**
+ * A plan repeats indefinitely, so "what's next" is never "nothing, you're
+ * done" — it's a rotation. Priority: (1) an unfinished (active) session
+ * always wins, so the rotation never skips past abandoned-mid-session work;
+ * (2) otherwise, whichever template was trained longest ago (or never)
+ * comes up next, which naturally cycles forever with no explicit "cycle"
+ * bookkeeping. Ties (including "brand new plan, nothing done yet," where
+ * every template ties at "never") break by template order (lowest dayIndex)
+ * for determinism.
+ */
 export function getSuggestedTemplateId(
   templateIdsInOrder: string[],
-  statusByTemplateId: Map<string, SessionStatus>,
+  latestByTemplateId: Map<string, WorkoutSession>,
 ): string | null {
-  for (const templateId of templateIdsInOrder) {
-    if (statusByTemplateId.get(templateId) !== "completed") {
-      return templateId;
-    }
+  if (templateIdsInOrder.length === 0) {
+    return null;
   }
-  return null;
+
+  const inProgress = templateIdsInOrder.find((templateId) => latestByTemplateId.get(templateId)?.status === "active");
+  if (inProgress) {
+    return inProgress;
+  }
+
+  return templateIdsInOrder.reduce((oldestTemplateId, templateId) =>
+    recencyKey(latestByTemplateId.get(templateId)) < recencyKey(latestByTemplateId.get(oldestTemplateId))
+      ? templateId
+      : oldestTemplateId,
+  );
+}
+
+function recencyKey(session: WorkoutSession | undefined): number {
+  if (!session) {
+    return -Infinity;
+  }
+  const timestamp = session.completedAt ?? session.startedAt;
+  return timestamp ? timestamp.getTime() : -Infinity;
 }
 
 type EntrenarSessionItemBase = {
@@ -65,49 +91,39 @@ export type EntrenarSessionItem =
   | (EntrenarSessionItemBase & { status: "not_started" })
   | (EntrenarSessionItemBase & { status: "in_progress" | "completed"; sessionId: string });
 
-export type EntrenarWeek = {
-  weekNumber: number;
-  sessions: EntrenarSessionItem[];
-};
-
-export function buildEntrenarWeeks(
+/**
+ * Flat, ordered list of a plan's training days for the /entrenar picker.
+ * There's no week grouping — a plan is one routine that repeats
+ * indefinitely (weekNumber is a vestigial DB column, always 1 for plans
+ * activated under this model). Plans activated under the old 4-week model
+ * still work here — the underlying data just has more (duplicate-looking)
+ * template rows until the profile activates a plan under the new model.
+ */
+export function buildEntrenarSessions(
   activePlan: ActivePlanWithSessions,
   workoutSessions: WorkoutSession[],
-): EntrenarWeek[] {
+): EntrenarSessionItem[] {
   const latestByTemplateId = getLatestSessionByTemplateId(workoutSessions);
-  const templateIdsInOrder = activePlan.sessions.map((session) => session.template.id);
-  const statusByTemplateId = new Map(
-    templateIdsInOrder.map(
-      (templateId) => [templateId, getSessionStatus(latestByTemplateId.get(templateId))] as const,
-    ),
-  );
-  const suggestedTemplateId = getSuggestedTemplateId(templateIdsInOrder, statusByTemplateId);
-  const weekNumbers = [...new Set(activePlan.sessions.map((session) => session.template.weekNumber))].sort(
-    (a, b) => a - b,
-  );
+  const orderedSessions = [...activePlan.sessions].sort((a, b) => a.template.dayIndex - b.template.dayIndex);
+  const templateIdsInOrder = orderedSessions.map((session) => session.template.id);
+  const suggestedTemplateId = getSuggestedTemplateId(templateIdsInOrder, latestByTemplateId);
 
-  return weekNumbers.map((weekNumber) => ({
-    weekNumber,
-    sessions: activePlan.sessions
-      .filter((session) => session.template.weekNumber === weekNumber)
-      .sort((a, b) => a.template.dayIndex - b.template.dayIndex)
-      .map((session): EntrenarSessionItem => {
-        const templateId = session.template.id;
-        const status = statusByTemplateId.get(templateId) ?? "not_started";
-        const shared: EntrenarSessionItemBase = {
-          templateId,
-          dayIndex: session.template.dayIndex,
-          nameEs: session.template.nameEs,
-          focus: session.template.focus,
-          exerciseCount: session.exercises.length,
-          isSuggested: templateId === suggestedTemplateId,
-        };
+  return orderedSessions.map((session): EntrenarSessionItem => {
+    const templateId = session.template.id;
+    const status = getSessionStatus(latestByTemplateId.get(templateId));
+    const shared: EntrenarSessionItemBase = {
+      templateId,
+      dayIndex: session.template.dayIndex,
+      nameEs: session.template.nameEs,
+      focus: session.template.focus,
+      exerciseCount: session.exercises.length,
+      isSuggested: templateId === suggestedTemplateId,
+    };
 
-        const latest = latestByTemplateId.get(templateId);
-        if (status !== "not_started" && latest) {
-          return { ...shared, status, sessionId: latest.id };
-        }
-        return { ...shared, status: "not_started" };
-      }),
-  }));
+    const latest = latestByTemplateId.get(templateId);
+    if (status !== "not_started" && latest) {
+      return { ...shared, status, sessionId: latest.id };
+    }
+    return { ...shared, status: "not_started" };
+  });
 }
