@@ -2,9 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
-## 2026-07-30 — Custom plan builder: Phase A complete
+## 2026-07-30 — Custom plan builder: Phase B (draft plan builder) implemented
 
-Status: completed (code). Deploy to Vercel production + manual verification against real prod data is the immediate next step, not yet done as of this entry.
+Status: code complete, `lint`/`typecheck`/`test` (123 passing)/`build` all green. Not yet committed/deployed/verified as of writing this entry — that's the immediate next step.
+
+Context:
+- Direct continuation of Phase A (see the entry below). Full design was already worked out in `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md`'s "Phase B" section before Phase A even started; this iteration implemented it largely as specified, with a couple of small additions the design left implicit (see below).
+
+Implemented:
+- `src/plans/plan-builder-schema.ts` (new) — mirrors `src/baseline/baseline-schema.ts`'s `z.preprocess`-based style. `planBuilderSetupInputSchema`/`parsePlanBuilderSetupFormData` for the draft-creation form (`nameEs`, `daysPerWeek`). `planBuilderSessionInfoInputSchema`/`parsePlanBuilderSessionInfoFormData` — not explicitly named in the design doc, but needed since `planSessionTemplate` has its own required fields (`nameEs`, `focus`, `estimatedDurationMinutes`, `mobilityNotesEs`) separate from the exercise list; added as its own small schema rather than overloading the exercise one. `planBuilderExerciseInputSchema`/`parsePlanBuilderSessionFormData` — per-exercise-row schema with the defaults the design specified (`phase="main"`, `sideMode="bilateral"`, `restSeconds=90`, `notesEs="Ajusta la carga y conserva técnica."`, `painSensitive=false`, `substitutionOptionsEs=[]`, `incrementCategory=null`), parsing a dynamic number of rows via a hidden `rowCount` field and skipping entirely-blank rows (so an unused "+ Agregar ejercicio" row doesn't force a validation error).
+- `src/plans/plan-builder-repository.ts` (new) — `getDraftPlanForProfile`, `createDraftPlan` (one draft at a time, app-level check only, per design), `saveDraftSession` (find-or-create the `planSessionTemplate` row, then delete-then-bulk-insert its `exercisePrescription` rows — mirrors `saveBaselineLiftsForProfile`'s exact replace-all pattern), `deleteDraftSession`, `activateDraftPlan` (archives any current active plan first, then activates the draft — required ordering because of the partial unique index on `status='active'`; the second update is wrapped so a failure surfaces as a thrown error the caller redirects on, leaving the draft row untouched).
+- `src/app/plan/builder/actions.ts`, `page.tsx`, `builder-page-content.tsx` (+ test) — overview page: draft-creation form when there's no draft; once a draft exists, a day-by-day list (1..daysPerWeek) showing each day as either defined (name, exercise count, Editar/Eliminar) or "Sin definir" (+ Agregar link), and an "Activar este plan" button that only renders once every day has ≥1 exercise (`activateDraftPlanAction` independently re-validates this server-side before calling the repository, redirecting to `?error=incomplete` otherwise — the button being hidden client-side isn't trusted as the only guard).
+- `src/app/plan/builder/session/[dayIndex]/page.tsx` + `session-editor-form.tsx` (client, + test) — one flat form per session mirroring `baseline-intake-form.tsx`'s add/remove-row pattern: session name/focus fields plus a dynamic list of exercise rows (name, phase, side mode, sets, rep range, RIR, rest, increment category, substitutions, notes, pain-sensitive checkbox), "+ Agregar ejercicio" to append a blank row client-side, "Eliminar" per row (always keeps at least one). Row `key`s are generated from a `useRef` counter seeded from the initial row count rather than `crypto.randomUUID()`, specifically to avoid a hydration mismatch between server and client render passes.
+- `src/app/plan/plan-page-content.tsx` — added a "¿Prefieres tu propia rutina?" / "Crear mi propio plan" card linking to `/plan/builder`, shown whenever there's no active plan (alongside the existing seeded-plan quick-start when foundations are ready, or alone when they aren't — building a custom routine doesn't depend on baseline lifts/measurements the way the non-AI seeded-plan review gate does).
+
+Verification:
+- `nvm use v24.18.0`, then `npm run lint`, `npm run typecheck`, `npm run test` (26 files, 123 tests, all passing — added `plan-builder-schema.test.ts`, `builder-page-content.test.tsx`, `session-editor-form.test.tsx`), `npm run build` (confirms `/plan/builder` and `/plan/builder/session/[dayIndex]` compile as dynamic routes) — all green.
+- Not yet done: commit, deploy, and a real end-to-end pass by the user (create draft → add each day's exercises → activate → confirm it replaces the seeded/prior plan as active, old history stays visible in `/progreso`, and session logging/previous-performance/progression suggestions keep working against the new plan).
+
+Next iteration:
+- Commit, deploy to Vercel production, and have the user build a real routine end-to-end against production to close out this feature.
+
+## 2026-07-30 — Custom plan builder: Phase A complete, deployed, verified
+
+Status: completed. Committed (`b8b2fd4`), deployed to Vercel production, and manually verified by the user against the real production DB's existing 4-week activated plan: `/plan` shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion and no "Semana" headers, `/progreso` session-history cards show "Día N" not "Semana 1 · Día N," nothing crashed. Also cleared the separate loose end from the prior session while 1Password was cooperating: committed the previously-staged Vercel deployment-config changes (`c6471e3`) — no functional change, git history now matches what was already live.
 
 Context:
 - User wants each person using the app (three separate people — each with their own login, already supported by the existing per-`athleteProfile` multi-tenancy) to define their own real training routine, instead of everyone getting the same hardcoded example plan from `src/plans/seeded-plan.ts`.
@@ -25,7 +46,7 @@ Verification:
 - `nvm use v24.18.0`, then `npm run lint`, `npm run typecheck`, `npm run test` (23 files, 105 tests, all passing), `npm run build` — all green.
 
 Next iteration:
-- Deploy to Vercel production (`vercel deploy --prod --yes`) and manually verify `/plan`, `/entrenar`, `/progreso` against the real production DB's existing 4-week activated plan: plan overview shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion (never a dead "you're done" state), progress history cards show "Día N" not "Semana 1 · Día N," nothing crashes. Only after that, start Phase B.
+- Start Phase B (the actual draft plan builder: `plan-builder-schema.ts`, `plan-builder-repository.ts`, `/app/plan/builder/*` routes and actions, tests). Full design already worked out in `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md`.
 
 ## 2026-07-29 — First production deploy on Vercel
 

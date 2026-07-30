@@ -1,19 +1,19 @@
 # Next Task
 
-## Status: Phase A code complete — deploy and verify, then start Phase B
+## Status: Phase A and Phase B both code-complete — commit, deploy, and verify Phase B end-to-end
 
-Slices 1-6 (see `docs/product/implementation-log.md` for their history) shipped and are live in production. Since then, work has been underway on letting each person (the user, Athlete B, Athlete C — separate logins already supported) define their own real routine instead of everyone sharing the one hardcoded seeded plan. **Phase A (flatten the week-block model into one indefinitely-repeating routine) is now code-complete**: `lint`, `typecheck`, `test` (105 passing), and `build` are all green, but the changes are not yet committed, deployed, or verified against real production data.
+Slices 1-6 (see `docs/product/implementation-log.md` for their history) shipped and are live in production. Since then, work has been underway on letting each person (the user, Athlete B, Athlete C — separate logins already supported) define their own real routine instead of everyone sharing the one hardcoded seeded plan. **Phase A (flatten the week-block model) is done, deployed, and verified.** **Phase B (the actual draft plan builder) is now code-complete** — `lint`, `typecheck`, `test` (123 passing), and `build` are all green — but not yet committed, deployed, or verified end-to-end.
 
-**Read `docs/product/implementation-log.md`'s "2026-07-30 — Custom plan builder: Phase A complete" entry and the full design plan at `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md` before doing anything else.** This file only summarizes the immediate next steps; those two are the source of truth for the design and exact status.
+**Read `docs/product/implementation-log.md`'s "2026-07-30 — Custom plan builder: Phase B (draft plan builder) implemented" entry and the full design plan at `/Users/jcvalerio/.claude/plans/can-you-check-the-mutable-hollerith.md` before doing anything else.** This file only summarizes the immediate next steps; those two are the source of truth for the design and exact status.
 
 ## Immediate next steps
 
 In order:
-1. Commit the Phase A changes (conventional commit, e.g. `refactor: flatten plan schema to indefinite-repeat model`) — keep it separate from the unrelated, already-staged deployment-config commit (see below).
+1. Commit the Phase B changes (conventional commit, e.g. `feat: add draft plan builder`).
 2. Deploy to Vercel production (`vercel deploy --prod --yes`).
-3. Manually verify `/plan`, `/entrenar`, `/progreso` against the real production DB's existing 4-week activated plan: plan overview shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion (never a dead "you're done" state), progress history cards show "Día N" not "Semana 1 · Día N," nothing crashes.
+3. Have the user build a real routine end-to-end against production: create a draft, add exercises for each day, activate it, and confirm it replaces the prior active plan, old logged history stays visible in `/progreso`, and session logging/previous-performance/progression suggestions keep working unchanged against the new plan.
 
-Only after that: **Phase B** — the actual draft plan builder (`plan-builder-schema.ts`, `plan-builder-repository.ts`, `/app/plan/builder/*` routes and actions, tests) — not started yet. Full design already worked out in the plan file.
+Once that's confirmed, the custom plan builder feature is done. No further phases are planned for it; see the "Deferred candidates" list below for what's next.
 
 ## Separate loose end (unrelated to the plan builder, also still open)
 

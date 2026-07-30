@@ -89,9 +89,12 @@ export function PlanPageContent({
 
         {activePlanPreview ? (
           <ActivePlanSummary summary={activePlanPreview} activatedAt={activatedAt} />
-        ) : seededPreview ? (
-          <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} />
-        ) : null}
+        ) : (
+          <>
+            {seededPreview ? <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} /> : null}
+            <CustomPlanBuilderEntry />
+          </>
+        )}
 
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
@@ -201,6 +204,25 @@ function SeededPlanPreview({
         Al activar, este plan pasa a ser tu plan real y guardado. Editar y registrar series quedan fuera de esta
         iteración.
       </p>
+    </section>
+  );
+}
+
+function CustomPlanBuilderEntry() {
+  return (
+    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-labelledby="custom-plan-builder-title">
+      <p id="custom-plan-builder-title" className="text-sm font-semibold text-zinc-100">
+        ¿Prefieres tu propia rutina?
+      </p>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        Define tus propios días de entrenamiento y ejercicios, revísalos y actívalos cuando estén listos.
+      </p>
+      <Link
+        href="/plan/builder"
+        className="mt-4 block rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        Crear mi propio plan
+      </Link>
     </section>
   );
 }
