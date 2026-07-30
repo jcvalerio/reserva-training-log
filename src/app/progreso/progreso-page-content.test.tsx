@@ -2,10 +2,26 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
-import type { ExerciseImprovementRow } from "@/workouts/improvement";
+import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/improvement";
 import type { CompletedSessionSummary, WorkoutSession } from "@/workouts/workout-repository";
 
 import { ProgresoPageContent } from "./progreso-page-content";
+
+function buildImprovement(overrides: Partial<ExerciseImprovement> = {}): ExerciseImprovement {
+  return {
+    improved: false,
+    signals: [],
+    latestVolumeLoadKg: 800,
+    previousVolumeLoadKg: 800,
+    latestMaxPain: 0,
+    previousMaxPain: 0,
+    latestAvgWeightKg: 80,
+    previousAvgWeightKg: 80,
+    latestAvgReps: 10,
+    previousAvgReps: 10,
+    ...overrides,
+  };
+}
 
 function buildTemplate(overrides: Partial<PlanSessionTemplate> = {}): PlanSessionTemplate {
   return {
@@ -71,14 +87,12 @@ describe("ProgresoPageContent", () => {
       {
         exerciseNameEs: "Prensa de piernas",
         latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: {
+        improvement: buildImprovement({
           improved: true,
           signals: ["volume_load"],
           latestVolumeLoadKg: 840,
           previousVolumeLoadKg: 800,
-          latestMaxPain: 0,
-          previousMaxPain: 0,
-        },
+        }),
       },
     ];
     const completedSessions: CompletedSessionSummary[] = [
@@ -99,14 +113,7 @@ describe("ProgresoPageContent", () => {
       {
         exerciseNameEs: "Prensa de piernas",
         latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: {
-          improved: false,
-          signals: [],
-          latestVolumeLoadKg: 805,
-          previousVolumeLoadKg: 800,
-          latestMaxPain: 0,
-          previousMaxPain: 0,
-        },
+        improvement: buildImprovement({ latestVolumeLoadKg: 805, previousVolumeLoadKg: 800 }),
       },
     ];
     const completedSessions: CompletedSessionSummary[] = [

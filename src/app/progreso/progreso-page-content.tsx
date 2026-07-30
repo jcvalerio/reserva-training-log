@@ -126,7 +126,12 @@ function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {
 }
 
 function signalLabelEs(signal: ImprovementSignal) {
-  return { volume_load: "Volumen +5%", pain: "Dolor -2" }[signal];
+  return {
+    volume_load: "Volumen +5%",
+    pain: "Dolor -2",
+    reps_at_load: "Reps +5% (mismo peso)",
+    load_at_reps: "Peso +5% (mismas reps)",
+  }[signal];
 }
 
 function formatDate(date: Date | null) {

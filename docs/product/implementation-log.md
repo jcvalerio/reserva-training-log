@@ -2,6 +2,28 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-29 — Remaining 5% improvement signals (Slice 5)
+
+Status: completed.
+
+Context:
+- Continuation of Slice 4, chosen autonomously per the user's standing "keep going" instruction: of the 4 remaining signals from `docs/product/progression-rules.md`'s "5% improvement definition," 2 were cleanly implementable with existing data (reps-at-same-load, load-at-same-reps) and 2 were not (estimated 1RM needs a formula choice; asymmetry needs a `baselineLift` join not modeled at the instance-comparison level) — implemented the clean 2, left the other 2 explicitly documented rather than rushed.
+- Note: the Slice 4 commit initially failed twice with `1Password: failed to fill whole buffer` (SSH commit signing via `op-ssh-sign` unavailable). Did not bypass signing; work stayed staged until the user returned and asked to retry, at which point the commit succeeded normally.
+
+Implemented:
+- `src/workouts/improvement.ts`: extended `computeExerciseImprovement` with `reps_at_load` (reps up >=5% at unchanged load, defined as average weight within 1% tolerance, with average RIR drift <=1) and `load_at_reps` (load up >=5% at same-or-higher reps, average RIR drift <=1). `ExerciseImprovement` now also carries `latestAvgWeightKg`/`previousAvgWeightKg`/`latestAvgReps`/`previousAvgReps` for display.
+- `src/app/progreso/progreso-page-content.tsx`: added Spanish labels for the two new signal chips.
+- Updated `docs/product/milestones.md` (M5 acceptance line now "mostly done," 4 of 6 signals) and `docs/product/next-task.md`.
+
+Verification:
+- `npm run lint` passes.
+- `npm run typecheck` passes.
+- `npm run test` passes: 23 files, 90 tests (extended `improvement.test.ts` with 5 new cases; updated `progreso-page-content.test.tsx` fixtures for the new `ExerciseImprovement` fields).
+- `npm run build` passes. No schema/migration changes.
+
+Next iteration:
+- Continuing autonomously. See `docs/product/next-task.md`; next candidate under consideration is per-category weight-increment accuracy (Slice 3's flat ±5% suggestion), since it's a self-contained, well-scoped follow-up with a clear existing spec (`docs/product/progression-rules.md`'s category table) — estimated 1RM and asymmetry are flagged as needing an explicit methodology choice rather than a silent pick.
+
 ## 2026-07-28 — Progress history page (Slice 4)
 
 Status: completed.

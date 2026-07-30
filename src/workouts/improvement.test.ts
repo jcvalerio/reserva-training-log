@@ -74,4 +74,49 @@ describe("computeExerciseImprovement", () => {
     expect(result.signals).toEqual([]);
     expect(result.previousVolumeLoadKg).toBe(0);
   });
+
+  it("flags reps_at_load when reps increase >=5% at the same load and similar RIR", () => {
+    const previous = [buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 })];
+    const latest = [buildSet({ actualWeightKg: "80.00", actualReps: 11, rir: 2 })]; // +10% reps, same load
+
+    const result = computeExerciseImprovement(latest, previous);
+
+    expect(result.signals).toContain("reps_at_load");
+  });
+
+  it("does not flag reps_at_load when the load also changed", () => {
+    const previous = [buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 })];
+    const latest = [buildSet({ actualWeightKg: "85.00", actualReps: 11, rir: 2 })];
+
+    const result = computeExerciseImprovement(latest, previous);
+
+    expect(result.signals).not.toContain("reps_at_load");
+  });
+
+  it("does not flag reps_at_load when RIR drifted by more than 1", () => {
+    const previous = [buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 3 })];
+    const latest = [buildSet({ actualWeightKg: "80.00", actualReps: 11, rir: 1 })];
+
+    const result = computeExerciseImprovement(latest, previous);
+
+    expect(result.signals).not.toContain("reps_at_load");
+  });
+
+  it("flags load_at_reps when load increases >=5% at the same-or-higher reps and similar RIR", () => {
+    const previous = [buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 })];
+    const latest = [buildSet({ actualWeightKg: "85.00", actualReps: 10, rir: 2 })]; // +6.25% load, same reps
+
+    const result = computeExerciseImprovement(latest, previous);
+
+    expect(result.signals).toContain("load_at_reps");
+  });
+
+  it("does not flag load_at_reps when reps dropped", () => {
+    const previous = [buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 })];
+    const latest = [buildSet({ actualWeightKg: "88.00", actualReps: 7, rir: 2 })];
+
+    const result = computeExerciseImprovement(latest, previous);
+
+    expect(result.signals).not.toContain("load_at_reps");
+  });
 });

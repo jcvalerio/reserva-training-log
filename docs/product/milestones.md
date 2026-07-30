@@ -100,7 +100,7 @@ Acceptance:
 - Repeated exercises show previous kg/reps/RIR/pain. **Done.**
 - The app suggests increases when performance and pain permit. **Done.**
 - The app holds/reduces/replaces when pain or fatigue flags appear. **Done.**
-- A 5% improvement signal can be shown after repeated sessions. **Partially done** — `/progreso` (`src/app/progreso/`) compares each exercise's two most recent completed instances and flags 2 of the 6 signals in `docs/product/progression-rules.md`'s "5% improvement definition": total volume load and pain improvement at a maintained workload. Reps-at-load, load-at-reps, estimated 1RM, and asymmetry improvement are not implemented yet (see `docs/product/next-task.md`).
+- A 5% improvement signal can be shown after repeated sessions. **Mostly done** — `/progreso` (`src/app/progreso/`) compares each exercise's two most recent completed instances and flags 4 of the 6 signals in `docs/product/progression-rules.md`'s "5% improvement definition": total volume load, pain improvement at a maintained workload, reps at the same load, and load at the same reps (both RIR-gated). Estimated 1RM and asymmetry improvement are not implemented yet (see `docs/product/next-task.md`).
 
 ## M6 — Two-week field validation
 
