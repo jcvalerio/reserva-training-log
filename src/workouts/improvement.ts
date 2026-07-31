@@ -1,6 +1,12 @@
 import { toStrengthSetLog, type ExerciseInstance, type SetLog, type StrengthSetLog } from "./workout-repository";
 
-export type ImprovementSignal = "volume_load" | "pain" | "reps_at_load" | "load_at_reps";
+export type ImprovementSignal =
+  | "volume_load"
+  | "pain"
+  | "reps_at_load"
+  | "load_at_reps"
+  | "estimated_1rm"
+  | "asymmetry_performance";
 
 export type ExerciseImprovement = {
   improved: boolean;
@@ -13,22 +19,41 @@ export type ExerciseImprovement = {
   previousAvgWeightKg: number;
   latestAvgReps: number;
   previousAvgReps: number;
+  // null when neither instance has a set within the rep-range Epley is
+  // reliable for (see ONE_RM_MAX_REPS) — there's nothing trustworthy to show.
+  latestEstimated1RmKg: number | null;
+  previousEstimated1RmKg: number | null;
+  // null for bilateral exercises — there's no left/right gap to track.
+  latestAsymmetryGapKg: number | null;
+  previousAsymmetryGapKg: number | null;
 };
 
 const IMPROVEMENT_RATIO = 0.05;
 const SAME_LOAD_TOLERANCE = 0.01;
 const SIMILAR_RIR_TOLERANCE = 1;
 
+// Epley's formula degrades badly outside a low-to-moderate rep range; sets
+// beyond this are excluded from the 1RM estimate entirely rather than
+// silently feeding it a number nobody should trust.
+const ONE_RM_MAX_REPS = 15;
+// "Compatible rep ranges" (progression-rules.md): only compare two 1RM
+// estimates when they were derived from a similar number of reps, so the
+// two estimates carry roughly the same error margin.
+const ONE_RM_REP_COMPATIBILITY_TOLERANCE = 5;
+
 /**
- * Implements four of the six signals from docs/product/progression-rules.md's
- * "5% improvement definition": total volume load, pain improvement at a
- * maintained workload, reps at the same load, and load at the same reps
- * (both RIR-gated). Estimated 1RM and asymmetry improvement are deferred
- * (see docs/product/next-task.md) — 1RM needs a formula choice and
- * asymmetry needs a left/right comparison against baselineLift that this
- * instance-level comparison doesn't model.
+ * Implements all six signals from docs/product/progression-rules.md's "5%
+ * improvement definition": total volume load, pain improvement at a
+ * maintained workload, reps at the same load, load at the same reps (both
+ * RIR-gated), estimated 1RM (RIR-adjusted Epley, gated to compatible rep
+ * ranges), and asymmetry improvement (left/right volume gap, unilateral
+ * exercises only).
  */
-export function computeExerciseImprovement(rawLatestSets: SetLog[], rawPreviousSets: SetLog[]): ExerciseImprovement {
+export function computeExerciseImprovement(
+  rawLatestSets: SetLog[],
+  rawPreviousSets: SetLog[],
+  isUnilateral: boolean,
+): ExerciseImprovement {
   // Both instance-fetching call sites already scope to prescriptionType =
   // 'strength' (see getRecentExerciseInstancesByName), so this throws only
   // if that invariant is ever broken, rather than silently treating a
@@ -47,6 +72,12 @@ export function computeExerciseImprovement(rawLatestSets: SetLog[], rawPreviousS
   const latestAvgRir = average(latestSets.map((set) => set.rir));
   const previousAvgRir = average(previousSets.map((set) => set.rir));
   const rirIsSimilar = Math.abs(latestAvgRir - previousAvgRir) <= SIMILAR_RIR_TOLERANCE;
+
+  const latestBest1Rm = bestEstimated1Rm(latestSets);
+  const previousBest1Rm = bestEstimated1Rm(previousSets);
+
+  const latestAsymmetryGapKg = isUnilateral ? asymmetryGapKg(latestSets) : null;
+  const previousAsymmetryGapKg = isUnilateral ? asymmetryGapKg(previousSets) : null;
 
   const signals: ImprovementSignal[] = [];
 
@@ -83,6 +114,28 @@ export function computeExerciseImprovement(rawLatestSets: SetLog[], rawPreviousS
     signals.push("load_at_reps");
   }
 
+  if (
+    latestBest1Rm &&
+    previousBest1Rm &&
+    Math.abs(latestBest1Rm.actualReps - previousBest1Rm.actualReps) <= ONE_RM_REP_COMPATIBILITY_TOLERANCE &&
+    previousBest1Rm.oneRmKg > 0 &&
+    latestBest1Rm.oneRmKg >= previousBest1Rm.oneRmKg * (1 + IMPROVEMENT_RATIO) &&
+    latestMaxPain <= 2
+  ) {
+    signals.push("estimated_1rm");
+  }
+
+  if (
+    isUnilateral &&
+    previousAsymmetryGapKg !== null &&
+    latestAsymmetryGapKg !== null &&
+    previousAsymmetryGapKg > 0 &&
+    latestAsymmetryGapKg <= previousAsymmetryGapKg * (1 - IMPROVEMENT_RATIO) &&
+    latestMaxPain <= previousMaxPain
+  ) {
+    signals.push("asymmetry_performance");
+  }
+
   return {
     improved: signals.length > 0,
     signals,
@@ -94,6 +147,10 @@ export function computeExerciseImprovement(rawLatestSets: SetLog[], rawPreviousS
     previousAvgWeightKg,
     latestAvgReps,
     previousAvgReps,
+    latestEstimated1RmKg: latestBest1Rm?.oneRmKg ?? null,
+    previousEstimated1RmKg: previousBest1Rm?.oneRmKg ?? null,
+    latestAsymmetryGapKg,
+    previousAsymmetryGapKg,
   };
 }
 
@@ -120,7 +177,7 @@ export function buildExerciseImprovements(instancesByName: Map<string, ExerciseI
 
     rows.push({
       exerciseNameEs,
-      improvement: computeExerciseImprovement(latest.sets, previous.sets),
+      improvement: computeExerciseImprovement(latest.sets, previous.sets, latest.isUnilateral),
       latestCompletedAt: latest.completedAt,
     });
   }
@@ -147,4 +204,35 @@ function average(values: number[]): number {
 
 function closeEnough(a: number, b: number, tolerance: number): boolean {
   return Math.abs(a - b) <= b * tolerance;
+}
+
+// RIR-adjusted Epley: treats RIR as reps left in the tank toward failure, so
+// a set stopped early (high RIR) still estimates a meaningful 1RM instead of
+// underestimating it the way plugging in raw actualReps would.
+function estimated1RmKg(set: StrengthSetLog): number {
+  const weight = Number(set.actualWeightKg);
+  const effectiveReps = set.actualReps + set.rir;
+  return weight * (1 + effectiveReps / 30);
+}
+
+function bestEstimated1Rm(sets: StrengthSetLog[]): { oneRmKg: number; actualReps: number } | null {
+  let best: { oneRmKg: number; actualReps: number } | null = null;
+
+  for (const set of sets) {
+    if (set.actualReps > ONE_RM_MAX_REPS) {
+      continue;
+    }
+    const oneRmKg = estimated1RmKg(set);
+    if (!best || oneRmKg > best.oneRmKg) {
+      best = { oneRmKg, actualReps: set.actualReps };
+    }
+  }
+
+  return best;
+}
+
+function asymmetryGapKg(sets: StrengthSetLog[]): number {
+  const leftVolume = totalVolumeLoadKg(sets.filter((set) => set.side === "left"));
+  const rightVolume = totalVolumeLoadKg(sets.filter((set) => set.side === "right"));
+  return Math.abs(leftVolume - rightVolume);
 }

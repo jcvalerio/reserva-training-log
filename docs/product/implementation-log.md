@@ -2,6 +2,25 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Estimated 1RM + asymmetry-improvement signals on /progreso
+
+Status: code complete, `lint`/`typecheck`/`test` (172 passing)/`build` all green. `db:generate` confirms zero schema diff.
+
+Closes out `docs/product/progression-rules.md`'s "5% improvement definition" — all 6 signals are now implemented (previously 4/6, the remaining 2 were explicitly deferred pending a methodology choice, not silently skipped). Confirmed both choices with the user via `AskUserQuestion` before implementing, per that deferral's own note:
+
+- **1RM formula**: RIR-adjusted Epley — `1RM = weight × (1 + (actualReps + rir) / 30)`, treating RIR as reps-in-the-tank toward failure. Chosen over raw-reps Epley because most sets in this app target RIR 2, not failure, and the rest of the progression engine already reasons in RIR terms.
+- **Asymmetry scope**: both variants, per the doc's "left/right measurement **or** performance gap" wording.
+
+Implemented:
+- `src/workouts/improvement.ts`: two new `ImprovementSignal`s. `estimated_1rm` — takes the best (highest-estimate) set per instance, excluding sets over 15 reps (Epley reliability ceiling), and only fires when the two instances' rep counts are within 5 of each other ("compatible rep ranges" — instances derived from very different rep counts carry very different estimation error and shouldn't be compared). `asymmetry_performance` — for unilateral exercises only, compares left-vs-right volume-load gap between instances; fires when the gap shrinks ≥5% *and* pain doesn't increase (spec's exact wording, a different pain gate shape than the other signals). `computeExerciseImprovement` gained an `isUnilateral` parameter.
+- `src/workouts/workout-repository.ts`: `getRecentExerciseInstancesByName` now also selects `isUnilateral` so `buildExerciseImprovements` can pass it through.
+- `src/measurements/measurement-trend.ts`: added `thighGapImproved`/`calfGapImproved` — a *separate* comparison window from the existing "Tendencia corporal" card's oldest-vs-latest deltas. Per the doc, improvement signals compare latest vs. the *immediately preceding* measurement, not first-ever vs. latest, so this reuses `calculateMeasurementGaps` but on `measurements[0]` vs `measurements[1]` specifically. No pain gate here — `bodyMeasurement` has no pain field.
+- `src/app/progreso/progreso-page-content.tsx`: new signal badges ("1RM estimado +5%", "Asimetría -5%"), 1RM and asymmetry-gap value lines on `ImprovementCard` (shown only when the underlying values are non-null, i.e. only for eligible sets/unilateral exercises), and a "(mejoró vs. la anterior)" inline note on the body-trend card's gap line when `thighGapImproved`/`calfGapImproved` is true.
+
+Two of my own test fixtures initially landed exactly on a floating-point-sensitive 5% boundary (`112 * 1.05` vs `84 * 1.4` not comparing exactly equal due to binary floating-point rounding) — caught by the test run, not a production bug; fixed by moving the fixtures comfortably off the boundary rather than chasing exact floating-point equality.
+
+Next iteration: none queued. `docs/product/next-task.md`'s remaining candidates are `data-model.md` cleanup, a real-device pass, and (optionally) Perfil form simplification.
+
 ## 2026-07-31 — Body measurement trend on /progreso + surfaced plan/session narrative fields
 
 Status: code complete, `lint`/`typecheck`/`test` (160 passing)/`build` all green. `db:generate` confirms zero schema diff.

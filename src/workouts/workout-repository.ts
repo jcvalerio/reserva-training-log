@@ -332,6 +332,7 @@ export type ExerciseInstance = {
   exerciseNameEs: string;
   sessionId: string;
   completedAt: Date | null;
+  isUnilateral: boolean;
   sets: SetLog[];
 };
 
@@ -350,6 +351,7 @@ export async function getRecentExerciseInstancesByName(
       exerciseNameEs: exercisePrescription.exerciseNameEs,
       sessionId: workoutSession.id,
       completedAt: workoutSession.completedAt,
+      isUnilateral: exercisePrescription.isUnilateral,
     })
     .from(exerciseLog)
     .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
@@ -406,6 +408,7 @@ export async function getRecentExerciseInstancesByName(
         exerciseNameEs,
         sessionId: row.sessionId,
         completedAt: row.completedAt,
+        isUnilateral: row.isUnilateral,
         sets: setsByLogId.get(row.exerciseLogId) ?? [],
       })),
     );

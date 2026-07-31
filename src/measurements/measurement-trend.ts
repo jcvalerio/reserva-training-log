@@ -1,6 +1,8 @@
 import { calculateMeasurementGaps } from "./measurement-schema";
 import type { BodyMeasurement } from "./measurement-repository";
 
+const IMPROVEMENT_RATIO = 0.05;
+
 export type MeasurementDelta = {
   firstValue: number;
   latestValue: number;
@@ -15,6 +17,13 @@ export type BodyMeasurementTrend = {
   waistCm: MeasurementDelta | null;
   latestThighGapCm: number | null;
   latestCalfGapCm: number | null;
+  // Per docs/product/progression-rules.md's "5% improvement definition":
+  // latest vs the immediately preceding measurement, not first-vs-latest —
+  // a different comparison window than the deltas above. null when there's
+  // no previous measurement to compare against (only 1 total), distinct
+  // from "did not improve" (false).
+  thighGapImproved: boolean | null;
+  calfGapImproved: boolean | null;
 };
 
 /**
@@ -36,6 +45,8 @@ export function buildBodyMeasurementTrend(measurementsDescending: BodyMeasuremen
   }
 
   const gaps = calculateMeasurementGaps(latest);
+  const previous = measurementsDescending[1] ?? null;
+  const previousGaps = previous ? calculateMeasurementGaps(previous) : null;
 
   return {
     measurementCount: measurementsDescending.length,
@@ -45,6 +56,8 @@ export function buildBodyMeasurementTrend(measurementsDescending: BodyMeasuremen
     waistCm: buildDelta(oldest.waistCm, latest.waistCm),
     latestThighGapCm: gaps.thighGapCm,
     latestCalfGapCm: gaps.calfGapCm,
+    thighGapImproved: gapImproved(gaps.thighGapCm, previousGaps?.thighGapCm ?? null),
+    calfGapImproved: gapImproved(gaps.calfGapCm, previousGaps?.calfGapCm ?? null),
   };
 }
 
@@ -57,4 +70,11 @@ function buildDelta(firstRaw: string | null, latestRaw: string | null): Measurem
   }
 
   return { firstValue, latestValue, deltaValue: Number((latestValue - firstValue).toFixed(2)) };
+}
+
+function gapImproved(latestGapCm: number | null, previousGapCm: number | null): boolean | null {
+  if (latestGapCm === null || previousGapCm === null || previousGapCm <= 0) {
+    return null;
+  }
+  return Math.abs(latestGapCm) <= Math.abs(previousGapCm) * (1 - IMPROVEMENT_RATIO);
 }

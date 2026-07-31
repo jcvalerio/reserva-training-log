@@ -20,6 +20,10 @@ function buildImprovement(overrides: Partial<ExerciseImprovement> = {}): Exercis
     previousAvgWeightKg: 80,
     latestAvgReps: 10,
     previousAvgReps: 10,
+    latestEstimated1RmKg: null,
+    previousEstimated1RmKg: null,
+    latestAsymmetryGapKg: null,
+    previousAsymmetryGapKg: null,
     ...overrides,
   };
 }
@@ -146,6 +150,8 @@ describe("ProgresoPageContent", () => {
       waistCm: { firstValue: 90, latestValue: 88, deltaValue: -2 },
       latestThighGapCm: 1.5,
       latestCalfGapCm: null,
+      thighGapImproved: true,
+      calfGapImproved: null,
     };
 
     render(
@@ -160,7 +166,7 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByText("Tendencia corporal")).toBeVisible();
     expect(screen.getByText(/Peso: 82\.0kg → 78\.5kg \(-3\.5kg\)/)).toBeVisible();
     expect(screen.getByText(/Cintura: 90\.0cm → 88\.0cm \(-2\.0cm\)/)).toBeVisible();
-    expect(screen.getByText(/Muslo: \+1\.5cm/)).toBeVisible();
+    expect(screen.getByText(/Muslo: \+1\.5cm \(mejoró vs\. la anterior\)/)).toBeVisible();
     expect(screen.getByText(/Pantorrilla: —/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Ver mediciones" })).toHaveAttribute("href", "/mediciones");
   });
@@ -177,6 +183,8 @@ describe("ProgresoPageContent", () => {
       waistCm: null,
       latestThighGapCm: null,
       latestCalfGapCm: null,
+      thighGapImproved: null,
+      calfGapImproved: null,
     };
 
     render(

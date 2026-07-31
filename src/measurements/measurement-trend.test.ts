@@ -69,4 +69,46 @@ describe("buildBodyMeasurementTrend", () => {
     expect(trend?.measurementCount).toBe(1);
     expect(trend?.bodyWeightKg).toEqual({ firstValue: 80, latestValue: 80, deltaValue: 0 });
   });
+
+  describe("gap-improved (latest vs. immediately preceding measurement)", () => {
+    it("flags an improved gap when it shrinks by >=5% versus the previous measurement", () => {
+      const measurements = [
+        buildMeasurement({ id: "latest", measuredAt: new Date("2026-07-20T12:00:00Z"), leftThighCm: "55.00", rightThighCm: "54.00" }), // gap 1
+        buildMeasurement({ id: "previous", measuredAt: new Date("2026-07-01T12:00:00Z"), leftThighCm: "56.00", rightThighCm: "54.00" }), // gap 2
+      ];
+
+      const trend = buildBodyMeasurementTrend(measurements);
+
+      expect(trend?.thighGapImproved).toBe(true);
+    });
+
+    it("does not flag an improved gap when it shrinks by less than 5%", () => {
+      const measurements = [
+        buildMeasurement({ id: "latest", measuredAt: new Date("2026-07-20T12:00:00Z"), leftThighCm: "55.95", rightThighCm: "54.00" }), // gap 1.95 (2.5% shrink)
+        buildMeasurement({ id: "previous", measuredAt: new Date("2026-07-01T12:00:00Z"), leftThighCm: "56.00", rightThighCm: "54.00" }), // gap 2
+      ];
+
+      const trend = buildBodyMeasurementTrend(measurements);
+
+      expect(trend?.thighGapImproved).toBe(false);
+    });
+
+    it("returns null (not false) when there is no previous measurement to compare against", () => {
+      const trend = buildBodyMeasurementTrend([buildMeasurement()]);
+
+      expect(trend?.thighGapImproved).toBeNull();
+      expect(trend?.calfGapImproved).toBeNull();
+    });
+
+    it("returns null when either measurement is missing the fields needed for that gap", () => {
+      const measurements = [
+        buildMeasurement({ id: "latest", measuredAt: new Date("2026-07-20T12:00:00Z"), leftCalfCm: null }),
+        buildMeasurement({ id: "previous", measuredAt: new Date("2026-07-01T12:00:00Z") }),
+      ];
+
+      const trend = buildBodyMeasurementTrend(measurements);
+
+      expect(trend?.calfGapImproved).toBeNull();
+    });
+  });
 });

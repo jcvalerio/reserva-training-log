@@ -128,7 +128,10 @@ function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
           ) : null}
           {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
             <p className="text-xs text-zinc-500">
-              Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)} · Pantorrilla: {formatGap(trend.latestCalfGapCm)}
+              Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)}
+              {trend.thighGapImproved ? " (mejoró vs. la anterior)" : ""} · Pantorrilla:{" "}
+              {formatGap(trend.latestCalfGapCm)}
+              {trend.calfGapImproved ? " (mejoró vs. la anterior)" : ""}
             </p>
           ) : null}
           <p className="text-xs text-zinc-500">
@@ -176,6 +179,18 @@ function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {
         Peso prom: {improvement.previousAvgWeightKg.toFixed(1)}kg → {improvement.latestAvgWeightKg.toFixed(1)}kg · Reps
         prom: {improvement.previousAvgReps.toFixed(1)} → {improvement.latestAvgReps.toFixed(1)}
       </p>
+      {improvement.latestEstimated1RmKg !== null && improvement.previousEstimated1RmKg !== null ? (
+        <p className="mt-1 text-xs leading-5 text-zinc-500">
+          1RM estimado: {improvement.previousEstimated1RmKg.toFixed(1)}kg → {improvement.latestEstimated1RmKg.toFixed(1)}
+          kg
+        </p>
+      ) : null}
+      {improvement.latestAsymmetryGapKg !== null && improvement.previousAsymmetryGapKg !== null ? (
+        <p className="mt-1 text-xs leading-5 text-zinc-500">
+          Asimetría izq/der: {improvement.previousAsymmetryGapKg.toFixed(1)}kg → {improvement.latestAsymmetryGapKg.toFixed(1)}
+          kg
+        </p>
+      ) : null}
       {improvement.signals.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-2">
           {improvement.signals.map((signal) => (
@@ -198,6 +213,8 @@ function signalLabelEs(signal: ImprovementSignal) {
     pain: "Dolor -2",
     reps_at_load: "Reps +5% (mismo peso)",
     load_at_reps: "Peso +5% (mismas reps)",
+    estimated_1rm: "1RM estimado +5%",
+    asymmetry_performance: "Asimetría -5%",
   }[signal];
 }
 
