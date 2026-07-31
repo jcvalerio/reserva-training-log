@@ -1,8 +1,12 @@
 # Next Task
 
-## Status: mobile UI/UX audit deployed to production and committed (`79abc58` on `main`). No task in progress.
+## Status: mobile UI/UX audit (round 1) deployed, committed, and confirmed working well on a real iPhone by the user. No task in progress.
 
-The most recent work: a mobile UI/UX audit against real Playwright screenshots at an iPhone viewport, logged in as the real user. Root-caused the button-contrast complaint to a genuine CSS cascade-layer bug (not a design inconsistency — see the 2026-07-31 "Mobile UI/UX audit" implementation-log entries), trimmed `/plan`'s long scroll into a summary (`/plan`) + full-detail (`/plan/rutina`, paginated by day) split, moved Mediciones out of the bottom nav into a Perfil link, de-emphasized Editar/Duplicar to text links, and fixed the confirmed `grid-cols-7`-for-6-items nav bug. Full detail in the implementation log. Deployed via `npx vercel deploy --prod --yes` (see `docs/architecture/release-workflow.md`'s "How deploys actually happen today" section for the exact steps and gotchas) — live at `https://gym.jcvalerio.com`. **Next step: a real-device pass on an actual iPhone** (not just Playwright's emulated viewport) — the original button-contrast complaint was itself only visible on-device, so the fix deserves the same standard of verification before considering this closed.
+The most recent completed work: a mobile UI/UX audit against real Playwright screenshots at an iPhone viewport, logged in as the real user. Root-caused the button-contrast complaint to a genuine CSS cascade-layer bug (not a design inconsistency — see the 2026-07-31 "Mobile UI/UX audit" implementation-log entries), trimmed `/plan`'s long scroll into a summary (`/plan`) + full-detail (`/plan/rutina`, paginated by day) split, moved Mediciones out of the bottom nav into a Perfil link, de-emphasized Editar/Duplicar to text links, and fixed the confirmed `grid-cols-7`-for-6-items nav bug. Full detail in the implementation log. Deployed via `npx vercel deploy --prod --yes` (see `docs/architecture/release-workflow.md`'s "How deploys actually happen today" section for the exact steps and gotchas) — live at `https://gym.jcvalerio.com`, and the user has verified it on their actual iPhone.
+
+## Up next: mobile expert critical assessment (round 2)
+
+The user wants a fresh session to do an open-ended critical assessment of the app's mobile UI/UX, going broader than round 1's specific complaints. A full kickoff prompt is saved at `docs/product/mobile-expert-critique-prompt.md` — hand that whole file to a new session to start it. It points out specific areas worth a close look (template preview's still-collapsible day pattern, `/plan/builder`, `/perfil`, `/mediciones`, cross-screen consistency, accessibility, empty/error states) but is explicitly meant to be open-ended, not a fixed checklist.
 
 **The product is not an "AI personal trainer."** Plans are created manually — a small template catalog or a custom day-by-day builder — with no AI generation anywhere in the app. The core loop is: build a plan once, then log every set (weight, reps, RIR, pain) each session, and get RIR-based progression suggestions from that real history. This was a deliberate framing correction made 2026-07-31 (see the implementation log entry of that date) — don't reintroduce "AI"/"generate a plan" language without the user asking for it back.
 
@@ -12,7 +16,7 @@ Read `docs/product/implementation-log.md` (newest entries first) for full detail
 
 ## Other next-phase candidates (unranked)
 
-1. **Real-device validation** of the full accumulated flow in one sitting (profile → template or custom plan → `/entrenar` across a full rotation including a restart → `/progreso`), including this session's mobile UI/UX changes — hasn't been done end-to-end on an actual phone since before this session's changes piled up.
+1. **Real-device validation of the full accumulated flow in one sitting** (profile → template or custom plan → `/entrenar` across a full rotation including a restart → `/progreso`) — the round-1 mobile UI/UX changes specifically have been confirmed on a real iPhone, but this broader end-to-end flow hasn't been walked in one sitting since before this session's changes piled up.
 2. **Perfil form simplification** — confirmed every field beyond the profile row's existence is currently unused (was likely meant as an AI-generation context payload, back when AI generation was the plan). Left as-is per the user's explicit choice to preserve it in case that ever changes; revisit only if asked.
 
 ## Constraints that still apply

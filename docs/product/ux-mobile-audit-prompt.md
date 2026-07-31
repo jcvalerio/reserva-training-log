@@ -1,5 +1,7 @@
 # Kickoff prompt: mobile UI/UX audit
 
+**Status: done.** This prompt was run 2026-07-31; every item it raised was addressed, deployed, and confirmed working well by the user on their real iPhone (see `docs/product/implementation-log.md`'s 2026-07-31 entries). Kept here as a historical record — for a fresh critical pass, use `docs/product/mobile-expert-critique-prompt.md` instead.
+
 Paste everything below into a new Claude Code session in this repo to start the work. It's written to be self-contained — you shouldn't need the prior conversation.
 
 ---
