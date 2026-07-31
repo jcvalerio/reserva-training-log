@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { getM1Readiness } from "@/onboarding/readiness";
@@ -97,19 +97,21 @@ describe("PlanPageContent", () => {
 
     expect(screen.getByRole("heading", { name: "Tu plan" })).toBeVisible();
     expect(screen.getByText("Tu plan activo")).toBeVisible();
-    expect(screen.getByText("Activo")).toBeVisible();
+    expect(screen.getByText("Plan activo")).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("Tu plan quedó activado");
     expect(screen.queryByText("¿Cómo quieres empezar?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
     expect(screen.getByText(activePlanPreview.safetySummaryEs)).toBeVisible();
+    // The pre-plan gate/checklist is onboarding-only noise once a plan is
+    // active — it stayed stuck on stale "elige tu plan" copy before this fix.
+    expect(screen.queryByText("Estado seguro")).toBeNull();
+    expect(screen.queryByText("Checklist pre-plan")).toBeNull();
   });
 
-  it("shows each exercise's notes and each session's mobility notes once expanded", () => {
+  it("links to the full plan detail instead of inlining every exercise on the summary page", () => {
     const readiness = getM1Readiness({ hasProfile: true });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
-    const firstSession = activePlanPreview.sessions[0]!;
-    const firstExercise = firstSession.exercises[0]!;
 
     render(
       <PlanPageContent
@@ -125,10 +127,8 @@ describe("PlanPageContent", () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByText("Ver ejercicios y objetivos")[0]!);
-
-    expect(screen.getAllByText(firstExercise.notesEs)[0]).toBeVisible();
-    expect(screen.getAllByText(firstSession.mobilityNotesEs)[0]).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver plan completo" })).toHaveAttribute("href", "/plan/rutina");
+    expect(screen.queryByText("Ver ejercicios y objetivos")).toBeNull();
   });
 
   it("still offers the custom plan builder entry point when a plan is already active", () => {
@@ -204,7 +204,9 @@ describe("PlanPageContent", () => {
     expect(screen.getByRole("heading", { name: "Tu plan" })).toBeVisible();
     expect(screen.getByText("Tu plan activo tiene un problema")).toBeVisible();
     expect(screen.getByRole("button", { name: "Editar este plan" })).toBeVisible();
-    expect(screen.getByText("Con errores")).toBeVisible();
     expect(screen.queryByText("Crear mi propio plan")).toBeNull();
+    // The pre-plan gate/checklist is onboarding-only; an active-but-broken
+    // plan is a different state, already communicated by the notice above.
+    expect(screen.queryByText("Estado seguro")).toBeNull();
   });
 });

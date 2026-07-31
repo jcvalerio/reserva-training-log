@@ -1,6 +1,8 @@
 # Next Task
 
-## Status: exercise-model redesign, onboarding audit, entrenar/progreso value work, and an AI-branding removal pass all done and deployed. No task in progress.
+## Status: mobile UI/UX audit done (code complete, not yet deployed). No task in progress.
+
+The most recent work: a mobile UI/UX audit against real Playwright screenshots at an iPhone viewport, logged in as the real user. Root-caused the button-contrast complaint to a genuine CSS cascade-layer bug (not a design inconsistency — see the 2026-07-31 "Mobile UI/UX audit" implementation-log entry), trimmed `/plan`'s long scroll into a summary (`/plan`) + full-detail (`/plan/rutina`) split, moved Mediciones out of the bottom nav into a Perfil link, and fixed the confirmed `grid-cols-7`-for-6-items nav bug. Full detail in the implementation log. **Next step: deploy, then a real-device pass on an actual iPhone** (not just Playwright's emulated viewport) — the original button-contrast complaint was itself only visible on-device, so the fix deserves the same standard of verification before considering this closed.
 
 **The product is not an "AI personal trainer."** Plans are created manually — a small template catalog or a custom day-by-day builder — with no AI generation anywhere in the app. The core loop is: build a plan once, then log every set (weight, reps, RIR, pain) each session, and get RIR-based progression suggestions from that real history. This was a deliberate framing correction made 2026-07-31 (see the implementation log entry of that date) — don't reintroduce "AI"/"generate a plan" language without the user asking for it back.
 
@@ -8,13 +10,9 @@ Everything below is complete, deployed to production, and verified (either by th
 
 Read `docs/product/implementation-log.md` (newest entries first) for full detail on any of the above before touching related code — it's the source of truth for design decisions and known gaps, not this file.
 
-## Up next: UI/UX mobile audit
-
-The user wants a fresh session to challenge the mobile UI/UX specifically. A full kickoff prompt for that is saved at `docs/product/ux-mobile-audit-prompt.md` — hand that whole file to a new session to start it. Rough scope: `/plan`'s long-scroll active-plan+routine+exercises layout, inconsistent button text-color contrast (white-on-green vs. black-on-green), whether nav icons/emoji would help, and whether `/mediciones` should move under `/perfil` instead of being a top-level nav item.
-
 ## Other next-phase candidates (unranked)
 
-1. **Real-device validation** of the full accumulated flow in one sitting (profile → template or custom plan → `/entrenar` across a full rotation including a restart → `/progreso`) — hasn't been done end-to-end on an actual phone since before this session's changes piled up.
+1. **Real-device validation** of the full accumulated flow in one sitting (profile → template or custom plan → `/entrenar` across a full rotation including a restart → `/progreso`), including this session's mobile UI/UX changes — hasn't been done end-to-end on an actual phone since before this session's changes piled up.
 2. **Perfil form simplification** — confirmed every field beyond the profile row's existence is currently unused (was likely meant as an AI-generation context payload, back when AI generation was the plan). Left as-is per the user's explicit choice to preserve it in case that ever changes; revisit only if asked.
 
 ## Constraints that still apply

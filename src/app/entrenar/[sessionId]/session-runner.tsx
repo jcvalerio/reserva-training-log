@@ -105,40 +105,6 @@ export function SessionRunner({
         <p className="text-xs leading-5 text-zinc-500">{template.mobilityNotesEs}</p>
       </header>
 
-      <form action={completeSessionAction} className="mt-4 grid gap-3">
-        <input type="hidden" name="workoutSessionId" value={session.id} />
-        <details className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
-          <summary className="cursor-pointer text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
-            ¿Cómo te sentiste? (opcional)
-          </summary>
-          <div className="mt-3 grid gap-3">
-            <label className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Esfuerzo percibido (RPE)</span>
-              <select name="sessionRpe" defaultValue="" className="input">
-                <option value="">Sin especificar</option>
-                {rpeValues.map((value) => (
-                  <option key={value} value={value}>
-                    {value} — {rpeLabelsEs[value]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Notas de la sesión</span>
-              <textarea
-                name="notes"
-                rows={2}
-                className="input resize-none"
-                placeholder="¿Algo a considerar para la próxima?"
-              />
-            </label>
-          </div>
-        </details>
-        <SubmitButton className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
-          Completar entrenamiento
-        </SubmitButton>
-      </form>
-
       <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
           Ejercicio {exerciseIndex + 1} de {exercises.length}
@@ -339,7 +305,7 @@ export function SessionRunner({
         )}
       </section>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 pb-10">
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => setExerciseIndex((index) => Math.max(index - 1, 0))}
@@ -358,7 +324,41 @@ export function SessionRunner({
         </button>
       </div>
 
-      <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
+      <form action={completeSessionAction} className="mt-4 grid gap-3">
+        <input type="hidden" name="workoutSessionId" value={session.id} />
+        <details className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
+          <summary className="cursor-pointer text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            ¿Cómo te sentiste? (opcional)
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Esfuerzo percibido (RPE)</span>
+              <select name="sessionRpe" defaultValue="" className="input">
+                <option value="">Sin especificar</option>
+                {rpeValues.map((value) => (
+                  <option key={value} value={value}>
+                    {value} — {rpeLabelsEs[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Notas de la sesión</span>
+              <textarea
+                name="notes"
+                rows={2}
+                className="input resize-none"
+                placeholder="¿Algo a considerar para la próxima?"
+              />
+            </label>
+          </div>
+        </details>
+        <SubmitButton className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          Completar entrenamiento
+        </SubmitButton>
+      </form>
+
+      <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30 mb-10">
         Dolor &gt;2 bloquea aumentos agresivos, dolor &gt;3 exige reducir, modificar o cambiar el movimiento, dolor
         ≥7 significa detener y buscar orientación profesional si persiste.
       </div>

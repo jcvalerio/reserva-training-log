@@ -21,7 +21,7 @@ export function MobileBottomNav({
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-zinc-800 bg-zinc-950/95 px-2 pt-2 shadow-2xl shadow-black/50 backdrop-blur supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-5 gap-1">
         {items.map((item) => {
           if (!("disabledReasonEs" in item)) {
             return (

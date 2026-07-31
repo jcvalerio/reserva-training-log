@@ -1,6 +1,8 @@
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getAthleteProfileContextForUser } from "@/profile/profile-repository";
 
+import Link from "next/link";
+
 import { AppShell } from "../app-shell";
 import { FormStatusBanner } from "../form-status-banner";
 import { SubmitButton } from "../submit-button";
@@ -24,7 +26,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Perfil</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Contexto de atleta</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Base privada para un plan futuro. Guarda este contexto primero; luego sigue con mediciones desde la navegación inferior.
+            Base privada para un plan futuro. Guarda este contexto primero; luego sigue con mediciones aquí abajo.
           </p>
         </div>
       </header>
@@ -32,9 +34,21 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
       <FormStatusBanner
         saved={params.saved === "1"}
         error={params.error === "validation"}
-        savedMessage="Tu perfil quedó actualizado. Puedes seguir con mediciones desde la navegación inferior."
+        savedMessage="Tu perfil quedó actualizado. Puedes seguir con mediciones aquí abajo."
         errorMessage="Hay datos fuera de rango o falta el nombre. Corrige el formulario y vuelve a guardar."
       />
+
+      <Link
+        href="/mediciones"
+        className="mt-6 block rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        aria-label="Ir a Mediciones"
+      >
+        <p className="text-sm font-semibold text-emerald-300">Mediciones</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-300">
+          Historial de peso, cintura y asimetrías muslo/pantorrilla. Cadencia recomendada: cada 2 semanas, no cada
+          sesión.
+        </p>
+      </Link>
 
       <form action={saveAthleteProfileAction} className="mt-8 grid gap-5 pb-10">
         <Field label="Nombre">
