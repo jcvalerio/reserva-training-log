@@ -2,9 +2,14 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
-## 2026-07-30 — Exercise model redesign: Phase 2 complete (sideMode → isUnilateral)
+## 2026-07-30 — Exercise model redesign: Phase 2 complete, deployed; found and fixed a real unilateral set-counting bug
 
-Status: code complete, `lint`/`typecheck`/`test` (128 passing)/`build` all green. Migration generated and verified against the dev DB (see below); not yet deployed to production as of this entry.
+Status: completed. Deployed and manually verified by the user: `/plan` and `/entrenar` both work correctly against the real active plan post-migration.
+
+Bug found during that verification, unrelated to the sideMode migration itself but surfaced by testing a unilateral exercise afterward: a unilateral exercise's `targetSets` was being checked against the *total* logged sets across both sides combined (`session-runner.tsx`), not per side — so "3 sets" completed after any 3 sets regardless of left/right split (e.g. left/right/left), never actually asking for 3 on each side. This was pre-existing behavior, not something the sideMode→isUnilateral change introduced (confirmed: the old sideMode-based code had the identical bug, just never surfaced because the user hadn't tested a unilateral exercise until now). Fixed and deployed same day:
+- `session-runner.tsx`: exercise completion now requires `targetSets` on *each* side independently for unilateral exercises (`leftCount >= targetSets && rightCount >= targetSets`), not `loggedSets.length >= targetSets`. The side radio for whichever side already hit its target is now disabled, so the alternating left/right flow can't be broken by manually re-selecting the completed side. Target display now shows "por lado" for unilateral exercises to make the per-side expectation explicit.
+- Found and fixed the same bug class one layer deeper: `progression-view.ts`'s `buildProgressionSuggestion` used the same `sets.length >= targetSets` check to decide `allPlannedSetsCompleted` (which gates the "Sube carga" suggestion) — a lopsided previous session (e.g. 3 sets all on one side) could incorrectly read as "all sets completed" and suggest increasing load. Added an `isUnilateral` parameter and threaded `isUnilateral` through `PreviousExercisePerformance` (`workout-repository.ts`) so this check is side-aware too.
+- New tests cover both the exact reported scenario (3 total sets, uneven split, exercise must not read as complete) and the fixed progression-suggestion path. No DB migration needed — pure app logic. `lint`/`typecheck`/`test` (131 passing)/`build` all green, deployed, awaiting the user's re-verification.
 
 Implemented (Phase 2 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`):
 - `src/db/schema.ts`: dropped `exerciseSideModeEnum`/`sideMode` (bilateral | unilateral_separate | unilateral_matched), replaced with `isUnilateral boolean NOT NULL`. Shipped as two migration files rather than one, for a mechanical reason discovered while running `db:generate`, not a change to the plan's risk posture: `drizzle-kit generate` needs a way to resolve a brand-new `NOT NULL` column against existing rows, so a single generate call from "has sideMode" straight to "has isUnilateral NOT NULL" would hit an interactive default-value prompt this non-interactive workflow can't answer. Split into `drizzle/0008_mean_the_leader.sql` (add `is_unilateral` nullable, hand-inserted `UPDATE` backfill from `side_mode != 'bilateral'`) and `drizzle/0009_mature_paper_doll.sql` (`SET NOT NULL`, `DROP COLUMN side_mode`, `DROP TYPE`) — both apply automatically in the same `db:migrate` run, so it's still one deploy, one verification checkpoint, matching the plan's intent.
@@ -13,7 +18,7 @@ Implemented (Phase 2 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-m
 - Fixtures updated in every touched test file. `npm run typecheck` came back clean on the first pass after the full cutover — no missed call sites.
 
 Next iteration:
-- Commit, deploy (migrations apply automatically via `vercel.json`'s buildCommand), manually verify a unilateral exercise in the real active plan still logs left/right correctly in `/entrenar`.
+- Have the user re-verify a unilateral exercise in `/entrenar` now asks for the full per-side set count and alternates correctly.
 - After that: Phase 3 (replace `incrementCategory` with `loadMechanism` × `isCompound`, two-step rollout with a manual Neon-console verification checkpoint before the irreversible cutover).
 
 ## 2026-07-30 — Exercise model redesign: Phase 1 complete, deployed, verified
