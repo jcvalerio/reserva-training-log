@@ -24,6 +24,7 @@ describe("parseSetLogFormData", () => {
     const input = parseSetLogFormData(buildFormData());
 
     expect(input).toEqual({
+      prescriptionType: "strength",
       side: "bilateral",
       actualWeightKg: "80.00",
       actualReps: 10,

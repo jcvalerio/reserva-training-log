@@ -6,7 +6,7 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import type { ProgressionAction } from "@/training/progression";
 import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
-import type { ExerciseWithLoggedSets, WorkoutSession } from "@/workouts/workout-repository";
+import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import { AppShell } from "../../app-shell";
 import { SubmitButton } from "../../submit-button";
@@ -47,6 +47,7 @@ export function SessionRunner({
     );
   }
 
+  const isDuration = currentExercise.prescriptionType === "duration";
   const loggedCount = currentExercise.loggedSets.length;
   const nextSetNumber = loggedCount + 1;
   const lastSet = currentExercise.loggedSets[loggedCount - 1];
@@ -58,7 +59,13 @@ export function SessionRunner({
   const defaultSide = leftSideComplete ? "right" : rightSideComplete ? "left" : leftCount <= rightCount ? "left" : "right";
   const justSavedThisExercise = saveState.status === "saved" && saveState.exercisePrescriptionId === currentExercise.id;
 
-  const previousPerformance = loggedCount === 0 ? currentExercise.previousPerformance : null;
+  // Duration-type exercises don't get a progression suggestion in this first
+  // cut — no rep range/RIR to compare against, and comparing raw durations
+  // session-over-session is a different, not-yet-built feature.
+  const previousPerformance =
+    !isDuration && loggedCount === 0 && currentExercise.previousPerformance?.prescriptionType === "strength"
+      ? currentExercise.previousPerformance
+      : null;
   const previousLastSet = previousPerformance?.sets.at(-1) ?? null;
   const previousSuggestion = previousPerformance
     ? buildProgressionSuggestion(
@@ -72,7 +79,7 @@ export function SessionRunner({
     ? isRepsFirstIncrease(previousSuggestion.action, currentExercise.loadMechanism, currentExercise.isCompound)
     : false;
   const suggestedWeightKg =
-    previousLastSet && previousSuggestion
+    previousLastSet?.actualWeightKg && previousSuggestion
       ? suggestNextWeightKg(
           previousLastSet.actualWeightKg,
           previousSuggestion.action,
@@ -82,7 +89,8 @@ export function SessionRunner({
       : null;
 
   const defaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
-  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax;
+  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
+  const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
 
   return (
     <AppShell activeHref="/entrenar">
@@ -105,8 +113,18 @@ export function SessionRunner({
         </p>
         <h2 className="mt-2 text-xl font-semibold text-zinc-100">{currentExercise.exerciseNameEs}</h2>
         <p className="mt-1 text-sm leading-6 text-zinc-400">
-          {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
-          {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso {currentExercise.restSeconds}s
+          {isDuration ? (
+            <>
+              {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
+              {isUnilateral ? " por lado" : ""} · descanso {currentExercise.restSeconds}s
+            </>
+          ) : (
+            <>
+              {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
+              {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso{" "}
+              {currentExercise.restSeconds}s
+            </>
+          )}
         </p>
         {currentExercise.painSensitive ? (
           <p className="mt-2 text-xs leading-5 text-amber-200">
@@ -117,18 +135,7 @@ export function SessionRunner({
         {currentExercise.loggedSets.length > 0 ? (
           <div className="mt-4 grid gap-2">
             {currentExercise.loggedSets.map((set) => (
-              <div
-                key={set.id}
-                className="flex items-center justify-between rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800"
-              >
-                <span className="text-zinc-300">
-                  Set {set.setNumber}
-                  {set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : ""}
-                </span>
-                <span className="font-semibold text-zinc-100">
-                  {set.actualWeightKg}kg × {set.actualReps} · RIR {formatStoredRir(set.rir)} · dolor {set.painScore}
-                </span>
-              </div>
+              <LoggedSetRow key={set.id} set={set} />
             ))}
           </div>
         ) : null}
@@ -138,11 +145,7 @@ export function SessionRunner({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Última vez</p>
             <div className="mt-2 grid gap-1 text-sm text-zinc-300">
               {previousPerformance.sets.map((set) => (
-                <p key={set.id}>
-                  Set {set.setNumber}
-                  {set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : ""}: {set.actualWeightKg}
-                  kg × {set.actualReps} · RIR {formatStoredRir(set.rir)} · dolor {set.painScore}
-                </p>
+                <LoggedSetRow key={set.id} set={set} />
               ))}
             </div>
             <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
@@ -161,6 +164,7 @@ export function SessionRunner({
           <form key={`${currentExercise.id}:${nextSetNumber}`} action={formAction} className="mt-4 grid gap-3">
             <input type="hidden" name="workoutSessionId" value={session.id} />
             <input type="hidden" name="exercisePrescriptionId" value={currentExercise.id} />
+            <input type="hidden" name="prescriptionType" value={currentExercise.prescriptionType} />
 
             {isUnilateral ? (
               <div className="grid grid-cols-2 gap-2">
@@ -191,56 +195,74 @@ export function SessionRunner({
               <input type="hidden" name="side" value="bilateral" />
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            {isDuration ? (
               <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                <span>Peso (kg)</span>
+                <span>Duración real (segundos)</span>
                 <input
-                  name="actualWeightKg"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.5"
-                  min={0.5}
-                  max={999}
-                  defaultValue={defaultWeightKg}
-                  required
-                  className="input"
-                />
-              </label>
-              <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                <span>Reps</span>
-                <input
-                  name="actualReps"
+                  name="actualDurationSeconds"
                   type="number"
                   inputMode="numeric"
                   min={1}
-                  max={50}
-                  defaultValue={defaultReps}
+                  max={3600}
+                  defaultValue={defaultDurationSeconds}
                   required
                   className="input"
                 />
               </label>
-            </div>
-
-            <div className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Reps en reserva (RIR)</span>
-              <div className="grid grid-cols-5 gap-2">
-                {rirValues.map((value) => (
-                  <label
-                    key={value}
-                    className="flex min-h-12 items-center justify-center rounded-xl bg-zinc-950 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300"
-                  >
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-sm font-medium text-zinc-300">
+                    <span>Peso (kg)</span>
                     <input
-                      type="radio"
-                      name="rir"
-                      value={value}
-                      defaultChecked={value === currentExercise.targetRir}
-                      className="sr-only"
+                      name="actualWeightKg"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min={0.5}
+                      max={999}
+                      defaultValue={defaultWeightKg}
+                      required
+                      className="input"
                     />
-                    {toDisplayRir(value)}
                   </label>
-                ))}
-              </div>
-            </div>
+                  <label className="grid gap-1 text-sm font-medium text-zinc-300">
+                    <span>Reps</span>
+                    <input
+                      name="actualReps"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={50}
+                      defaultValue={defaultReps}
+                      required
+                      className="input"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-1 text-sm font-medium text-zinc-300">
+                  <span>Reps en reserva (RIR)</span>
+                  <div className="grid grid-cols-5 gap-2">
+                    {rirValues.map((value) => (
+                      <label
+                        key={value}
+                        className="flex min-h-12 items-center justify-center rounded-xl bg-zinc-950 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300"
+                      >
+                        <input
+                          type="radio"
+                          name="rir"
+                          value={value}
+                          defaultChecked={value === currentExercise.targetRir}
+                          className="sr-only"
+                        />
+                        {toDisplayRir(value)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Dolor (0-10)</span>
@@ -338,11 +360,7 @@ function CompletedSessionSummary({
             ) : (
               <div className="mt-2 grid gap-1 text-sm text-zinc-300">
                 {exercise.loggedSets.map((set) => (
-                  <p key={set.id}>
-                    Set {set.setNumber}
-                    {set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : ""}: {set.actualWeightKg}
-                    kg × {set.actualReps} · RIR {formatStoredRir(set.rir)} · dolor {set.painScore}
-                  </p>
+                  <LoggedSetRow key={set.id} set={set} />
                 ))}
               </div>
             )}
@@ -350,6 +368,30 @@ function CompletedSessionSummary({
         ))}
       </div>
     </AppShell>
+  );
+}
+
+function LoggedSetRow({ set }: { set: SetLog }) {
+  const sideLabel = set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : "";
+
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800">
+      <span className="text-zinc-300">
+        Set {set.setNumber}
+        {sideLabel}
+      </span>
+      <span className="font-semibold text-zinc-100">
+        {set.actualDurationSeconds !== null ? (
+          <>
+            {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
+          </>
+        ) : (
+          <>
+            {set.actualWeightKg}kg × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor {set.painScore}
+          </>
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -369,6 +411,15 @@ function isExerciseComplete(exercise: ExerciseWithLoggedSets): boolean {
 
 function formatStoredRir(rir: number) {
   return rir >= 4 ? "4+" : String(rir);
+}
+
+function formatDurationSeconds(totalSeconds: number) {
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")} min`;
 }
 
 function suggestionLabelEs(action: ProgressionAction) {

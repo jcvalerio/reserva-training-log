@@ -99,6 +99,10 @@ export function createSeededHypertrophyPlan(): GeneratedWorkoutPlan {
           loadMechanism,
           isCompound,
         ]) => ({
+          // Every seeded exercise is sets x reps x RIR — duration-type
+          // exercises (cardio warmups, mobility holds) are only created
+          // through the custom plan builder for now.
+          prescriptionType: "strength" as const,
           exerciseNameEs,
           phase,
           isUnilateral,

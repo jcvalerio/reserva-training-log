@@ -40,6 +40,7 @@ export const exerciseLoadMechanismEnum = pgEnum("exercise_load_mechanism", [
   "machine",
   "barbell",
 ]);
+export const exercisePrescriptionTypeEnum = pgEnum("exercise_prescription_type", ["strength", "duration"]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -312,10 +313,20 @@ export const exercisePrescription = pgTable(
     // behavioral difference anywhere in the app. Real independent-per-side
     // progression tracking is future work, not this flag.
     isUnilateral: boolean("is_unilateral").notNull(),
+    // NOT NULL DEFAULT 'strength': every existing row today is genuinely
+    // strength-type (sets x reps x RIR), so this needs zero backfill — a
+    // deliberate exception to this codebase's usual "app always passes
+    // explicit values" convention, since it's provably accurate for all
+    // pre-existing data.
+    prescriptionType: exercisePrescriptionTypeEnum("prescription_type").notNull().default("strength"),
     targetSets: integer("target_sets").notNull(),
-    targetRepMin: integer("target_rep_min").notNull(),
-    targetRepMax: integer("target_rep_max").notNull(),
-    targetRir: integer("target_rir").notNull(),
+    // Nullable: only meaningful (and required at the Zod layer) when
+    // prescriptionType is "strength".
+    targetRepMin: integer("target_rep_min"),
+    targetRepMax: integer("target_rep_max"),
+    targetRir: integer("target_rir"),
+    // Nullable: only meaningful when prescriptionType is "duration".
+    durationSeconds: integer("duration_seconds"),
     restSeconds: integer("rest_seconds").notNull(),
     notesEs: text("notes_es").notNull(),
     notesEn: text("notes_en"),
@@ -400,9 +411,12 @@ export const setLog = pgTable(
       .references(() => exerciseLog.id, { onDelete: "cascade" }),
     setNumber: integer("set_number").notNull(),
     side: baselineSideEnum("side").notNull().default("bilateral"),
-    actualWeightKg: numeric("actual_weight_kg", { precision: 6, scale: 2 }).notNull(),
-    actualReps: integer("actual_reps").notNull(),
-    rir: integer("rir").notNull(),
+    // Nullable: a duration-type set (see exercisePrescription.prescriptionType)
+    // has actualDurationSeconds instead of weight/reps/RIR.
+    actualWeightKg: numeric("actual_weight_kg", { precision: 6, scale: 2 }),
+    actualReps: integer("actual_reps"),
+    rir: integer("rir"),
+    actualDurationSeconds: integer("actual_duration_seconds"),
     painScore: integer("pain_score").notNull(),
     notes: text("notes"),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),

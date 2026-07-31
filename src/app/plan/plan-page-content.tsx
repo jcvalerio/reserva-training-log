@@ -383,8 +383,17 @@ function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions
                       </div>
                     </div>
                     <p className="mt-3 text-sm leading-5 text-zinc-300">
-                      {exercise.targetSets}×{exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRir}{" "}
-                      · descanso {exercise.restSeconds}s
+                      {exercise.prescriptionType === "duration" ? (
+                        <>
+                          {exercise.targetSets}× {formatDurationSeconds(exercise.durationSeconds ?? 0)} · descanso{" "}
+                          {exercise.restSeconds}s
+                        </>
+                      ) : (
+                        <>
+                          {exercise.targetSets}×{exercise.targetRepMin}-{exercise.targetRepMax} · RIR{" "}
+                          {exercise.targetRir} · descanso {exercise.restSeconds}s
+                        </>
+                      )}
                     </p>
                     {exercise.painSensitive ? (
                       <p className="mt-2 text-xs leading-5 text-amber-200">
@@ -404,6 +413,15 @@ function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions
 
 function formatActivatedAt(date: Date) {
   return new Intl.DateTimeFormat("es-CR", { day: "2-digit", month: "short" }).format(date);
+}
+
+function formatDurationSeconds(totalSeconds: number) {
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")} min`;
 }
 
 function gateRingClass(status: "blocked" | "manual_review_ready") {

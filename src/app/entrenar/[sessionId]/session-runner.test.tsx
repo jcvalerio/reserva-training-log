@@ -47,6 +47,7 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
     actualWeightKg: "80.00",
     actualReps: 10,
     rir: 2,
+    actualDurationSeconds: null,
     painScore: 0,
     notes: null,
     completedAt: new Date("2026-07-20T12:00:00Z"),
@@ -63,10 +64,12 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     exerciseNameEn: null,
     phase: "main",
     isUnilateral: false,
+    prescriptionType: "strength",
     targetSets: 2,
     targetRepMin: 8,
     targetRepMax: 12,
     targetRir: 2,
+    durationSeconds: null,
     restSeconds: 150,
     notesEs: "Ajusta la carga.",
     notesEn: null,
@@ -269,6 +272,7 @@ describe("SessionRunner", () => {
       loggedSets: [],
       previousPerformance: {
         sessionId: "session-previous",
+        prescriptionType: "strength",
         targetRepMax: 12,
         targetSets: 2,
         isUnilateral: false,
@@ -306,6 +310,7 @@ describe("SessionRunner", () => {
       isCompound: false,
       previousPerformance: {
         sessionId: "session-previous",
+        prescriptionType: "strength",
         targetRepMax: 15,
         targetSets: 1,
         isUnilateral: false,
@@ -336,6 +341,7 @@ describe("SessionRunner", () => {
       isCompound: true,
       previousPerformance: {
         sessionId: "session-previous",
+        prescriptionType: "strength",
         targetRepMax: 10,
         targetSets: 1,
         isUnilateral: false,
@@ -362,6 +368,7 @@ describe("SessionRunner", () => {
       loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
       previousPerformance: {
         sessionId: "session-previous",
+        prescriptionType: "strength",
         targetRepMax: 12,
         targetSets: 1,
         isUnilateral: false,

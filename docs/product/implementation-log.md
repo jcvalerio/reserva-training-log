@@ -2,11 +2,29 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
-## 2026-07-30 — Exercise model redesign: Phase 3 complete (incrementCategory → loadMechanism × isCompound)
+## 2026-07-30 — Exercise model redesign: Phase 4 code complete (duration-based exercises), not yet deployed
 
-Status: code complete, `lint`/`typecheck`/`test` (133 passing)/`build` all green. Both migrations verified against the dev DB; not yet deployed to production as of this entry.
+Status: code complete, `lint`/`typecheck`/`test` (134 passing)/`build` all green locally. Migration `drizzle/0012_hesitant_marauders.sql` generated cleanly in one step (the `prescriptionType` column uses a DB-level `DEFAULT 'strength'`, so no backfill was needed — every existing row is unambiguously strength-type). Not yet applied to the dev/prod DB or deployed as of this entry.
 
-Correction to the step A entry below: it claimed `isCompound=false` (isolation) "routes to the same 'add a rep' suggestion regardless of `loadMechanism`'s value." That was wrong as first implemented — `suggestNextWeightKg`/`isRepsFirstIncrease` checked `isCompound === false` *before* checking `loadMechanism === "dumbbell"`, so a dumbbell+isolation exercise (e.g. a dumbbell lateral raise) would have incorrectly gotten a "add a rep" suggestion instead of the fixed +2kg step. Caught by a test written against the plan's own stated priority (dumbbell always wins, isCompound is "irrelevant to that branch") failing against the actual implementation. Fixed by reordering both functions to check `loadMechanism === "dumbbell"` first. No real-world impact — the seeded plan and the user's current data have no dumbbell+isolation exercises — but worth flagging since it means step A's "zero behavioral impact either way" reasoning was itself resting on a bug that's now fixed.
+Implemented (Phase 4 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`, the final phase of this redesign):
+- `src/db/schema.ts`: new `exercisePrescriptionTypeEnum` (`strength | duration`). `exercisePrescription` gains `prescriptionType` (NOT NULL, default `strength`) and nullable `durationSeconds`; `targetRepMin`/`targetRepMax`/`targetRir` made nullable. `setLog` gains nullable `actualDurationSeconds`; `actualWeightKg`/`actualReps`/`rir` made nullable.
+- Three separate Zod discriminated unions on `prescriptionType` (`generated-plan-schema.ts`, `plan-builder-schema.ts`, `set-log-schema.ts`), each with a `.refine()` for the repMin≤repMax check that only applies to the strength branch.
+- `workout-repository.ts`: `PreviousExercisePerformance`/`SaveSetInput` are now discriminated unions; added `toStrengthSetLog()` helper (throws rather than silently defaulting nulls to 0) used by `improvement.ts` and `progression-view.ts`; `getRecentExerciseInstancesByName` now filters `prescriptionType = 'strength'` — the safety boundary keeping duration-type sets out of improvement/progression math entirely, at the query level rather than patched into individual helpers (the plan's stress-test pass had flagged a vacuous-true bug in the pain-signal gate if this were only patched downstream).
+- `session-runner.tsx`: duration-type exercises get a single "Duración real (segundos)" input instead of weight/reps/RIR, and no progression suggestion (previous-performance display is strength-only).
+- `session-editor-form.tsx`: new "Tipo de ejercicio" select (the one genuinely controlled field in an otherwise uncontrolled form, since it drives conditional rendering) toggling between strength fields and duration fields (rondas + segundos).
+- `plan-repository.ts`/`plan-builder-repository.ts`: discriminated-union-aware branching when writing DB rows from the flat generated/input types; flat pass-through confirmed safe (via `tsx` smoke test) when reading DB rows back into the Zod schemas.
+- `seeded-plan.ts`: added explicit `prescriptionType: "strength"` to all 20 exercises (this was wrongly marked "no changes required" in the plan — wrong, because `.parse()` now requires the discriminant literal even though every seeded exercise stays strength-type).
+- Test fixtures updated across all touched files; two `toEqual()` assertions (`plan-builder-schema.test.ts`, `set-log-schema.test.ts`) were silently stale on the missing `prescriptionType` key until caught by `npm run test` — same class of issue flagged in the Phase 3 entry below.
+
+Next iteration:
+- Deploy (migration runs automatically via `vercel.json`'s build command), then manually verify per the plan's checklist: add a duration-type warmup exercise to the real active plan via "Editar mi plan," log a session against it in `/entrenar` confirming no weight/RIR fields appear and duration logs correctly, confirm `/progreso` shows no nonsensical signal for it, confirm a mixed strength+duration plan still activates and renders on `/plan`.
+- This closes out the full exercise-model redesign once verified.
+
+## 2026-07-30 — Exercise model redesign: Phase 3 complete, deployed, verified
+
+Status: completed. Deployed and manually verified by the user: the new "Mecanismo de carga"/"Tipo de movimiento" fields work correctly in the builder, and a reclassified exercise's suggested weight in `/entrenar` reflects the new matrix as expected. Phase 3 is fully closed out.
+
+Correction found and fixed during implementation, before this was ever deployed: it claimed `isCompound=false` (isolation) "routes to the same 'add a rep' suggestion regardless of `loadMechanism`'s value." That was wrong as first implemented — `suggestNextWeightKg`/`isRepsFirstIncrease` checked `isCompound === false` *before* checking `loadMechanism === "dumbbell"`, so a dumbbell+isolation exercise (e.g. a dumbbell lateral raise) would have incorrectly gotten a "add a rep" suggestion instead of the fixed +2kg step. Caught by a test written against the plan's own stated priority (dumbbell always wins, isCompound is "irrelevant to that branch") failing against the actual implementation. Fixed by reordering both functions to check `loadMechanism === "dumbbell"` first. No real-world impact — the seeded plan and the user's current data have no dumbbell+isolation exercises — but worth flagging since it means step A's "zero behavioral impact either way" reasoning was itself resting on a bug that's now fixed.
 
 Implemented (Phase 3 step B of 4, cutover + cleanup):
 - `src/workouts/progression-view.ts`: replaced `IncrementCategory`/`INCREASE_RATIO_BY_CATEGORY` with `LoadMechanism`/`INCREASE_RATIO_BY_MECHANISM`. New suggestion matrix in `suggestNextWeightKg`/`isRepsFirstIncrease`, in priority order: `dumbbell` → fixed +2kg regardless of `isCompound`; else `bodyweight` or `isCompound === false` → unchanged weight (reps-first); else `machine`+compound → +5%, `barbell`+compound → +2.5%; else (unclassified) → flat ±5% fallback.
@@ -16,8 +34,7 @@ Implemented (Phase 3 step B of 4, cutover + cleanup):
 - Fixtures updated in every touched test file. Two were silently testing stale behavior (`toEqual` comparisons where the expected object's `incrementCategory` key just didn't match the new output shape) rather than failing to compile — `plan-builder-schema.test.ts` was actually asserting on the wrong resulting object until this pass caught it via `npm run test`, not `typecheck` (a reminder that schema-shape changes need a full test run, not just a clean typecheck, to catch stale runtime assertions on loosely-typed FormData-parsing tests).
 
 Next iteration:
-- Deploy, then manually verify a machine-compound, an isolation, and a dumbbell exercise in the real plan each show correct suggested-weight behavior in `/entrenar`.
-- After that: Phase 4 (duration-based exercises — the largest, riskiest phase, touches the live `set_log` history table, deliberately sequenced last).
+- Phase 4 (duration-based exercises — the largest, riskiest phase, touches the live `set_log` history table, deliberately sequenced last, and the final phase of this redesign).
 
 ## 2026-07-30 — Exercise model redesign: Phase 3 step A complete (loadMechanism/isCompound added, additive only)
 

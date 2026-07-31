@@ -1,4 +1,4 @@
-import type { ExerciseInstance, SetLog } from "./workout-repository";
+import { toStrengthSetLog, type ExerciseInstance, type SetLog, type StrengthSetLog } from "./workout-repository";
 
 export type ImprovementSignal = "volume_load" | "pain" | "reps_at_load" | "load_at_reps";
 
@@ -28,7 +28,14 @@ const SIMILAR_RIR_TOLERANCE = 1;
  * asymmetry needs a left/right comparison against baselineLift that this
  * instance-level comparison doesn't model.
  */
-export function computeExerciseImprovement(latestSets: SetLog[], previousSets: SetLog[]): ExerciseImprovement {
+export function computeExerciseImprovement(rawLatestSets: SetLog[], rawPreviousSets: SetLog[]): ExerciseImprovement {
+  // Both instance-fetching call sites already scope to prescriptionType =
+  // 'strength' (see getRecentExerciseInstancesByName), so this throws only
+  // if that invariant is ever broken, rather than silently treating a
+  // duration-type set as zero weight/reps.
+  const latestSets = rawLatestSets.map(toStrengthSetLog);
+  const previousSets = rawPreviousSets.map(toStrengthSetLog);
+
   const latestVolumeLoadKg = totalVolumeLoadKg(latestSets);
   const previousVolumeLoadKg = totalVolumeLoadKg(previousSets);
   const latestMaxPain = maxPain(latestSets);
@@ -126,7 +133,7 @@ export function buildExerciseImprovements(instancesByName: Map<string, ExerciseI
   });
 }
 
-function totalVolumeLoadKg(sets: SetLog[]): number {
+function totalVolumeLoadKg(sets: StrengthSetLog[]): number {
   return sets.reduce((total, set) => total + set.actualReps * Number(set.actualWeightKg), 0);
 }
 

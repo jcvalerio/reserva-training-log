@@ -7,10 +7,12 @@ export type PlanPreviewExerciseSummary = {
   nameEs: string;
   phaseLabelEs: string;
   sideLabelEs: string;
+  prescriptionType: "strength" | "duration";
   targetSets: number;
-  targetRepMin: number;
-  targetRepMax: number;
-  targetRir: 0 | 1 | 2 | 3 | 4;
+  targetRepMin: number | null;
+  targetRepMax: number | null;
+  targetRir: 0 | 1 | 2 | 3 | 4 | null;
+  durationSeconds: number | null;
   restSeconds: number;
   painSensitive: boolean;
   substitutionOptionsEs: string[];
@@ -40,6 +42,9 @@ export type PlanPreviewSummary = {
 
 export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSummary {
   const sessions = plan.sessions.map(getSessionPreviewSummary);
+  const hasDurationExercises = sessions.some((session) =>
+    session.exercises.some((exercise) => exercise.prescriptionType === "duration"),
+  );
 
   return {
     nameEs: plan.nameEs,
@@ -49,7 +54,11 @@ export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSu
     unilateralExerciseCount: sessions.reduce((total, session) => total + session.unilateralExerciseCount, 0),
     painSensitiveExerciseCount: sessions.reduce((total, session) => total + session.painSensitiveExerciseCount, 0),
     previewBoundaryLabelsEs: ["Solo lectura", "Sin IA", "No guardado", "No activable"],
-    requiredSetLogFieldsEs: ["kg", "reps", "RIR", "dolor", "notas opcionales"],
+    // Duration-type exercises (calentamientos de cardio, movilidad) log a
+    // duración instead of reps/RIR — included whenever the plan has any.
+    requiredSetLogFieldsEs: hasDurationExercises
+      ? ["kg", "reps", "RIR", "duración", "dolor", "notas opcionales"]
+      : ["kg", "reps", "RIR", "dolor", "notas opcionales"],
     sessions,
   };
 }
@@ -60,10 +69,12 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
     nameEs: exercise.exerciseNameEs,
     phaseLabelEs: phaseLabelsEs[exercise.phase],
     sideLabelEs: exercise.isUnilateral ? "unilateral" : "bilateral",
+    prescriptionType: exercise.prescriptionType,
     targetSets: exercise.targetSets,
-    targetRepMin: exercise.targetRepMin,
-    targetRepMax: exercise.targetRepMax,
-    targetRir: exercise.targetRir,
+    targetRepMin: exercise.prescriptionType === "strength" ? exercise.targetRepMin : null,
+    targetRepMax: exercise.prescriptionType === "strength" ? exercise.targetRepMax : null,
+    targetRir: exercise.prescriptionType === "strength" ? exercise.targetRir : null,
+    durationSeconds: exercise.prescriptionType === "duration" ? exercise.durationSeconds : null,
     restSeconds: exercise.restSeconds,
     painSensitive: exercise.painSensitive,
     substitutionOptionsEs: exercise.substitutionOptionsEs,
@@ -86,4 +97,3 @@ const phaseLabelsEs = {
   accessory: "accesorio",
   mobility: "movilidad",
 } as const;
-

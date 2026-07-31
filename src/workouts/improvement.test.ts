@@ -12,6 +12,7 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
     actualWeightKg: "80.00",
     actualReps: 10,
     rir: 2,
+    actualDurationSeconds: null,
     painScore: 0,
     notes: null,
     completedAt: new Date("2026-07-20T12:00:00Z"),

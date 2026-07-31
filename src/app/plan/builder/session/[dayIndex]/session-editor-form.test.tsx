@@ -34,10 +34,12 @@ describe("SessionEditorForm", () => {
             exerciseNameEs: "Prensa de piernas",
             phase: "main",
             isUnilateral: false,
+            prescriptionType: "strength",
             targetSets: 4,
             targetRepMin: 8,
             targetRepMax: 12,
             targetRir: 2,
+            durationSeconds: null,
             restSeconds: 150,
             notesEs: "Ajusta la carga.",
             painSensitive: false,
@@ -53,6 +55,31 @@ describe("SessionEditorForm", () => {
     expect(screen.getByDisplayValue("Cuádriceps")).toBeVisible();
     expect(screen.getByDisplayValue("Prensa de piernas")).toBeVisible();
     expect(screen.getByDisplayValue("Máquina equivalente")).toBeVisible();
+  });
+
+  it("switches between strength and duration fields when the exercise type changes", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Reps mín.")).toBeVisible();
+    expect(screen.getByLabelText("RIR objetivo")).toBeVisible();
+    expect(screen.queryByLabelText("Duración (segundos)")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Tipo de ejercicio"), { target: { value: "duration" } });
+
+    expect(screen.getByLabelText("Duración (segundos)")).toBeVisible();
+    expect(screen.getByLabelText("Rondas")).toBeVisible();
+    expect(screen.queryByLabelText("Reps mín.")).toBeNull();
+    expect(screen.queryByLabelText("RIR objetivo")).toBeNull();
+    expect(screen.queryByLabelText("Mecanismo de carga (opcional)")).toBeNull();
   });
 
   it("adds and removes exercise rows, keeping at least one", () => {

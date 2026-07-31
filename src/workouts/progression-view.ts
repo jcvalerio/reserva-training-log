@@ -1,7 +1,7 @@
 import { suggestProgression, type ProgressionAction, type ProgressionSuggestion } from "@/training/progression";
 import type { Rir } from "@/training/rir";
 
-import type { SetLog } from "./workout-repository";
+import { toStrengthSetLog, type SetLog } from "./workout-repository";
 
 export type LoadMechanism = "bodyweight" | "dumbbell" | "machine" | "barbell";
 
@@ -37,8 +37,13 @@ export function buildProgressionSuggestion(
       sets.filter((set) => set.side === "right").length >= targetSets
     : sets.length >= targetSets;
 
+  // Callers only pass sets from a PreviousExercisePerformance already
+  // narrowed to the "strength" branch — this throws rather than silently
+  // treating a null actualReps/rir as 0.
+  const strengthSets = sets.map(toStrengthSetLog);
+
   return suggestProgression({
-    sets: sets.map((set) => ({
+    sets: strengthSets.map((set) => ({
       actualReps: set.actualReps,
       plannedRepMax: targetRepMax,
       rir: set.rir as Rir,

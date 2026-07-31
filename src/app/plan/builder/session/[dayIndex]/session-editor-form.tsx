@@ -9,15 +9,18 @@ import type { LoadMechanism } from "@/workouts/progression-view";
 import { SubmitButton } from "../../../../submit-button";
 
 type Phase = "warmup" | "main" | "accessory" | "mobility";
+type PrescriptionType = "strength" | "duration";
 
 export type SessionEditorInitialExercise = {
   exerciseNameEs: string;
   phase: Phase;
   isUnilateral: boolean;
+  prescriptionType: PrescriptionType;
   targetSets: number;
-  targetRepMin: number;
-  targetRepMax: number;
-  targetRir: number;
+  targetRepMin: number | null;
+  targetRepMax: number | null;
+  targetRir: number | null;
+  durationSeconds: number | null;
   restSeconds: number;
   notesEs: string;
   painSensitive: boolean;
@@ -34,10 +37,12 @@ function blankRow(key: string): ExerciseRowValue {
     exerciseNameEs: "",
     phase: "main",
     isUnilateral: false,
+    prescriptionType: "strength",
     targetSets: 3,
     targetRepMin: 8,
     targetRepMax: 12,
     targetRir: 2,
+    durationSeconds: 60,
     restSeconds: 90,
     notesEs: "",
     painSensitive: false,
@@ -156,6 +161,11 @@ function ExerciseRowFields({
   canRemove: boolean;
 }) {
   const prefix = `exercise-${index}`;
+  // Controlled locally (unlike every other field in this form) because it
+  // decides which other fields render — an uncontrolled select can't drive
+  // conditional JSX on change.
+  const [prescriptionType, setPrescriptionType] = useState<PrescriptionType>(value.prescriptionType);
+  const isDuration = prescriptionType === "duration";
 
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
@@ -184,6 +194,22 @@ function ExerciseRowFields({
         />
       </label>
 
+      <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Tipo de ejercicio</span>
+        <select
+          name={`${prefix}:prescriptionType`}
+          value={prescriptionType}
+          onChange={(event) => setPrescriptionType(event.target.value as PrescriptionType)}
+          className="input"
+        >
+          <option value="strength">Fuerza (series × repeticiones)</option>
+          <option value="duration">Duración (calentamiento cardio, movilidad)</option>
+        </select>
+      </label>
+      <p className="mt-1 text-xs leading-5 text-zinc-500">
+        Duración es para calentamientos de cardio (escaladora, cinta) o movilidad — no aplica RIR ni rango de reps.
+      </p>
+
       <div className="mt-3 grid grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm font-medium text-zinc-300">
           <span>Fase</span>
@@ -206,56 +232,87 @@ function ExerciseRowFields({
         </label>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Series</span>
-          <input
-            name={`${prefix}:targetSets`}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={6}
-            defaultValue={value.targetSets}
-            className="input"
-          />
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Reps mín.</span>
-          <input
-            name={`${prefix}:targetRepMin`}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={30}
-            defaultValue={value.targetRepMin}
-            className="input"
-          />
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Reps máx.</span>
-          <input
-            name={`${prefix}:targetRepMax`}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={30}
-            defaultValue={value.targetRepMax}
-            className="input"
-          />
-        </label>
-      </div>
+      {isDuration ? (
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Rondas</span>
+            <input
+              name={`${prefix}:targetSets`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={6}
+              defaultValue={value.targetSets}
+              className="input"
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Duración (segundos)</span>
+            <input
+              name={`${prefix}:durationSeconds`}
+              type="number"
+              inputMode="numeric"
+              min={5}
+              max={3600}
+              defaultValue={value.durationSeconds ?? 60}
+              className="input"
+            />
+          </label>
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Series</span>
+            <input
+              name={`${prefix}:targetSets`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={6}
+              defaultValue={value.targetSets}
+              className="input"
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Reps mín.</span>
+            <input
+              name={`${prefix}:targetRepMin`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={30}
+              defaultValue={value.targetRepMin ?? 8}
+              className="input"
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Reps máx.</span>
+            <input
+              name={`${prefix}:targetRepMax`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={30}
+              defaultValue={value.targetRepMax ?? 12}
+              className="input"
+            />
+          </label>
+        </div>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>RIR objetivo</span>
-          <select name={`${prefix}:targetRir`} defaultValue={value.targetRir} className="input">
-            {rirValues.map((rir) => (
-              <option key={rir} value={rir}>
-                {rirLabelsEs[rir]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {isDuration ? null : (
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>RIR objetivo</span>
+            <select name={`${prefix}:targetRir`} defaultValue={value.targetRir ?? 2} className="input">
+              {rirValues.map((rir) => (
+                <option key={rir} value={rir}>
+                  {rirLabelsEs[rir]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="grid gap-1 text-sm font-medium text-zinc-300">
           <span>Descanso (s)</span>
           <input
@@ -271,35 +328,39 @@ function ExerciseRowFields({
         </label>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Mecanismo de carga (opcional)</span>
-          <select name={`${prefix}:loadMechanism`} defaultValue={value.loadMechanism ?? ""} className="input">
-            <option value="">Sin especificar</option>
-            {loadMechanismOptions.map(([option, labelEs]) => (
-              <option key={option} value={option}>
-                {labelEs}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Tipo de movimiento (opcional)</span>
-          <select
-            name={`${prefix}:isCompound`}
-            defaultValue={value.isCompound === null ? "" : String(value.isCompound)}
-            className="input"
-          >
-            <option value="">Sin especificar</option>
-            <option value="true">Compuesto (varias articulaciones)</option>
-            <option value="false">Aislamiento (una articulación)</option>
-          </select>
-        </label>
-      </div>
-      <p className="mt-2 text-xs leading-5 text-zinc-500">
-        Esto no clasifica el ejercicio — solo define cómo se sugiere el aumento de peso en Entrenar (ej. máquina
-        compuesta: +5%; aislamiento: suma una repetición en vez de subir peso).
-      </p>
+      {isDuration ? null : (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Mecanismo de carga (opcional)</span>
+              <select name={`${prefix}:loadMechanism`} defaultValue={value.loadMechanism ?? ""} className="input">
+                <option value="">Sin especificar</option>
+                {loadMechanismOptions.map(([option, labelEs]) => (
+                  <option key={option} value={option}>
+                    {labelEs}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Tipo de movimiento (opcional)</span>
+              <select
+                name={`${prefix}:isCompound`}
+                defaultValue={value.isCompound === null ? "" : String(value.isCompound)}
+                className="input"
+              >
+                <option value="">Sin especificar</option>
+                <option value="true">Compuesto (varias articulaciones)</option>
+                <option value="false">Aislamiento (una articulación)</option>
+              </select>
+            </label>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Esto no clasifica el ejercicio — solo define cómo se sugiere el aumento de peso en Entrenar (ej. máquina
+            compuesta: +5%; aislamiento: suma una repetición en vez de subir peso).
+          </p>
+        </>
+      )}
 
       <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
         <span>Sustituciones (separadas por coma, opcional)</span>

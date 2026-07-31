@@ -134,17 +134,19 @@ export async function activateSeededPlanForProfile(athleteProfileId: string): Pr
       exerciseNameEn: exercise.exerciseNameEn ?? null,
       phase: exercise.phase,
       isUnilateral: exercise.isUnilateral,
+      prescriptionType: exercise.prescriptionType,
       targetSets: exercise.targetSets,
-      targetRepMin: exercise.targetRepMin,
-      targetRepMax: exercise.targetRepMax,
-      targetRir: exercise.targetRir,
+      targetRepMin: exercise.prescriptionType === "strength" ? exercise.targetRepMin : null,
+      targetRepMax: exercise.prescriptionType === "strength" ? exercise.targetRepMax : null,
+      targetRir: exercise.prescriptionType === "strength" ? exercise.targetRir : null,
+      durationSeconds: exercise.prescriptionType === "duration" ? exercise.durationSeconds : null,
       restSeconds: exercise.restSeconds,
       notesEs: exercise.notesEs,
       notesEn: exercise.notesEn ?? null,
       painSensitive: exercise.painSensitive,
       substitutionOptionsEs: exercise.substitutionOptionsEs,
-      loadMechanism: exercise.loadMechanism ?? null,
-      isCompound: exercise.isCompound ?? null,
+      loadMechanism: exercise.prescriptionType === "strength" ? (exercise.loadMechanism ?? null) : null,
+      isCompound: exercise.prescriptionType === "strength" ? (exercise.isCompound ?? null) : null,
     })),
   );
 
@@ -191,14 +193,22 @@ export function toGeneratedWorkoutPlan(active: ActivePlanWithSessions): Generate
         exercises: [...session.exercises]
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .map((exercise) => ({
+            // Flat pass-through: the discriminated union's Zod parse below
+            // only reads the fields relevant to whichever prescriptionType
+            // this row actually is, and ignores the rest (e.g. a duration
+            // row's null targetRepMin) — no need to branch here, unlike the
+            // write direction above where TypeScript enforces the
+            // discriminant on GeneratedWorkoutPlan's own type.
             exerciseNameEs: exercise.exerciseNameEs,
             exerciseNameEn: orUndefined(exercise.exerciseNameEn),
             phase: exercise.phase,
             isUnilateral: exercise.isUnilateral,
+            prescriptionType: exercise.prescriptionType,
             targetSets: exercise.targetSets,
             targetRepMin: exercise.targetRepMin,
             targetRepMax: exercise.targetRepMax,
             targetRir: exercise.targetRir,
+            durationSeconds: exercise.durationSeconds,
             restSeconds: exercise.restSeconds,
             notesEs: exercise.notesEs,
             notesEn: orUndefined(exercise.notesEn),

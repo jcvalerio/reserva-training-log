@@ -10,30 +10,50 @@ const rirSchema = z.union(rirValues.map((value) => z.literal(value)) as [
   z.ZodLiteral<4>,
 ]);
 
+const commonExerciseFields = {
+  exerciseNameEs: z.string().min(1),
+  exerciseNameEn: z.string().min(1).optional(),
+  phase: z.enum(["warmup", "main", "accessory", "mobility"]),
+  isUnilateral: z.boolean(),
+  targetSets: z.number().int().min(1).max(6),
+  restSeconds: z.number().int().min(30).max(240),
+  notesEs: z.string().min(1),
+  notesEn: z.string().min(1).optional(),
+  painSensitive: z.boolean().default(false),
+  substitutionOptionsEs: z.array(z.string().min(1)).max(3).default([]),
+};
+
+// Sets x rep-range x RIR — the original, and still most common, shape.
+const strengthExercisePrescriptionSchema = z.object({
+  prescriptionType: z.literal("strength"),
+  ...commonExerciseFields,
+  targetRepMin: z.number().int().min(1).max(30),
+  targetRepMax: z.number().int().min(1).max(30),
+  targetRir: rirSchema,
+  // Both optional: absent for unclassified exercises, so consumers
+  // (weight-increment suggestions) must fall back gracefully.
+  loadMechanism: z.enum(["bodyweight", "dumbbell", "machine", "barbell"]).optional(),
+  isCompound: z.boolean().optional(),
+});
+
+// A single timed bout — cardio warmups (stair climber, treadmill), mobility
+// holds. RIR and a rep range don't apply: there's no "failure" concept for
+// steady-state cardio or a stretch. targetSets still applies (e.g. 1 for a
+// continuous warmup, 2 for "stretch each side once").
+const durationExercisePrescriptionSchema = z.object({
+  prescriptionType: z.literal("duration"),
+  ...commonExerciseFields,
+  durationSeconds: z.number().int().min(5).max(3600),
+});
+
 export const generatedExercisePrescriptionSchema = z
-  .object({
-    exerciseNameEs: z.string().min(1),
-    exerciseNameEn: z.string().min(1).optional(),
-    phase: z.enum(["warmup", "main", "accessory", "mobility"]),
-    isUnilateral: z.boolean(),
-    targetSets: z.number().int().min(1).max(6),
-    targetRepMin: z.number().int().min(1).max(30),
-    targetRepMax: z.number().int().min(1).max(30),
-    targetRir: rirSchema,
-    restSeconds: z.number().int().min(30).max(240),
-    notesEs: z.string().min(1),
-    notesEn: z.string().min(1).optional(),
-    painSensitive: z.boolean().default(false),
-    substitutionOptionsEs: z.array(z.string().min(1)).max(3).default([]),
-    // Both optional: absent for unclassified exercises, so consumers
-    // (weight-increment suggestions) must fall back gracefully.
-    loadMechanism: z.enum(["bodyweight", "dumbbell", "machine", "barbell"]).optional(),
-    isCompound: z.boolean().optional(),
-  })
-  .refine((exercise) => exercise.targetRepMin <= exercise.targetRepMax, {
+  .discriminatedUnion("prescriptionType", [strengthExercisePrescriptionSchema, durationExercisePrescriptionSchema])
+  .refine((exercise) => exercise.prescriptionType !== "strength" || exercise.targetRepMin <= exercise.targetRepMax, {
     message: "targetRepMin must be <= targetRepMax",
     path: ["targetRepMin"],
   });
+
+export type GeneratedExercisePrescription = z.infer<typeof generatedExercisePrescriptionSchema>;
 
 // A session must have enough exercises to be a real training day. Anything
 // that writes sessions later read through this schema (the plan builder,

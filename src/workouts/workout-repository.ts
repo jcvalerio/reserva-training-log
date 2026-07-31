@@ -10,13 +10,39 @@ export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
 export type SetLog = typeof setLog.$inferSelect;
 
-export type PreviousExercisePerformance = {
-  sessionId: string;
-  targetRepMax: number;
-  targetSets: number;
-  isUnilateral: boolean;
-  sets: SetLog[];
-};
+export type StrengthSetLog = SetLog & { actualWeightKg: string; actualReps: number; rir: number };
+
+/**
+ * Narrows a SetLog to its strength-type shape (non-null weight/reps/RIR).
+ * Callers must only pass sets already known to be strength-type — e.g. from
+ * a query filtered to prescriptionType='strength', or a
+ * PreviousExercisePerformance already narrowed to the "strength" branch —
+ * this throws rather than silently defaulting nulls to 0, which would
+ * quietly corrupt volume-load/progression math instead of surfacing a bug.
+ */
+export function toStrengthSetLog(set: SetLog): StrengthSetLog {
+  if (set.actualWeightKg === null || set.actualReps === null || set.rir === null) {
+    throw new Error("Expected a strength-type set (weight/reps/RIR), got a set with missing values.");
+  }
+  return set as StrengthSetLog;
+}
+
+export type PreviousExercisePerformance =
+  | {
+      sessionId: string;
+      prescriptionType: "strength";
+      targetRepMax: number;
+      targetSets: number;
+      isUnilateral: boolean;
+      sets: SetLog[];
+    }
+  | {
+      sessionId: string;
+      prescriptionType: "duration";
+      targetSets: number;
+      isUnilateral: boolean;
+      sets: SetLog[];
+    };
 
 export type ExerciseWithLoggedSets = ExercisePrescription & {
   loggedSets: SetLog[];
@@ -145,6 +171,7 @@ export async function getPreviousExercisePerformance(
     .select({
       exerciseLogId: exerciseLog.id,
       workoutSessionId: exerciseLog.workoutSessionId,
+      prescriptionType: exercisePrescription.prescriptionType,
       targetRepMax: exercisePrescription.targetRepMax,
       targetSets: exercisePrescription.targetSets,
       isUnilateral: exercisePrescription.isUnilateral,
@@ -176,8 +203,25 @@ export async function getPreviousExercisePerformance(
     return null;
   }
 
+  if (mostRecent.prescriptionType === "duration") {
+    return {
+      sessionId: mostRecent.workoutSessionId,
+      prescriptionType: "duration",
+      targetSets: mostRecent.targetSets,
+      isUnilateral: mostRecent.isUnilateral,
+      sets,
+    };
+  }
+
+  if (mostRecent.targetRepMax === null) {
+    // Shouldn't happen — a strength-type prescription always has a rep
+    // range — but the DB column is nullable, so guard rather than assert.
+    return null;
+  }
+
   return {
     sessionId: mostRecent.workoutSessionId,
+    prescriptionType: "strength",
     targetRepMax: mostRecent.targetRepMax,
     targetSets: mostRecent.targetSets,
     isUnilateral: mostRecent.isUnilateral,
@@ -185,16 +229,18 @@ export async function getPreviousExercisePerformance(
   };
 }
 
-export async function saveSetForSession(input: {
+export type SaveSetInput = {
   workoutSessionId: string;
   exercisePrescriptionId: string;
   side: "bilateral" | "left" | "right";
-  actualWeightKg: string;
-  actualReps: number;
-  rir: number;
   painScore: number;
   notes: string | null;
-}): Promise<{ setNumber: number }> {
+} & (
+  | { prescriptionType: "strength"; actualWeightKg: string; actualReps: number; rir: number }
+  | { prescriptionType: "duration"; actualDurationSeconds: number }
+);
+
+export async function saveSetForSession(input: SaveSetInput): Promise<{ setNumber: number }> {
   const exerciseLogId = await ensureExerciseLog(input.workoutSessionId, input.exercisePrescriptionId);
 
   const existingSets = await db.select().from(setLog).where(eq(setLog.exerciseLogId, exerciseLogId));
@@ -205,9 +251,10 @@ export async function saveSetForSession(input: {
     exerciseLogId,
     setNumber,
     side: input.side,
-    actualWeightKg: input.actualWeightKg,
-    actualReps: input.actualReps,
-    rir: input.rir,
+    actualWeightKg: input.prescriptionType === "strength" ? input.actualWeightKg : null,
+    actualReps: input.prescriptionType === "strength" ? input.actualReps : null,
+    rir: input.prescriptionType === "strength" ? input.rir : null,
+    actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
     painScore: input.painScore,
     notes: input.notes,
   });
@@ -307,7 +354,17 @@ export async function getRecentExerciseInstancesByName(
     .from(exerciseLog)
     .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
     .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
-    .where(and(eq(workoutSession.athleteProfileId, athleteProfileId), eq(workoutSession.status, "completed")))
+    .where(
+      and(
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+        eq(workoutSession.status, "completed"),
+        // Duration-type instances have null weight/reps, which would
+        // silently corrupt the volume-load and pain-improvement signals
+        // below (e.g. a maintained-workload gate becoming vacuously true at
+        // 0 >= 0) — excluded at the query boundary rather than downstream.
+        eq(exercisePrescription.prescriptionType, "strength"),
+      ),
+    )
     .orderBy(desc(workoutSession.completedAt));
 
   const rowsByExerciseName = new Map<string, typeof rows>();

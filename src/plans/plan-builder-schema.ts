@@ -19,6 +19,7 @@ const withDefault = <Value extends string>(fallback: Value, schema: z.ZodType<Va
 
 const phaseSchema = z.enum(["warmup", "main", "accessory", "mobility"]);
 const loadMechanismSchema = z.enum(["bodyweight", "dumbbell", "machine", "barbell"]);
+const prescriptionTypeSchema = z.enum(["strength", "duration"]);
 const rirSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
   z.union(rirValues.map((value) => z.literal(value)) as [
@@ -71,48 +72,61 @@ export function parsePlanBuilderSessionInfoFormData(formData: FormData): PlanBui
   });
 }
 
+const commonExerciseRowFields = {
+  exerciseNameEs: requiredTrimmedString("Nombre del ejercicio", 200),
+  phase: withDefault("main", phaseSchema),
+  isUnilateral: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
+  targetSets: requiredNumber("Series", 1, 6).pipe(z.number().int()),
+  restSeconds: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : 90),
+    z.number().int().min(30).max(240),
+  ),
+  notesEs: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : "Ajusta la carga y conserva técnica."),
+    z.string().min(1).max(500),
+  ),
+  painSensitive: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
+  substitutionOptionsEs: z.preprocess((value) => {
+    if (typeof value !== "string" || value.trim() === "") {
+      return [];
+    }
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item !== "");
+  }, z.array(z.string().min(1)).max(3)),
+};
+
+const strengthExerciseInputSchema = z.object({
+  prescriptionType: z.literal("strength"),
+  ...commonExerciseRowFields,
+  targetRepMin: requiredNumber("Reps mínimas", 1, 30).pipe(z.number().int()),
+  targetRepMax: requiredNumber("Reps máximas", 1, 30).pipe(z.number().int()),
+  targetRir: rirSchema,
+  loadMechanism: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value : undefined),
+    loadMechanismSchema.optional(),
+  ),
+  isCompound: z.preprocess((value) => {
+    if (value === "true") {
+      return true;
+    }
+    if (value === "false") {
+      return false;
+    }
+    return undefined;
+  }, z.boolean().optional()),
+});
+
+const durationExerciseInputSchema = z.object({
+  prescriptionType: z.literal("duration"),
+  ...commonExerciseRowFields,
+  durationSeconds: requiredNumber("Duración (segundos)", 5, 3600).pipe(z.number().int()),
+});
+
 export const planBuilderExerciseInputSchema = z
-  .object({
-    exerciseNameEs: requiredTrimmedString("Nombre del ejercicio", 200),
-    phase: withDefault("main", phaseSchema),
-    isUnilateral: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
-    targetSets: requiredNumber("Series", 1, 6).pipe(z.number().int()),
-    targetRepMin: requiredNumber("Reps mínimas", 1, 30).pipe(z.number().int()),
-    targetRepMax: requiredNumber("Reps máximas", 1, 30).pipe(z.number().int()),
-    targetRir: rirSchema,
-    restSeconds: z.preprocess(
-      (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : 90),
-      z.number().int().min(30).max(240),
-    ),
-    notesEs: z.preprocess(
-      (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : "Ajusta la carga y conserva técnica."),
-      z.string().min(1).max(500),
-    ),
-    painSensitive: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
-    substitutionOptionsEs: z.preprocess((value) => {
-      if (typeof value !== "string" || value.trim() === "") {
-        return [];
-      }
-      return value
-        .split(",")
-        .map((item) => item.trim())
-        .filter((item) => item !== "");
-    }, z.array(z.string().min(1)).max(3)),
-    loadMechanism: z.preprocess(
-      (value) => (typeof value === "string" && value.trim() !== "" ? value : undefined),
-      loadMechanismSchema.optional(),
-    ),
-    isCompound: z.preprocess((value) => {
-      if (value === "true") {
-        return true;
-      }
-      if (value === "false") {
-        return false;
-      }
-      return undefined;
-    }, z.boolean().optional()),
-  })
-  .refine((exercise) => exercise.targetRepMin <= exercise.targetRepMax, {
+  .discriminatedUnion("prescriptionType", [strengthExerciseInputSchema, durationExerciseInputSchema])
+  .refine((exercise) => exercise.prescriptionType !== "strength" || exercise.targetRepMin <= exercise.targetRepMax, {
     message: "Las reps mínimas deben ser menores o iguales a las máximas.",
     path: ["targetRepMin"],
   });
@@ -132,8 +146,12 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
       continue;
     }
 
+    const prescriptionTypeValue = formData.get(`${prefix}:prescriptionType`);
+    const prescriptionType = prescriptionTypeSchema.catch("strength").parse(prescriptionTypeValue);
+
     exercises.push(
       planBuilderExerciseInputSchema.parse({
+        prescriptionType,
         exerciseNameEs: nameValue,
         phase: formData.get(`${prefix}:phase`),
         isUnilateral: formData.get(`${prefix}:isUnilateral`),
@@ -141,6 +159,7 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
         targetRepMin: formData.get(`${prefix}:targetRepMin`),
         targetRepMax: formData.get(`${prefix}:targetRepMax`),
         targetRir: formData.get(`${prefix}:targetRir`),
+        durationSeconds: formData.get(`${prefix}:durationSeconds`),
         restSeconds: formData.get(`${prefix}:restSeconds`),
         notesEs: formData.get(`${prefix}:notesEs`),
         painSensitive: formData.get(`${prefix}:painSensitive`),

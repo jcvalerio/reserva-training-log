@@ -72,7 +72,7 @@ export async function saveSetAction(
   try {
     input = parseSetLogFormData(formData);
   } catch {
-    return { status: "error", message: "Revisa kg, reps, RIR y dolor: hay datos fuera de rango." };
+    return { status: "error", message: "Revisa los datos del set: hay valores fuera de rango." };
   }
 
   const { setNumber } = await saveSetForSession({
