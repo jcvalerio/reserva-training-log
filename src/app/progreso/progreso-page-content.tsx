@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
@@ -9,10 +10,12 @@ export function ProgresoPageContent({
   hasProfile,
   improvements,
   completedSessions,
+  bodyMeasurementTrend,
 }: {
   hasProfile: boolean;
   improvements: ExerciseImprovementRow[];
   completedSessions: CompletedSessionSummary[];
+  bodyMeasurementTrend: BodyMeasurementTrend | null;
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
@@ -49,6 +52,8 @@ export function ProgresoPageContent({
           </p>
         </div>
       </header>
+
+      {bodyMeasurementTrend ? <BodyMeasurementTrendCard trend={bodyMeasurementTrend} /> : null}
 
       <section className="mt-7" aria-labelledby="improvements-title">
         <p id="improvements-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
@@ -89,6 +94,63 @@ export function ProgresoPageContent({
       </section>
     </AppShell>
   );
+}
+
+function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
+  return (
+    <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="body-trend-title">
+      <div className="flex items-center justify-between gap-3">
+        <p id="body-trend-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+          Tendencia corporal
+        </p>
+        <Link href="/mediciones" className="text-xs font-semibold text-emerald-300">
+          Ver mediciones
+        </Link>
+      </div>
+
+      {trend.measurementCount === 1 ? (
+        <p className="mt-2 text-sm leading-6 text-zinc-400">
+          1 medición registrada el {formatDate(trend.latestMeasuredAt)}. Guarda otra para ver una tendencia.
+        </p>
+      ) : (
+        <div className="mt-2 grid gap-1 text-sm leading-6 text-zinc-300">
+          {trend.bodyWeightKg ? (
+            <p>
+              Peso: {trend.bodyWeightKg.firstValue.toFixed(1)}kg → {trend.bodyWeightKg.latestValue.toFixed(1)}kg (
+              {formatSignedDelta(trend.bodyWeightKg.deltaValue)}kg)
+            </p>
+          ) : null}
+          {trend.waistCm ? (
+            <p>
+              Cintura: {trend.waistCm.firstValue.toFixed(1)}cm → {trend.waistCm.latestValue.toFixed(1)}cm (
+              {formatSignedDelta(trend.waistCm.deltaValue)}cm)
+            </p>
+          ) : null}
+          {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
+            <p className="text-xs text-zinc-500">
+              Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)} · Pantorrilla: {formatGap(trend.latestCalfGapCm)}
+            </p>
+          ) : null}
+          <p className="text-xs text-zinc-500">
+            {trend.measurementCount} mediciones desde {formatDate(trend.firstMeasuredAt)}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function formatSignedDelta(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}`;
+}
+
+function formatGap(value: number | null) {
+  if (value === null) {
+    return "—";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}cm`;
 }
 
 function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {

@@ -100,6 +100,7 @@ export function SessionRunner({
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
         <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
+        <p className="text-xs leading-5 text-zinc-500">{template.mobilityNotesEs}</p>
       </header>
 
       <form action={completeSessionAction} className="mt-4">
@@ -128,6 +129,7 @@ export function SessionRunner({
             </>
           )}
         </p>
+        <p className="mt-2 text-xs leading-5 text-zinc-500">{currentExercise.notesEs}</p>
         {currentExercise.painSensitive ? (
           <p className="mt-2 text-xs leading-5 text-amber-200">
             Vigilar dolor. Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.

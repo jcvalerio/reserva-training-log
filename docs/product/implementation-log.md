@@ -2,6 +2,23 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Body measurement trend on /progreso + surfaced plan/session narrative fields
+
+Status: code complete, `lint`/`typecheck`/`test` (160 passing)/`build` all green. `db:generate` confirms zero schema diff.
+
+Picked up two of the "good next-phase candidates" from the previous entry's audit — both additive, no removals.
+
+**Body measurement trend (`/progreso`)**: new `src/measurements/measurement-trend.ts` (`buildBodyMeasurementTrend`) compares the oldest vs. newest of the last 24 `/mediciones` entries — body weight delta, waist delta, and the latest thigh/calf asymmetry gap (reusing `calculateMeasurementGaps`, already used by `/mediciones` itself). Wired into `progreso/page.tsx` and rendered as a new "Tendencia corporal" card above "Mejoras recientes," with a link back to `/mediciones` for the full history. Deltas are shown neutrally (no green/red value judgment) since direction of "good" depends on the user's goal, which isn't tracked meaningfully anywhere (see the Perfil finding from the onboarding audit). A single-measurement state shows a distinct "guarda otra para ver una tendencia" message instead of a meaningless zero delta.
+
+**Plan/session narrative fields**: `notesEs` (exercise), `mobilityNotesEs` (session), `safetySummaryEs` (plan) were captured everywhere but rendered nowhere — flagged in two earlier entries (the fat-loss template's authoring pass, and the entrenar/progreso value audit). Fixed at the source: `plan-preview.ts`'s three summary types (`PlanPreviewExerciseSummary`/`PlanPreviewSessionSummary`/`PlanPreviewSummary`) gained these fields, populated in `getPlanPreviewSummary`/`getSessionPreviewSummary`. That flows into every consumer for free:
+- `PlanSessionsList` (shared between `/plan`'s active-plan summary and `/plan/templates/[templateId]`'s preview): exercise notes now always show (previously only a pain-sensitive substitution line existed), and each session card gets its mobility-notes line.
+- `ActivePlanSummary` and `TemplatePreviewContent`: both now show `safetySummaryEs` prominently — this is where the fat-loss template's progression guidance (technique-first → +2.5-5kg → shorter rest → +1 round) actually becomes visible for the first time.
+- `session-runner.tsx` (`/entrenar`, live training): the exercise's `notesEs` and the session's `mobilityNotesEs` now show as coaching cues while actually training — arguably the highest-value spot for this content, since it's real-time rather than pre-activation review.
+
+No schema or repository changes for the narrative-fields half — every value was already flowing through existing queries.
+
+Next iteration: none queued. See the "next-phase candidates" list in `docs/product/next-task.md` for what's left (1RM/asymmetry signals, `data-model.md` cleanup, a real-device pass).
+
 ## 2026-07-31 — Surfaced five computed-but-hidden values on /entrenar and /progreso
 
 Status: code complete, `lint`/`typecheck`/`test` (150 passing)/`build` all green.

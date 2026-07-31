@@ -267,6 +267,8 @@ function ActivePlanSummary({
         <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
       </div>
 
+      <p className="mt-4 text-sm leading-6 text-zinc-300">{summary.safetySummaryEs}</p>
+
       <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -357,6 +359,7 @@ export function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["s
                         </>
                       )}
                     </p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">{exercise.notesEs}</p>
                     {exercise.painSensitive ? (
                       <p className="mt-2 text-xs leading-5 text-amber-200">
                         Vigilar dolor. Sustituciones: {exercise.substitutionOptionsEs.join(", ")}.
@@ -365,6 +368,7 @@ export function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["s
                   </div>
                 ))}
               </div>
+              <p className="mt-3 text-xs leading-5 text-zinc-500">{session.mobilityNotesEs}</p>
             </details>
           </article>
         ))}

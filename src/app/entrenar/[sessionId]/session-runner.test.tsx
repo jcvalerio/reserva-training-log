@@ -113,6 +113,23 @@ describe("SessionRunner", () => {
     expect(screen.getByRole("button", { name: "Guardar set 1" })).toBeVisible();
   });
 
+  it("shows the exercise's notes and the session's mobility notes as coaching cues while training", () => {
+    const exercise = buildExercise({ notesEs: "Ajusta la carga usando tus pesos base y conserva técnica estricta." });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.")).toBeVisible();
+    expect(screen.getByText(template.mobilityNotesEs)).toBeVisible();
+  });
+
   it("advances and returns between exercises with Anterior/Siguiente ejercicio", () => {
     const exerciseA = buildExercise({ id: "exercise-a", exerciseNameEs: "Prensa de piernas", targetSets: 3 });
     const exerciseB = buildExercise({ id: "exercise-b", exerciseNameEs: "Extensión de piernas", targetSets: 3 });

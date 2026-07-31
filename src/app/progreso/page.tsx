@@ -1,4 +1,6 @@
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
+import { buildBodyMeasurementTrend } from "@/measurements/measurement-trend";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { buildExerciseImprovements } from "@/workouts/improvement";
 import {
@@ -16,11 +18,13 @@ export default async function ProgresoPage() {
 
   let completedSessions: CompletedSessionSummary[] = [];
   let instancesByName = new Map<string, ExerciseInstance[]>();
+  let bodyMeasurements: Awaited<ReturnType<typeof getRecentBodyMeasurementsForProfile>> = [];
 
   if (profile) {
-    [completedSessions, instancesByName] = await Promise.all([
+    [completedSessions, instancesByName, bodyMeasurements] = await Promise.all([
       getCompletedWorkoutSessionsForProfile(profile.id),
       getRecentExerciseInstancesByName(profile.id),
+      getRecentBodyMeasurementsForProfile(profile.id, 24),
     ]);
   }
 
@@ -29,6 +33,7 @@ export default async function ProgresoPage() {
       hasProfile={Boolean(profile)}
       completedSessions={completedSessions}
       improvements={buildExerciseImprovements(instancesByName)}
+      bodyMeasurementTrend={buildBodyMeasurementTrend(bodyMeasurements)}
     />
   );
 }

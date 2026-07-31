@@ -29,6 +29,7 @@ describe("TemplatePreviewContent", () => {
       expect(screen.getByText(boundary)).toBeVisible();
     }
 
+    expect(screen.getByText(summary.safetySummaryEs)).toBeVisible();
     expect(screen.getByRole("link", { name: /Volver a plantillas/ })).toHaveAttribute("href", "/plan/templates");
 
     const activateButton = screen.getByRole("button", { name: "Activar este plan" });

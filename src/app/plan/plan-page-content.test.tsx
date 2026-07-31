@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { getM1Readiness } from "@/onboarding/readiness";
@@ -103,6 +103,34 @@ describe("PlanPageContent", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Tu plan quedó activado");
     expect(screen.queryByText("¿Cómo quieres empezar?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
+    expect(screen.getByText(activePlanPreview.safetySummaryEs)).toBeVisible();
+  });
+
+  it("shows each exercise's notes and each session's mobility notes once expanded", () => {
+    const readiness = getM1Readiness({ hasProfile: true });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+    const firstSession = activePlanPreview.sessions[0]!;
+    const firstExercise = firstSession.exercises[0]!;
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText("Ver ejercicios y objetivos")[0]!);
+
+    expect(screen.getAllByText(firstExercise.notesEs)[0]).toBeVisible();
+    expect(screen.getAllByText(firstSession.mobilityNotesEs)[0]).toBeVisible();
   });
 
   it("still offers the custom plan builder entry point when a plan is already active", () => {

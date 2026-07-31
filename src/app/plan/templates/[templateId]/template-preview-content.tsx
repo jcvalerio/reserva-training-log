@@ -55,6 +55,8 @@ export function TemplatePreviewContent({
           <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
         </div>
 
+        <p className="mt-4 text-sm leading-6 text-zinc-300">{summary.safetySummaryEs}</p>
+
         <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
           <div className="mt-3 flex flex-wrap gap-2">

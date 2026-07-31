@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/improvement";
 import type { CompletedSessionSummary, WorkoutSession } from "@/workouts/workout-repository";
@@ -56,14 +57,14 @@ function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
 
 describe("ProgresoPageContent", () => {
   it("shows an empty state pointing to /entrenar when there is no history", () => {
-    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={[]} />);
+    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={[]} bodyMeasurementTrend={null} />);
 
     expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Ir a Entrenar" })).toHaveAttribute("href", "/entrenar");
   });
 
   it("shows an empty state when there is no profile yet", () => {
-    render(<ProgresoPageContent hasProfile={false} improvements={[]} completedSessions={[]} />);
+    render(<ProgresoPageContent hasProfile={false} improvements={[]} completedSessions={[]} bodyMeasurementTrend={null} />);
 
     expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
   });
@@ -73,7 +74,7 @@ describe("ProgresoPageContent", () => {
       { session: buildSession(), template: buildTemplate() },
     ];
 
-    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={completedSessions} />);
+    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={completedSessions} bodyMeasurementTrend={null} />);
 
     expect(screen.getByRole("link", { name: /Pierna — cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
     expect(screen.getByText(/Día 1/)).toBeVisible();
@@ -104,7 +105,7 @@ describe("ProgresoPageContent", () => {
     ];
 
     render(
-      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} />,
+      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} bodyMeasurementTrend={null} />,
     );
 
     expect(screen.getByText("Prensa de piernas")).toBeVisible();
@@ -126,10 +127,85 @@ describe("ProgresoPageContent", () => {
     ];
 
     render(
-      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} />,
+      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} bodyMeasurementTrend={null} />,
     );
 
     expect(screen.getByText("Sin cambio de 5%")).toBeVisible();
     expect(screen.queryByText("Volumen +5%")).toBeNull();
+  });
+
+  it("shows the body measurement trend when there is more than one measurement", () => {
+    const completedSessions: CompletedSessionSummary[] = [
+      { session: buildSession(), template: buildTemplate() },
+    ];
+    const bodyMeasurementTrend: BodyMeasurementTrend = {
+      measurementCount: 3,
+      firstMeasuredAt: new Date("2026-06-01T12:00:00Z"),
+      latestMeasuredAt: new Date("2026-07-20T12:00:00Z"),
+      bodyWeightKg: { firstValue: 82, latestValue: 78.5, deltaValue: -3.5 },
+      waistCm: { firstValue: 90, latestValue: 88, deltaValue: -2 },
+      latestThighGapCm: 1.5,
+      latestCalfGapCm: null,
+    };
+
+    render(
+      <ProgresoPageContent
+        hasProfile={true}
+        improvements={[]}
+        completedSessions={completedSessions}
+        bodyMeasurementTrend={bodyMeasurementTrend}
+      />,
+    );
+
+    expect(screen.getByText("Tendencia corporal")).toBeVisible();
+    expect(screen.getByText(/Peso: 82\.0kg → 78\.5kg \(-3\.5kg\)/)).toBeVisible();
+    expect(screen.getByText(/Cintura: 90\.0cm → 88\.0cm \(-2\.0cm\)/)).toBeVisible();
+    expect(screen.getByText(/Muslo: \+1\.5cm/)).toBeVisible();
+    expect(screen.getByText(/Pantorrilla: —/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver mediciones" })).toHaveAttribute("href", "/mediciones");
+  });
+
+  it("shows a single-measurement message instead of a trend when there's only one entry", () => {
+    const completedSessions: CompletedSessionSummary[] = [
+      { session: buildSession(), template: buildTemplate() },
+    ];
+    const bodyMeasurementTrend: BodyMeasurementTrend = {
+      measurementCount: 1,
+      firstMeasuredAt: new Date("2026-07-20T12:00:00Z"),
+      latestMeasuredAt: new Date("2026-07-20T12:00:00Z"),
+      bodyWeightKg: { firstValue: 82, latestValue: 82, deltaValue: 0 },
+      waistCm: null,
+      latestThighGapCm: null,
+      latestCalfGapCm: null,
+    };
+
+    render(
+      <ProgresoPageContent
+        hasProfile={true}
+        improvements={[]}
+        completedSessions={completedSessions}
+        bodyMeasurementTrend={bodyMeasurementTrend}
+      />,
+    );
+
+    expect(screen.getByText(/1 medición registrada/)).toBeVisible();
+    expect(screen.queryByText(/Peso: /)).toBeNull();
+  });
+
+  it("hides the body trend section entirely when there are no measurements", () => {
+    const completedSessions: CompletedSessionSummary[] = [
+      { session: buildSession(), template: buildTemplate() },
+    ];
+
+    render(
+      <ProgresoPageContent
+        hasProfile={true}
+        improvements={[]}
+        completedSessions={completedSessions}
+        bodyMeasurementTrend={null}
+      />,
+    );
+
+    expect(screen.queryByText("Tendencia corporal")).toBeNull();
   });
 });

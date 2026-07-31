@@ -16,6 +16,7 @@ export type PlanPreviewExerciseSummary = {
   restSeconds: number;
   painSensitive: boolean;
   substitutionOptionsEs: string[];
+  notesEs: string;
 };
 
 export type PlanPreviewSessionSummary = {
@@ -25,6 +26,7 @@ export type PlanPreviewSessionSummary = {
   exerciseCount: number;
   unilateralExerciseCount: number;
   painSensitiveExerciseCount: number;
+  mobilityNotesEs: string;
   exercises: PlanPreviewExerciseSummary[];
 };
 
@@ -37,6 +39,7 @@ export type PlanPreviewSummary = {
   painSensitiveExerciseCount: number;
   previewBoundaryLabelsEs: readonly string[];
   requiredSetLogFieldsEs: readonly string[];
+  safetySummaryEs: string;
   sessions: PlanPreviewSessionSummary[];
 };
 
@@ -59,6 +62,7 @@ export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSu
     requiredSetLogFieldsEs: hasDurationExercises
       ? ["kg", "reps", "RIR", "duración", "dolor", "notas opcionales"]
       : ["kg", "reps", "RIR", "dolor", "notas opcionales"],
+    safetySummaryEs: plan.safetySummaryEs,
     sessions,
   };
 }
@@ -78,6 +82,7 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
     restSeconds: exercise.restSeconds,
     painSensitive: exercise.painSensitive,
     substitutionOptionsEs: exercise.substitutionOptionsEs,
+    notesEs: exercise.notesEs,
   }));
 
   return {
@@ -87,6 +92,7 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
     exerciseCount: exercises.length,
     unilateralExerciseCount: session.exercises.filter((exercise) => exercise.isUnilateral).length,
     painSensitiveExerciseCount: exercises.filter((exercise) => exercise.painSensitive).length,
+    mobilityNotesEs: session.mobilityNotesEs,
     exercises,
   };
 }
