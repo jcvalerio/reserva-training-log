@@ -24,7 +24,7 @@ describe("getPlanPreviewSummary", () => {
       orderIndex: 1,
       nameEs: "Prensa de piernas",
       phaseLabelEs: "principal",
-      sideModeLabelEs: "bilateral",
+      sideLabelEs: "bilateral",
       targetSets: 4,
       targetRepMin: 8,
       targetRepMax: 12,

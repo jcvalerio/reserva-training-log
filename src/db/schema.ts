@@ -28,11 +28,6 @@ export const sideFocusEnum = pgEnum("side_focus", ["right", "left", "bilateral",
 export const baselineSideEnum = pgEnum("baseline_side", ["bilateral", "left", "right"]);
 export const workoutPlanStatusEnum = pgEnum("workout_plan_status", ["draft", "active", "completed", "archived"]);
 export const exercisePhaseEnum = pgEnum("exercise_phase", ["warmup", "main", "accessory", "mobility"]);
-export const exerciseSideModeEnum = pgEnum("exercise_side_mode", [
-  "bilateral",
-  "unilateral_separate",
-  "unilateral_matched",
-]);
 export const workoutSessionStatusEnum = pgEnum("workout_session_status", [
   "planned",
   "active",
@@ -312,7 +307,11 @@ export const exercisePrescription = pgTable(
     exerciseNameEs: text("exercise_name_es").notNull(),
     exerciseNameEn: text("exercise_name_en"),
     phase: exercisePhaseEnum("phase").notNull(),
-    sideMode: exerciseSideModeEnum("side_mode").notNull(),
+    // Replaces the old 3-value sideMode enum (bilateral | unilateral_separate
+    // | unilateral_matched) — the separate/matched distinction had zero
+    // behavioral difference anywhere in the app. Real independent-per-side
+    // progression tracking is future work, not this flag.
+    isUnilateral: boolean("is_unilateral").notNull(),
     targetSets: integer("target_sets").notNull(),
     targetRepMin: integer("target_rep_min").notNull(),
     targetRepMax: integer("target_rep_max").notNull(),

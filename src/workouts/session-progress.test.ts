@@ -149,7 +149,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     exerciseNameEs: "Prensa de piernas",
     exerciseNameEn: null,
     phase: "main" as const,
-    sideMode: "bilateral" as const,
+    isUnilateral: false,
     targetSets: 4,
     targetRepMin: 8,
     targetRepMax: 12,

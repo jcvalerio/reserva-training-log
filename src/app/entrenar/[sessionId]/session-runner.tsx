@@ -50,7 +50,7 @@ export function SessionRunner({
   const loggedCount = currentExercise.loggedSets.length;
   const nextSetNumber = loggedCount + 1;
   const lastSet = currentExercise.loggedSets[loggedCount - 1];
-  const isUnilateral = currentExercise.sideMode !== "bilateral";
+  const isUnilateral = currentExercise.isUnilateral;
   const leftCount = currentExercise.loggedSets.filter((set) => set.side === "left").length;
   const rightCount = currentExercise.loggedSets.filter((set) => set.side === "right").length;
   const defaultSide = leftCount <= rightCount ? "left" : "right";

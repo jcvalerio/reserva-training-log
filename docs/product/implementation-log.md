@@ -2,9 +2,25 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
-## 2026-07-30 — Exercise model redesign: Phase 1 complete (editar/duplicar plan)
+## 2026-07-30 — Exercise model redesign: Phase 2 complete (sideMode → isUnilateral)
 
-Status: code complete, `lint`/`typecheck`/`test` (127 passing)/`build` all green. Not yet deployed/verified as of this entry.
+Status: code complete, `lint`/`typecheck`/`test` (128 passing)/`build` all green. Migration generated and verified against the dev DB (see below); not yet deployed to production as of this entry.
+
+Implemented (Phase 2 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`):
+- `src/db/schema.ts`: dropped `exerciseSideModeEnum`/`sideMode` (bilateral | unilateral_separate | unilateral_matched), replaced with `isUnilateral boolean NOT NULL`. Shipped as two migration files rather than one, for a mechanical reason discovered while running `db:generate`, not a change to the plan's risk posture: `drizzle-kit generate` needs a way to resolve a brand-new `NOT NULL` column against existing rows, so a single generate call from "has sideMode" straight to "has isUnilateral NOT NULL" would hit an interactive default-value prompt this non-interactive workflow can't answer. Split into `drizzle/0008_mean_the_leader.sql` (add `is_unilateral` nullable, hand-inserted `UPDATE` backfill from `side_mode != 'bilateral'`) and `drizzle/0009_mature_paper_doll.sql` (`SET NOT NULL`, `DROP COLUMN side_mode`, `DROP TYPE`) — both apply automatically in the same `db:migrate` run, so it's still one deploy, one verification checkpoint, matching the plan's intent.
+- Backfill correctness verified directly against the dev Neon DB (not assumed): queried every row's `side_mode`/`is_unilateral` pair post-migration — every `bilateral` row mapped to `false`, every `unilateral_matched` row mapped to `true`, zero mismatches, zero `unilateral_separate` rows existed in real data.
+- App-code cutover across every call site found in the earlier full-codebase inventory: `generated-plan-schema.ts`, `plan-builder-schema.ts` (checkbox-style boolean, same `on`/`true` preprocess pattern as `painSensitive`), `plan-preview.ts` (renamed `sideModeLabelEs` → `sideLabelEs`, now just `"unilateral"`/`"bilateral"`), `plan-repository.ts`, `plan-builder-repository.ts`, `seeded-plan.ts` (positional tuple slot swapped to boolean), `session-runner.tsx`, `plan-page-content.tsx`, the builder session page + `session-editor-form.tsx` (replaced the "Modo" 3-option select with a single "¿Es unilateral?" checkbox; also fixed a pre-existing type-drift bug flagged during planning — this file was hand-duplicating `IncrementCategory` as a local type instead of importing the canonical one from `progression-view.ts`, now imports it).
+- Fixtures updated in every touched test file. `npm run typecheck` came back clean on the first pass after the full cutover — no missed call sites.
+
+Next iteration:
+- Commit, deploy (migrations apply automatically via `vercel.json`'s buildCommand), manually verify a unilateral exercise in the real active plan still logs left/right correctly in `/entrenar`.
+- After that: Phase 3 (replace `incrementCategory` with `loadMechanism` × `isCompound`, two-step rollout with a manual Neon-console verification checkpoint before the irreversible cutover).
+
+## 2026-07-30 — Exercise model redesign: Phase 1 complete, deployed, verified
+
+Status: completed. Deployed and manually verified by the user against the real active plan: "Editar mi plan" and "Duplicar como borrador" both work correctly.
+
+Follow-up fix shipped in the same phase, found during verification: the builder only let you set the plan's name/daysPerWeek at creation time — once a draft existed there was no way to rename it or change its day count, even though every session/exercise inside it was editable. Added a collapsed "Editar nombre y días del plan" section to the builder overview (`updateDraftPlanDetails` repository function + `updatePlanDetailsAction`), deployed and confirmed working.
 
 Context:
 - After the plan builder shipped and the user built + activated a real custom plan, real usage friction surfaced: no way to edit an active plan or reuse it as a base for a new one; `sideMode`'s "Unilateral separado" vs "Unilateral pareado" choice turned out to have zero behavioral difference in the app (confirmed via full-codebase grep — `session-runner.tsx` treats both identically); `incrementCategory` ("Categoría de incremento") was being used by the user as an exercise taxonomy when it only ever existed to drive the weight-suggestion percentage, and its "Máquina o tren inferior" option conflates equipment type with body region (a known judgment call, per `seeded-plan.ts`'s own code comment); and there was no way to model duration-based exercises (stair-climber/treadmill warmups, timed mobility holds) since every exercise is forced into sets × rep-range × RIR.
@@ -19,8 +35,7 @@ Implemented (Phase 1 of 4):
 - Tests: `plan-page-content.test.tsx` extended with a case asserting both buttons render on the active-plan view.
 
 Next iteration:
-- Deploy, then manually verify: edit the real active plan (confirm it reverts to draft, round-trips through the builder, reactivates correctly with history intact), duplicate it (confirm the original stays active/untouched and the duplicate opens correctly in the builder).
-- After that: Phase 2 (collapse `sideMode` to `isUnilateral` boolean) — see `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`.
+- Phase 2 (collapse `sideMode` to `isUnilateral` boolean) — see `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`.
 
 ## 2026-07-30 — Custom plan builder: Phase B (draft plan builder) implemented
 

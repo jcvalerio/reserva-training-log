@@ -33,7 +33,7 @@ describe("SessionEditorForm", () => {
           {
             exerciseNameEs: "Prensa de piernas",
             phase: "main",
-            sideMode: "bilateral",
+            isUnilateral: false,
             targetSets: 4,
             targetRepMin: 8,
             targetRepMax: 12,

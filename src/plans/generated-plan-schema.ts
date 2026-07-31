@@ -15,7 +15,7 @@ export const generatedExercisePrescriptionSchema = z
     exerciseNameEs: z.string().min(1),
     exerciseNameEn: z.string().min(1).optional(),
     phase: z.enum(["warmup", "main", "accessory", "mobility"]),
-    sideMode: z.enum(["bilateral", "unilateral_separate", "unilateral_matched"]),
+    isUnilateral: z.boolean(),
     targetSets: z.number().int().min(1).max(6),
     targetRepMin: z.number().int().min(1).max(30),
     targetRepMax: z.number().int().min(1).max(30),

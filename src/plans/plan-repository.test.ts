@@ -49,7 +49,7 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       exerciseNameEs: exercise.exerciseNameEs,
       exerciseNameEn: exercise.exerciseNameEn ?? null,
       phase: exercise.phase,
-      sideMode: exercise.sideMode,
+      isUnilateral: exercise.isUnilateral,
       targetSets: exercise.targetSets,
       targetRepMin: exercise.targetRepMin,
       targetRepMax: exercise.targetRepMax,

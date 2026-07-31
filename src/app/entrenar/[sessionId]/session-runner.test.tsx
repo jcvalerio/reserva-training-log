@@ -62,7 +62,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     exerciseNameEs: "Prensa de piernas",
     exerciseNameEn: null,
     phase: "main",
-    sideMode: "bilateral",
+    isUnilateral: false,
     targetSets: 2,
     targetRepMin: 8,
     targetRepMax: 12,
@@ -158,7 +158,7 @@ describe("SessionRunner", () => {
   });
 
   it("shows a side selector only for unilateral exercises", () => {
-    const bilateral = buildExercise({ sideMode: "bilateral" });
+    const bilateral = buildExercise({ isUnilateral: false });
     const { unmount } = render(
       <SessionRunner
         session={buildSession()}
@@ -171,7 +171,7 @@ describe("SessionRunner", () => {
     expect(screen.queryByRole("radio", { name: "Izquierda" })).toBeNull();
     unmount();
 
-    const unilateral = buildExercise({ sideMode: "unilateral_separate" });
+    const unilateral = buildExercise({ isUnilateral: true });
     render(
       <SessionRunner
         session={buildSession()}

@@ -6,7 +6,7 @@ export type PlanPreviewExerciseSummary = {
   orderIndex: number;
   nameEs: string;
   phaseLabelEs: string;
-  sideModeLabelEs: string;
+  sideLabelEs: string;
   targetSets: number;
   targetRepMin: number;
   targetRepMax: number;
@@ -59,7 +59,7 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
     orderIndex: index + 1,
     nameEs: exercise.exerciseNameEs,
     phaseLabelEs: phaseLabelsEs[exercise.phase],
-    sideModeLabelEs: sideModeLabelsEs[exercise.sideMode],
+    sideLabelEs: exercise.isUnilateral ? "unilateral" : "bilateral",
     targetSets: exercise.targetSets,
     targetRepMin: exercise.targetRepMin,
     targetRepMax: exercise.targetRepMax,
@@ -74,7 +74,7 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
     nameEs: session.nameEs,
     focus: session.focus,
     exerciseCount: exercises.length,
-    unilateralExerciseCount: session.exercises.filter((exercise) => exercise.sideMode !== "bilateral").length,
+    unilateralExerciseCount: session.exercises.filter((exercise) => exercise.isUnilateral).length,
     painSensitiveExerciseCount: exercises.filter((exercise) => exercise.painSensitive).length,
     exercises,
   };
@@ -87,8 +87,3 @@ const phaseLabelsEs = {
   mobility: "movilidad",
 } as const;
 
-const sideModeLabelsEs = {
-  bilateral: "bilateral",
-  unilateral_separate: "unilateral separado",
-  unilateral_matched: "unilateral pareado",
-} as const;

@@ -59,7 +59,7 @@ describe("parsePlanBuilderSessionFormData", () => {
     formData.set("rowCount", "1");
     formData.set("exercise-0:exerciseNameEs", "Prensa de piernas");
     formData.set("exercise-0:phase", "main");
-    formData.set("exercise-0:sideMode", "bilateral");
+    formData.set("exercise-0:isUnilateral", "on");
     formData.set("exercise-0:targetSets", "4");
     formData.set("exercise-0:targetRepMin", "8");
     formData.set("exercise-0:targetRepMax", "12");
@@ -74,7 +74,7 @@ describe("parsePlanBuilderSessionFormData", () => {
       {
         exerciseNameEs: "Prensa de piernas",
         phase: "main",
-        sideMode: "bilateral",
+        isUnilateral: true,
         targetSets: 4,
         targetRepMin: 8,
         targetRepMax: 12,
@@ -101,7 +101,7 @@ describe("parsePlanBuilderSessionFormData", () => {
       {
         exerciseNameEs: "Extensión de piernas",
         phase: "main",
-        sideMode: "bilateral",
+        isUnilateral: false,
         targetSets: 3,
         targetRepMin: 12,
         targetRepMax: 15,

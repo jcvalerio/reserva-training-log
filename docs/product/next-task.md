@@ -1,19 +1,19 @@
 # Next Task
 
-## Status: Exercise model redesign, Phase 1 code-complete — deploy and verify, then start Phase 2
+## Status: Exercise model redesign, Phase 2 code-complete — deploy and verify, then start Phase 3
 
-The custom plan builder (Phase A: flatten week-block model; Phase B: draft builder UI) shipped, deployed, and was verified end-to-end in production — that feature is done. Real usage of it then surfaced a follow-up need: a 4-phase exercise-model redesign is now underway (edit/duplicate an active plan; fix the meaningless `sideMode` choice; fix the confusing `incrementCategory` taxonomy; add duration-based exercises for cardio warmups/mobility holds where RIR/rep-range don't apply). **Phase 1 (editar/duplicar plan, no migration) is code-complete** — `lint`, `typecheck`, `test` (127 passing), and `build` are all green — but not yet deployed or verified.
+The custom plan builder (Phase A/B) and the exercise-model redesign's Phase 1 (editar/duplicar plan) are done, deployed, and verified in production. **Phase 2 (collapse `sideMode`'s 3-value enum, which had zero behavioral difference between its two unilateral options, to a boolean `isUnilateral`) is code-complete** — `lint`, `typecheck`, `test` (128 passing), and `build` are all green, and the migration (`drizzle/0008_mean_the_leader.sql` + `drizzle/0009_mature_paper_doll.sql`) has been generated and its backfill correctness verified directly against the dev DB — but not yet deployed to production.
 
-**Read `docs/product/implementation-log.md`'s "2026-07-30 — Exercise model redesign: Phase 1 complete (editar/duplicar plan)" entry and the full 4-phase design at `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md` before doing anything else.** This file only summarizes the immediate next steps; those two are the source of truth for the design and exact status.
+**Read `docs/product/implementation-log.md`'s "2026-07-30 — Exercise model redesign: Phase 2 complete (sideMode → isUnilateral)" entry and the full 4-phase design at `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md` before doing anything else.** This file only summarizes the immediate next steps; those two are the source of truth for the design and exact status.
 
 ## Immediate next steps
 
 In order:
-1. Commit the Phase 1 changes (conventional commit, e.g. `feat: promote plan editing to first-class, add plan duplication`).
-2. Deploy to Vercel production (`vercel deploy --prod --yes`).
-3. Manually verify against the real active plan: "Editar mi plan" reverts it to draft, round-trips through the builder unchanged, reactivates correctly with logged history intact; "Duplicar como borrador" creates a new draft from the current plan while leaving the original active and untouched.
+1. Commit the Phase 2 changes (conventional commit, e.g. `refactor: collapse sideMode to isUnilateral boolean`).
+2. Deploy to Vercel production (`vercel deploy --prod --yes`) — the two pending migrations apply automatically as part of the build.
+3. Manually verify against the real active plan: a unilateral exercise still logs left/right correctly in `/entrenar`, `/plan` still renders without errors.
 
-Once confirmed, start **Phase 2** (collapse `sideMode`'s 3-value enum, which has zero behavioral difference between its two unilateral options today, to a boolean `isUnilateral`) — one migration, full SQL sequencing already specified in the plan file. Phase 3 (replace `incrementCategory` with `loadMechanism` × `isCompound`, two-step migration rollout) and Phase 4 (duration-based exercises — the largest phase, touches the live `set_log` history table, deliberately sequenced last) follow after Phase 2 is deployed and verified. **Do not skip ahead** — this ordering (small/low-risk first, largest/riskiest last) was explicitly confirmed with the user.
+Once confirmed, start **Phase 3** (replace `incrementCategory` with `loadMechanism` × `isCompound`) — a two-step migration rollout with a manual Neon-console verification checkpoint before the irreversible cutover, full mapping already specified in the plan file. Phase 4 (duration-based exercises — the largest phase, touches the live `set_log` history table, deliberately sequenced last) follows after Phase 3 is deployed and verified. **Do not skip ahead** — this ordering (small/low-risk first, largest/riskiest last) was explicitly confirmed with the user.
 
 ## Constraints that still apply
 

@@ -378,7 +378,7 @@ function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions
                       <div className="min-w-0 flex-1">
                         <h4 className="font-semibold text-zinc-100">{exercise.nameEs}</h4>
                         <p className="mt-1 text-xs text-zinc-500">
-                          {exercise.phaseLabelEs} · {exercise.sideModeLabelEs}
+                          {exercise.phaseLabelEs} · {exercise.sideLabelEs}
                         </p>
                       </div>
                     </div>

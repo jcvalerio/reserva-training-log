@@ -4,17 +4,16 @@ import { useRef, useState } from "react";
 
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import { rirLabelsEs, rirValues } from "@/training/rir";
+import type { IncrementCategory } from "@/workouts/progression-view";
 
 import { SubmitButton } from "../../../../submit-button";
 
 type Phase = "warmup" | "main" | "accessory" | "mobility";
-type SideMode = "bilateral" | "unilateral_separate" | "unilateral_matched";
-type IncrementCategory = "machine_or_lower_body" | "upper_compound" | "isolation" | "dumbbell";
 
 export type SessionEditorInitialExercise = {
   exerciseNameEs: string;
   phase: Phase;
-  sideMode: SideMode;
+  isUnilateral: boolean;
   targetSets: number;
   targetRepMin: number;
   targetRepMax: number;
@@ -33,7 +32,7 @@ function blankRow(key: string): ExerciseRowValue {
     key,
     exerciseNameEs: "",
     phase: "main",
-    sideMode: "bilateral",
+    isUnilateral: false,
     targetSets: 3,
     targetRepMin: 8,
     targetRepMax: 12,
@@ -194,15 +193,14 @@ function ExerciseRowFields({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-300">
-          <span>Modo</span>
-          <select name={`${prefix}:sideMode`} defaultValue={value.sideMode} className="input">
-            {sideModeOptions.map(([option, labelEs]) => (
-              <option key={option} value={option}>
-                {labelEs}
-              </option>
-            ))}
-          </select>
+        <label className="flex items-end gap-2 pb-2.5 text-sm font-medium text-zinc-300">
+          <input
+            name={`${prefix}:isUnilateral`}
+            type="checkbox"
+            defaultChecked={value.isUnilateral}
+            className="h-5 w-5 rounded border-zinc-700 bg-zinc-950"
+          />
+          <span>Unilateral (un lado a la vez)</span>
         </label>
       </div>
 
@@ -323,12 +321,6 @@ const phaseOptions: Array<[Phase, string]> = [
   ["main", "Principal"],
   ["accessory", "Accesorio"],
   ["mobility", "Movilidad"],
-];
-
-const sideModeOptions: Array<[SideMode, string]> = [
-  ["bilateral", "Bilateral"],
-  ["unilateral_separate", "Unilateral separado"],
-  ["unilateral_matched", "Unilateral pareado"],
 ];
 
 const incrementCategoryOptions: Array<[IncrementCategory, string]> = [

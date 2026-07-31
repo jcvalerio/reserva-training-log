@@ -15,10 +15,10 @@ const baseSessions = [
     nameEs: "Pierna — cuádriceps y pantorrilla",
     focus: "Cuádriceps, pantorrilla y unilateral controlado",
     exercises: [
-      ["Prensa de piernas", "main", "bilateral", 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Prensa unilateral", "accessory", "unilateral_matched", 3, 10, 12, 2, 120, "machine_or_lower_body"],
-      ["Extensión de piernas", "accessory", "bilateral", 3, 12, 15, 2, 90, "isolation"],
-      ["Elevación de pantorrillas", "accessory", "bilateral", 4, 10, 15, 2, 75, "machine_or_lower_body"],
+      ["Prensa de piernas", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
+      ["Prensa unilateral", "accessory", true, 3, 10, 12, 2, 120, "machine_or_lower_body"],
+      ["Extensión de piernas", "accessory", false, 3, 12, 15, 2, 90, "isolation"],
+      ["Elevación de pantorrillas", "accessory", false, 4, 10, 15, 2, 75, "machine_or_lower_body"],
     ],
   },
   {
@@ -26,10 +26,10 @@ const baseSessions = [
     nameEs: "Torso — empuje seguro",
     focus: "Pecho, tríceps y hombro con control de dolor",
     exercises: [
-      ["Press de pecho en máquina", "main", "bilateral", 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Press inclinado con mancuernas neutras", "accessory", "bilateral", 3, 8, 12, 2, 120, "dumbbell"],
-      ["Elevaciones laterales en cable", "accessory", "bilateral", 3, 12, 20, 3, 75, "isolation"],
-      ["Tríceps en cuerda", "accessory", "bilateral", 3, 10, 15, 2, 75, "isolation"],
+      ["Press de pecho en máquina", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
+      ["Press inclinado con mancuernas neutras", "accessory", false, 3, 8, 12, 2, 120, "dumbbell"],
+      ["Elevaciones laterales en cable", "accessory", false, 3, 12, 20, 3, 75, "isolation"],
+      ["Tríceps en cuerda", "accessory", false, 3, 10, 15, 2, 75, "isolation"],
     ],
   },
   {
@@ -37,10 +37,10 @@ const baseSessions = [
     nameEs: "Tirón — espalda y bíceps",
     focus: "Dorsal, remos y brazos sin irritar hombro",
     exercises: [
-      ["Jalón al pecho agarre neutro", "main", "bilateral", 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Remo sentado en cable", "main", "bilateral", 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Pullover en cable", "accessory", "bilateral", 3, 12, 15, 2, 90, "isolation"],
-      ["Curl de bíceps en cable", "accessory", "bilateral", 3, 10, 15, 2, 75, "isolation"],
+      ["Jalón al pecho agarre neutro", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
+      ["Remo sentado en cable", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
+      ["Pullover en cable", "accessory", false, 3, 12, 15, 2, 90, "isolation"],
+      ["Curl de bíceps en cable", "accessory", false, 3, 10, 15, 2, 75, "isolation"],
     ],
   },
   {
@@ -48,10 +48,10 @@ const baseSessions = [
     nameEs: "Pierna — posterior y glúteo",
     focus: "Femoral, glúteo y estabilidad",
     exercises: [
-      ["Curl femoral sentado", "main", "bilateral", 4, 8, 12, 2, 120, "machine_or_lower_body"],
-      ["Hack squat controlado", "main", "bilateral", 3, 8, 10, 2, 150, "machine_or_lower_body"],
-      ["Peso muerto rumano con mancuernas", "accessory", "bilateral", 3, 8, 12, 3, 150, "dumbbell"],
-      ["Pantorrilla sentado", "accessory", "bilateral", 4, 12, 20, 2, 75, "machine_or_lower_body"],
+      ["Curl femoral sentado", "main", false, 4, 8, 12, 2, 120, "machine_or_lower_body"],
+      ["Hack squat controlado", "main", false, 3, 8, 10, 2, 150, "machine_or_lower_body"],
+      ["Peso muerto rumano con mancuernas", "accessory", false, 3, 8, 12, 3, 150, "dumbbell"],
+      ["Pantorrilla sentado", "accessory", false, 4, 12, 20, 2, 75, "machine_or_lower_body"],
     ],
   },
   {
@@ -59,10 +59,10 @@ const baseSessions = [
     nameEs: "Upper/lower accesorio",
     focus: "Volumen extra, brazos, deltoides y movilidad",
     exercises: [
-      ["Remo pecho apoyado", "main", "bilateral", 3, 8, 12, 2, 120, "machine_or_lower_body"],
-      ["Press de pecho en cable", "accessory", "bilateral", 3, 10, 15, 2, 90, "machine_or_lower_body"],
-      ["Extensión unilateral de pierna", "accessory", "unilateral_matched", 3, 12, 15, 2, 75, "isolation"],
-      ["Face pull", "mobility", "bilateral", 3, 12, 20, 3, 60, "isolation"],
+      ["Remo pecho apoyado", "main", false, 3, 8, 12, 2, 120, "machine_or_lower_body"],
+      ["Press de pecho en cable", "accessory", false, 3, 10, 15, 2, 90, "machine_or_lower_body"],
+      ["Extensión unilateral de pierna", "accessory", true, 3, 12, 15, 2, 75, "isolation"],
+      ["Face pull", "mobility", false, 3, 12, 20, 3, 60, "isolation"],
     ],
   },
 ] as const;
@@ -87,7 +87,7 @@ export function createSeededHypertrophyPlan(): GeneratedWorkoutPlan {
         ([
           exerciseNameEs,
           phase,
-          sideMode,
+          isUnilateral,
           targetSets,
           targetRepMin,
           targetRepMax,
@@ -97,7 +97,7 @@ export function createSeededHypertrophyPlan(): GeneratedWorkoutPlan {
         ]) => ({
           exerciseNameEs,
           phase,
-          sideMode,
+          isUnilateral,
           targetSets,
           targetRepMin,
           targetRepMax,

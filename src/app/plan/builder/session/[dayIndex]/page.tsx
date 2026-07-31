@@ -36,7 +36,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
   const initialExercises: SessionEditorInitialExercise[] = (existingSession?.exercises ?? []).map((exercise) => ({
     exerciseNameEs: exercise.exerciseNameEs,
     phase: exercise.phase,
-    sideMode: exercise.sideMode,
+    isUnilateral: exercise.isUnilateral,
     targetSets: exercise.targetSets,
     targetRepMin: exercise.targetRepMin,
     targetRepMax: exercise.targetRepMax,

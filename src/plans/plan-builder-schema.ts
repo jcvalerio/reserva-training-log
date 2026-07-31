@@ -18,7 +18,6 @@ const withDefault = <Value extends string>(fallback: Value, schema: z.ZodType<Va
   z.preprocess((value) => (typeof value === "string" && value.trim() !== "" ? value : fallback), schema);
 
 const phaseSchema = z.enum(["warmup", "main", "accessory", "mobility"]);
-const sideModeSchema = z.enum(["bilateral", "unilateral_separate", "unilateral_matched"]);
 const incrementCategorySchema = z.enum(["machine_or_lower_body", "upper_compound", "isolation", "dumbbell"]);
 const rirSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
@@ -76,7 +75,7 @@ export const planBuilderExerciseInputSchema = z
   .object({
     exerciseNameEs: requiredTrimmedString("Nombre del ejercicio", 200),
     phase: withDefault("main", phaseSchema),
-    sideMode: withDefault("bilateral", sideModeSchema),
+    isUnilateral: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
     targetSets: requiredNumber("Series", 1, 6).pipe(z.number().int()),
     targetRepMin: requiredNumber("Reps mínimas", 1, 30).pipe(z.number().int()),
     targetRepMax: requiredNumber("Reps máximas", 1, 30).pipe(z.number().int()),
@@ -128,7 +127,7 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
       planBuilderExerciseInputSchema.parse({
         exerciseNameEs: nameValue,
         phase: formData.get(`${prefix}:phase`),
-        sideMode: formData.get(`${prefix}:sideMode`),
+        isUnilateral: formData.get(`${prefix}:isUnilateral`),
         targetSets: formData.get(`${prefix}:targetSets`),
         targetRepMin: formData.get(`${prefix}:targetRepMin`),
         targetRepMax: formData.get(`${prefix}:targetRepMax`),
