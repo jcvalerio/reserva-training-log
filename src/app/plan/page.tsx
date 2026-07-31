@@ -5,10 +5,9 @@ import { getM1Readiness } from "@/onboarding/readiness";
 import { getNonAiPlanGate } from "@/plans/plan-gate";
 import { getPlanPreviewSummary } from "@/plans/plan-preview";
 import { getActivePlanForProfile, toGeneratedWorkoutPlan } from "@/plans/plan-repository";
-import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
-import { activatePlanAction, cloneActivePlanAction, editActivePlanAction } from "./actions";
+import { cloneActivePlanAction, editActivePlanAction } from "./actions";
 import { PlanPageContent } from "./plan-page-content";
 
 type PlanPageProps = {
@@ -34,8 +33,7 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
     bodyMeasurementCount: bodyMeasurements.length,
   });
   const gate = getNonAiPlanGate(readiness);
-  const seededPreview =
-    !activePlan && readiness.foundationReady ? getPlanPreviewSummary(createSeededHypertrophyPlan()) : null;
+  const showStartFork = !activePlan && readiness.foundationReady;
 
   // A custom plan built through /plan/builder can activate without every
   // session meeting toGeneratedWorkoutPlan's stricter read-side schema (e.g.
@@ -56,12 +54,11 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
     <PlanPageContent
       readiness={readiness}
       gate={gate}
-      seededPreview={seededPreview}
+      showStartFork={showStartFork}
       activePlanPreview={activePlanPreview}
       activePlanError={activePlanError}
       activatedAt={activePlan?.plan.activatedAt ?? null}
       justSaved={params.saved === "1"}
-      activatePlanAction={activatePlanAction}
       editActivePlanAction={editActivePlanAction}
       cloneActivePlanAction={cloneActivePlanAction}
     />

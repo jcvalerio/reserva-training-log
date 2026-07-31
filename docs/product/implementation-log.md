@@ -2,6 +2,32 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Two-choice plan start fork + second template (fat-loss A/B circuit)
+
+Status: code complete, `lint`/`typecheck`/`test` (155 passing)/`build` all green. `db:generate` confirms zero schema diff (the `goal` widening is Zod-only — the DB column is plain `text`, not a Postgres enum). Not yet deployed as of this entry.
+
+User feedback: the seeded hypertrophy plan auto-appeared as a big pre-expanded "Vista previa" card with "Activar este plan" front and center on `/plan`, with "Crear mi propio plan" as a smaller link underneath — implying the seeded plan *is* the plan and custom is an afterthought, which was confusing. Asked for a neutral two-choice fork instead, and offered a second source plan (image: an 8-week, 5-day/week fat-loss circuit alternating "Rutina A"/"Rutina B") to build out an actual template catalog rather than a single hardcoded plan.
+
+Design decisions made along the way, confirmed with the user via `AskUserQuestion` where genuinely ambiguous:
+- Rutina A/B become **one** new template (5 days, day1/3/5=A day2/4=B, matching the source's own weekly suggestion LUN:A MAR:B MIÉ:A JUE:B VIE:A) — not two separate templates. They share one objective, one progression scheme, and only make sense together.
+- The source's "8 semanas" framing and week-numbered progression (sem1-2 learn technique, sem3-4 +load, sem5-6 shorter rest, sem7-8 +1 round) contradicts this app's indefinite-repeat model (the same thing Phase A already deliberately moved away from, and the same confusion behind the previous "no way to define how many weeks" bug fix). Adapted to ongoing, readiness-based guidance instead of week-indexed milestones — folded into `safetySummaryEs` since nothing else in the UI is better suited.
+- The schema has no superset/circuit-grouping concept — each of the source's blocks (Calentamiento, Fuerza principal, Bloque 1, Bloque 2, Acondicionamiento, Cardio opcional) becomes its own set of independent `exercisePrescription` rows, with the block name prefixed onto `exerciseNameEs` (e.g. "Bloque 1 · KB swing") — the only place in the current UI where this grouping is guaranteed to actually be visible (plan preview and `/entrenar` both show the exercise name; neither surfaces `notesEs`, `mobilityNotesEs`, or `safetySummaryEs` today, a pre-existing gap worth revisiting separately).
+- This pushed a real session to ~18 distinct exercises (each block's movements are separate rows), busting the existing `MAX_SESSION_EXERCISES = 10` cap — raised to 20; nothing else in the codebase assumed that ceiling.
+- `goal` widened from `z.literal("hypertrophy")` to `z.enum(["hypertrophy", "fat_loss"])` in `generated-plan-schema.ts` — the only other usage sites (`profile-schema.ts`'s unrelated `primaryGoal`, the DB `text` column) were unaffected.
+- Movements without a clean sets×reps or seconds fit (calorie-target bike sprints, a 500m row, a farmer's carry) went to `prescriptionType: "duration"` with the target explained in `notesEs`, reusing Phase 4's duration-exercise support rather than forcing a rep count onto them.
+
+Implemented:
+- `src/plans/fat-loss-plan.ts`: `createFatLossPlan()`, authored with small `strengthEx`/`durationEx` factories (block label → phase mapping, pain-sensitivity heuristic) rather than a flat tuple list like `seeded-plan.ts`, given the volume (36 exercises across both routines).
+- `src/plans/plan-templates.ts`: new catalog (`planTemplates`, `getPlanTemplateById`, `isPlanTemplateId`) listing both templates by id/name/objective/description/`build()`.
+- `src/plans/plan-repository.ts`: `activateSeededPlanForProfile` now takes a `templateId` and looks it up via the catalog instead of hardcoding `createSeededHypertrophyPlan()`.
+- `src/app/plan/actions.ts`: `activatePlanAction` now reads `templateId` from FormData and validates it via `isPlanTemplateId` before activating.
+- `src/app/plan/plan-page-content.tsx`: replaced the auto-expanded `SeededPlanPreview` with a neutral `StartPlanFork` (two equal-weight links: "Usar una plantilla" → `/plan/templates`, "Crear mi propio plan" → `/plan/builder`, same as before). Exported `PlanSessionsList`/`StatusTile` for reuse by the new template-preview page instead of duplicating that fairly substantial rendering.
+- New routes: `/plan/templates` (list, gated on foundation-ready + no active plan) and `/plan/templates/[templateId]` (full preview + activate form, same gating plus a valid-id check) — both follow this app's existing page.tsx/page-content.tsx split for testability.
+
+Next iteration:
+- Deploy, then manually verify: the fork shows neither option pre-expanded, browsing to each template renders the full preview correctly (including the ~18-exercise fat-loss sessions and the block-prefixed exercise names), activating the fat-loss template works end-to-end through a real `/entrenar` session (duration-type exercises log correctly, block-prefixed names look sane in the training UI), and the existing hypertrophy-template path still works unchanged.
+- Worth a separate look eventually: `notesEs`, `mobilityNotesEs`, and `safetySummaryEs` are all required, written-to fields that no UI currently displays — the fat-loss template's progression guidance is invisible until that's fixed.
+
 ## 2026-07-30 — Fix: no way to start a session again once every day showed "completed"
 
 Status: fixed, `lint`/`typecheck`/`test` (145 passing)/`build` all green.

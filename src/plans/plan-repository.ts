@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { exercisePrescription, planSessionTemplate, workoutPlan } from "@/db/schema";
 
 import { generatedWorkoutPlanSchema, type GeneratedWorkoutPlan } from "./generated-plan-schema";
-import { createSeededHypertrophyPlan } from "./seeded-plan";
+import { getPlanTemplateById, type PlanTemplateId } from "./plan-templates";
 
 export type WorkoutPlan = typeof workoutPlan.$inferSelect;
 export type PlanSessionTemplate = typeof planSessionTemplate.$inferSelect;
@@ -68,13 +68,21 @@ export async function getActivePlanForProfile(athleteProfileId: string): Promise
   };
 }
 
-export async function activateSeededPlanForProfile(athleteProfileId: string): Promise<ActivePlanWithSessions> {
+export async function activateSeededPlanForProfile(
+  athleteProfileId: string,
+  templateId: PlanTemplateId,
+): Promise<ActivePlanWithSessions> {
   const existing = await getActivePlanForProfile(athleteProfileId);
   if (existing) {
     return existing;
   }
 
-  const seeded = createSeededHypertrophyPlan();
+  const template = getPlanTemplateById(templateId);
+  if (!template) {
+    throw new Error(`Unknown plan template id: ${templateId}`);
+  }
+
+  const seeded = template.build();
   const planId = randomUUID();
 
   const [insertedPlan] = await db

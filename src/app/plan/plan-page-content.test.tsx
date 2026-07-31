@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { getM1Readiness } from "@/onboarding/readiness";
@@ -8,30 +8,27 @@ import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 
 import { PlanPageContent } from "./plan-page-content";
 
-const noopActivatePlanAction = vi.fn(async () => {});
 const noopEditActivePlanAction = vi.fn(async () => {});
 const noopCloneActivePlanAction = vi.fn(async () => {});
 
 describe("PlanPageContent", () => {
-  it("renders the complete-state seeded preview as read-only review copy for iPhone-sized use", () => {
+  it("offers the start-plan fork (template or custom) once foundations are ready, with neither pre-expanded", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
       baselineLiftCount: 6,
       bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
-    const seededPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
 
     render(
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={seededPreview}
+        showStartFork={true}
         activePlanPreview={null}
         activePlanError={false}
         activatedAt={null}
         justSaved={false}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -41,33 +38,21 @@ describe("PlanPageContent", () => {
     expect(screen.getByText("IA")).toBeVisible();
     expect(screen.getByText("Apagada")).toBeVisible();
     expect(screen.getByText("Sin crear")).toBeVisible();
-    expect(screen.getByText("Vista previa no guardada")).toBeVisible();
+    expect(screen.getByText("¿Cómo quieres empezar?")).toBeVisible();
 
-    for (const boundary of ["Solo lectura", "Sin IA", "No guardado", "No activable"]) {
-      expect(screen.getByText(boundary)).toBeVisible();
-    }
+    expect(screen.getByRole("link", { name: "Usar una plantilla" })).toHaveAttribute("href", "/plan/templates");
+    expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toHaveAttribute("href", "/plan/builder");
 
-    for (const field of ["kg", "reps", "RIR", "dolor", "notas opcionales"]) {
-      expect(screen.getByText(field)).toBeVisible();
-    }
-
-    const exerciseSummaries = screen.getAllByText("Ver ejercicios y objetivos");
-    expect(exerciseSummaries).toHaveLength(5);
-
-    const firstDetails = exerciseSummaries[0]?.closest("details") as HTMLDetailsElement | null;
-    expect(firstDetails?.open).toBe(false);
-    fireEvent.click(exerciseSummaries[0] as HTMLElement);
-    expect(firstDetails?.open).toBe(true);
-
-    expect(screen.getByText("Prensa de piernas")).toBeVisible();
-    expect(screen.getAllByText("principal · bilateral")[0]).toBeVisible();
-    expect(screen.getAllByText(/4×8-12 · RIR 2 ·\s*descanso 150s/)[0]).toBeVisible();
-    expect(screen.getByText(/dolor >2 bloquea aumentos agresivos/i)).toBeVisible();
-    expect(screen.queryByRole("link", { name: /aceptar|editar|activar|generar/i })).toBeNull();
-    expect(screen.getByRole("button", { name: "Activar este plan" })).toBeVisible();
+    // Neither choice pre-renders the other's content — no plan preview, no
+    // activate button anywhere on this fork.
+    expect(screen.queryByText("Vista previa")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
+    // Only the fork's own single custom-plan link should exist, not a
+    // second copy from CustomPlanBuilderEntry rendering underneath it too.
+    expect(screen.getAllByRole("link", { name: "Crear mi propio plan" })).toHaveLength(1);
   });
 
-  it("hides the seeded preview until foundations are complete", () => {
+  it("hides the start-plan fork until foundations are complete", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
       baselineLiftCount: 0,
@@ -79,24 +64,25 @@ describe("PlanPageContent", () => {
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={null}
+        showStartFork={false}
         activePlanPreview={null}
         activePlanError={false}
         activatedAt={null}
         justSaved={false}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "Preparación del plan" })).toBeVisible();
-    expect(screen.queryByText("Vista previa no guardada")).toBeNull();
-    expect(screen.queryByText("Solo lectura")).toBeNull();
+    expect(screen.queryByText("¿Cómo quieres empezar?")).toBeNull();
     expect(screen.getAllByRole("link", { name: "Ir a Pesos base" })[0]).toBeVisible();
+    // Not foundation-ready, no active plan: the custom-builder entry point
+    // still shows on its own (matches the pre-fork behavior for this case).
+    expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toBeVisible();
   });
 
-  it("renders the active plan instead of the unsaved preview once activated", () => {
+  it("renders the active plan instead of the start fork once activated", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
       baselineLiftCount: 6,
@@ -109,12 +95,11 @@ describe("PlanPageContent", () => {
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={null}
+        showStartFork={false}
         activePlanPreview={activePlanPreview}
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={true}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -124,9 +109,8 @@ describe("PlanPageContent", () => {
     expect(screen.getByText("Tu plan activo")).toBeVisible();
     expect(screen.getByText("Activo")).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("Tu plan quedó activado");
-    expect(screen.queryByText("Vista previa no guardada")).toBeNull();
+    expect(screen.queryByText("¿Cómo quieres empezar?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
-    expect(screen.queryByText("No activable")).toBeNull();
   });
 
   it("still offers the custom plan builder entry point when a plan is already active", () => {
@@ -142,12 +126,11 @@ describe("PlanPageContent", () => {
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={null}
+        showStartFork={false}
         activePlanPreview={activePlanPreview}
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -170,12 +153,11 @@ describe("PlanPageContent", () => {
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={null}
+        showStartFork={false}
         activePlanPreview={activePlanPreview}
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -197,12 +179,11 @@ describe("PlanPageContent", () => {
       <PlanPageContent
         readiness={readiness}
         gate={gate}
-        seededPreview={null}
+        showStartFork={false}
         activePlanPreview={null}
         activePlanError={true}
         activatedAt={null}
         justSaved={false}
-        activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,

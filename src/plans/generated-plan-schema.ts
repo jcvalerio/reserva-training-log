@@ -61,7 +61,11 @@ export type GeneratedExercisePrescription = z.infer<typeof generatedExercisePres
 // satisfies the builder's own "day complete" check but not this one will
 // activate successfully yet fail every subsequent read of /plan.
 export const MIN_SESSION_EXERCISES = 3;
-export const MAX_SESSION_EXERCISES = 10;
+// 20, not 10: circuit-style templates (warmup + main lift + two accessory
+// blocks + a conditioning finisher) legitimately land around 18 distinct
+// movements per session — each block's exercises are still separate rows,
+// since there's no superset/circuit-grouping concept in this schema.
+export const MAX_SESSION_EXERCISES = 20;
 
 export const generatedPlanSessionSchema = z.object({
   dayIndex: z.number().int().min(1).max(7),
@@ -78,7 +82,7 @@ export const generatedWorkoutPlanSchema = z.object({
   locale: z.enum(["es", "en"]),
   nameEs: z.string().min(1),
   nameEn: z.string().min(1).optional(),
-  goal: z.literal("hypertrophy"),
+  goal: z.enum(["hypertrophy", "fat_loss"]),
   // A plan is one routine that repeats indefinitely (no fixed week count) —
   // daysPerWeek is the number of distinct training days in the rotation.
   daysPerWeek: z.number().int().min(1).max(7),

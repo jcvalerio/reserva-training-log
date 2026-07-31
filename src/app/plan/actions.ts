@@ -9,14 +9,20 @@ import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-
 import { getM1Readiness } from "@/onboarding/readiness";
 import { cloneWorkoutPlanToDraft, revertActivePlanToDraft } from "@/plans/plan-builder-repository";
 import { activateSeededPlanForProfile, getActivePlanForProfile } from "@/plans/plan-repository";
+import { isPlanTemplateId } from "@/plans/plan-templates";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
-export async function activatePlanAction() {
+export async function activatePlanAction(formData: FormData) {
   const user = await requireCurrentUser();
   const profile = await getAthleteProfileForUser(user.id);
 
   if (!profile) {
     redirect("/perfil");
+  }
+
+  const templateId = formData.get("templateId");
+  if (typeof templateId !== "string" || !isPlanTemplateId(templateId)) {
+    redirect("/plan/templates");
   }
 
   const [baselineLifts, bodyMeasurements] = await Promise.all([
@@ -34,7 +40,7 @@ export async function activatePlanAction() {
     redirect("/plan");
   }
 
-  await activateSeededPlanForProfile(profile.id);
+  await activateSeededPlanForProfile(profile.id, templateId);
 
   revalidatePath("/");
   revalidatePath("/plan");

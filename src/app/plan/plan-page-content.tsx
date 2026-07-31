@@ -11,23 +11,21 @@ import { SubmitButton } from "../submit-button";
 export function PlanPageContent({
   readiness,
   gate,
-  seededPreview,
+  showStartFork,
   activePlanPreview,
   activePlanError,
   activatedAt,
   justSaved,
-  activatePlanAction,
   editActivePlanAction,
   cloneActivePlanAction,
 }: {
   readiness: M1Readiness;
   gate: NonAiPlanGate;
-  seededPreview: PlanPreviewSummary | null;
+  showStartFork: boolean;
   activePlanPreview: PlanPreviewSummary | null;
   activePlanError: boolean;
   activatedAt: Date | null;
   justSaved: boolean;
-  activatePlanAction: () => Promise<void>;
   editActivePlanAction: () => Promise<void>;
   cloneActivePlanAction: () => Promise<void>;
 }) {
@@ -106,11 +104,13 @@ export function PlanPageContent({
           />
         ) : activePlanError ? (
           <ActivePlanErrorNotice editActivePlanAction={editActivePlanAction} />
-        ) : seededPreview ? (
-          <SeededPlanPreview summary={seededPreview} activatePlanAction={activatePlanAction} />
+        ) : showStartFork ? (
+          <StartPlanFork />
         ) : null}
 
-        {activePlanError ? null : <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />}
+        {activePlanError || showStartFork ? null : (
+          <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />
+        )}
 
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
@@ -121,7 +121,7 @@ export function PlanPageContent({
   );
 }
 
-function StatusTile({ label, value }: { label: string; value: string }) {
+export function StatusTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-zinc-950 px-2 py-3 ring-1 ring-zinc-800">
       <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">{label}</p>
@@ -160,66 +160,30 @@ function PlanChecklistItem({ step }: { step: M1ReadinessStep }) {
   );
 }
 
-function SeededPlanPreview({
-  summary,
-  activatePlanAction,
-}: {
-  summary: PlanPreviewSummary;
-  activatePlanAction: () => Promise<void>;
-}) {
+function StartPlanFork() {
   return (
-    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-sky-300/30" aria-labelledby="seeded-preview-title">
-      <p id="seeded-preview-title" className="text-sm font-semibold text-sky-200">
-        Vista previa no guardada
+    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-labelledby="start-plan-fork-title">
+      <p id="start-plan-fork-title" className="text-sm font-semibold text-zinc-100">
+        ¿Cómo quieres empezar?
       </p>
-      <h2 className="mt-2 text-xl font-semibold text-zinc-100">{summary.nameEs}</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Estructura base predefinida para revisión futura. Es solo lectura: no viene de IA, no se guarda y todavía no se
-        puede activar.
+        Elige una plantilla lista para usar o crea tu propia rutina desde cero. Ambas opciones son solo lectura hasta
+        que las actives.
       </p>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {summary.previewBoundaryLabelsEs.map((label) => (
-          <span
-            key={label}
-            className="rounded-full bg-sky-300/10 px-2 py-1 text-xs font-semibold text-sky-200 ring-1 ring-sky-300/20"
-          >
-            {label}
-          </span>
-        ))}
+      <div className="mt-4 grid gap-3">
+        <Link
+          href="/plan/templates"
+          className="block rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+        >
+          Usar una plantilla
+        </Link>
+        <Link
+          href="/plan/builder"
+          className="block rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Crear mi propio plan
+        </Link>
       </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <StatusTile label="Ejercicios" value={String(summary.exerciseCount)} />
-        <StatusTile label="Días/sem" value={String(summary.daysPerWeek)} />
-        <StatusTile label="Min" value={String(summary.sessionDurationMinutes)} />
-      </div>
-
-      <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {summary.requiredSetLogFieldsEs.map((field) => (
-            <span
-              key={field}
-              className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800"
-            >
-              {field}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <PlanSessionsList sessions={summary.sessions} />
-
-      <form action={activatePlanAction} className="mt-4">
-        <SubmitButton className="w-full rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
-          Activar este plan
-        </SubmitButton>
-      </form>
-      <p className="mt-3 text-sm leading-6 text-zinc-400">
-        Al activar, este plan pasa a ser tu plan real y guardado. Editar y registrar series quedan fuera de esta
-        iteración.
-      </p>
     </section>
   );
 }
@@ -341,7 +305,7 @@ function ActivePlanSummary({
   );
 }
 
-function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions"] }) {
+export function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions"] }) {
   return (
     <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Tu rutina</p>
