@@ -10,6 +10,7 @@ import { PlanPageContent } from "./plan-page-content";
 
 const noopActivatePlanAction = vi.fn(async () => {});
 const noopEditActivePlanAction = vi.fn(async () => {});
+const noopCloneActivePlanAction = vi.fn(async () => {});
 
 describe("PlanPageContent", () => {
   it("renders the complete-state seeded preview as read-only review copy for iPhone-sized use", () => {
@@ -32,6 +33,7 @@ describe("PlanPageContent", () => {
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 
@@ -84,6 +86,7 @@ describe("PlanPageContent", () => {
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 
@@ -113,6 +116,7 @@ describe("PlanPageContent", () => {
         justSaved={true}
         activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 
@@ -145,11 +149,40 @@ describe("PlanPageContent", () => {
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 
     expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toHaveAttribute("href", "/plan/builder");
     expect(screen.getByText(/reemplaza el plan activo actual/)).toBeVisible();
+  });
+
+  it("offers first-class edit and duplicate actions on the active plan, not just as error recovery", () => {
+    const readiness = getM1Readiness({
+      hasProfile: true,
+      baselineLiftCount: 6,
+      bodyMeasurementCount: 1,
+    });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        seededPreview={null}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        activatePlanAction={noopActivatePlanAction}
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Editar mi plan" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Duplicar como borrador" })).toBeVisible();
   });
 
   it("shows a recoverable error state and no crash when the active plan fails to render", () => {
@@ -171,6 +204,7 @@ describe("PlanPageContent", () => {
         justSaved={false}
         activatePlanAction={noopActivatePlanAction}
         editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
       />,
     );
 

@@ -178,6 +178,99 @@ export async function saveDraftSession(
   }
 }
 
+export async function cloneWorkoutPlanToDraft(
+  athleteProfileId: string,
+  sourcePlanId: string,
+): Promise<DraftPlanWithSessions> {
+  const existingDraft = await getDraftPlanForProfile(athleteProfileId);
+  if (existingDraft) {
+    throw new Error("Ya existe un borrador en progreso. Termínalo o elimínalo antes de duplicar un plan.");
+  }
+
+  const [sourcePlan] = await db
+    .select()
+    .from(workoutPlan)
+    .where(and(eq(workoutPlan.id, sourcePlanId), eq(workoutPlan.athleteProfileId, athleteProfileId)));
+
+  if (!sourcePlan) {
+    throw new Error("No se encontró el plan a duplicar.");
+  }
+
+  const source = await getDraftPlanSessions(sourcePlan);
+
+  const [insertedPlan] = await db
+    .insert(workoutPlan)
+    .values({
+      id: randomUUID(),
+      athleteProfileId,
+      nameEs: `${sourcePlan.nameEs} (copia)`,
+      nameEn: sourcePlan.nameEn,
+      goal: sourcePlan.goal,
+      durationWeeks: 1,
+      daysPerWeek: sourcePlan.daysPerWeek,
+      sessionDurationMinutes: sourcePlan.sessionDurationMinutes,
+      locale: sourcePlan.locale,
+      safetySummaryEs: sourcePlan.safetySummaryEs,
+      status: "draft",
+      activatedAt: null,
+    })
+    .returning();
+
+  if (!insertedPlan) {
+    throw new Error("Draft plan creation failed unexpectedly");
+  }
+
+  // Filter to week 1, matching toGeneratedWorkoutPlan's same backward-compat
+  // handling — a source plan still carrying old 4-week legacy data should
+  // clone as one flat routine, not duplicate every week's templates.
+  const sourceSessions = source.sessions.filter((session) => session.template.weekNumber === 1);
+
+  for (const session of sourceSessions) {
+    const templateId = randomUUID();
+    await db.insert(planSessionTemplate).values({
+      id: templateId,
+      workoutPlanId: insertedPlan.id,
+      weekNumber: 1,
+      dayIndex: session.template.dayIndex,
+      nameEs: session.template.nameEs,
+      nameEn: session.template.nameEn,
+      focus: session.template.focus,
+      estimatedDurationMinutes: session.template.estimatedDurationMinutes,
+      mobilityNotesEs: session.template.mobilityNotesEs,
+    });
+
+    if (session.exercises.length > 0) {
+      await db.insert(exercisePrescription).values(
+        session.exercises.map((exercise) => ({
+          id: randomUUID(),
+          planSessionTemplateId: templateId,
+          orderIndex: exercise.orderIndex,
+          exerciseNameEs: exercise.exerciseNameEs,
+          exerciseNameEn: exercise.exerciseNameEn,
+          phase: exercise.phase,
+          sideMode: exercise.sideMode,
+          targetSets: exercise.targetSets,
+          targetRepMin: exercise.targetRepMin,
+          targetRepMax: exercise.targetRepMax,
+          targetRir: exercise.targetRir,
+          restSeconds: exercise.restSeconds,
+          notesEs: exercise.notesEs,
+          notesEn: exercise.notesEn,
+          painSensitive: exercise.painSensitive,
+          substitutionOptionsEs: exercise.substitutionOptionsEs,
+          incrementCategory: exercise.incrementCategory,
+        })),
+      );
+    }
+  }
+
+  const cloned = await getDraftPlanForProfile(athleteProfileId);
+  if (!cloned) {
+    throw new Error("Plan duplication failed unexpectedly");
+  }
+  return cloned;
+}
+
 export async function deleteDraftSession(draftPlanId: string, dayIndex: number) {
   // Exercises cascade-delete via the existing FK on exercisePrescription.
   await db

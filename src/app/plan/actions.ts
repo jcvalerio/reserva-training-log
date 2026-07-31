@@ -7,8 +7,8 @@ import { getBaselineLiftsForProfile } from "@/baseline/baseline-repository";
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { getM1Readiness } from "@/onboarding/readiness";
-import { revertActivePlanToDraft } from "@/plans/plan-builder-repository";
-import { activateSeededPlanForProfile } from "@/plans/plan-repository";
+import { cloneWorkoutPlanToDraft, revertActivePlanToDraft } from "@/plans/plan-builder-repository";
+import { activateSeededPlanForProfile, getActivePlanForProfile } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 export async function activatePlanAction() {
@@ -57,6 +57,29 @@ export async function editActivePlanAction() {
 
   revalidatePath("/");
   revalidatePath("/plan");
+  revalidatePath("/plan/builder");
+  redirect("/plan/builder");
+}
+
+export async function cloneActivePlanAction() {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    redirect("/perfil");
+  }
+
+  const active = await getActivePlanForProfile(profile.id);
+  if (!active) {
+    redirect("/plan");
+  }
+
+  try {
+    await cloneWorkoutPlanToDraft(profile.id, active.plan.id);
+  } catch {
+    redirect("/plan?error=duplicate_active");
+  }
+
   revalidatePath("/plan/builder");
   redirect("/plan/builder");
 }

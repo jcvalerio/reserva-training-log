@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Exercise model redesign: Phase 1 complete (editar/duplicar plan)
+
+Status: code complete, `lint`/`typecheck`/`test` (127 passing)/`build` all green. Not yet deployed/verified as of this entry.
+
+Context:
+- After the plan builder shipped and the user built + activated a real custom plan, real usage friction surfaced: no way to edit an active plan or reuse it as a base for a new one; `sideMode`'s "Unilateral separado" vs "Unilateral pareado" choice turned out to have zero behavioral difference in the app (confirmed via full-codebase grep — `session-runner.tsx` treats both identically); `incrementCategory` ("Categoría de incremento") was being used by the user as an exercise taxonomy when it only ever existed to drive the weight-suggestion percentage, and its "Máquina o tren inferior" option conflates equipment type with body region (a known judgment call, per `seeded-plan.ts`'s own code comment); and there was no way to model duration-based exercises (stair-climber/treadmill warmups, timed mobility holds) since every exercise is forced into sets × rep-range × RIR.
+- Full 4-phase redesign worked out in plan mode: Phase 1 (no migration) promotes plan-editing to a first-class feature and adds plan duplication; Phase 2 (one migration) collapses `sideMode` to a boolean `isUnilateral`; Phase 3 (one migration, two-step rollout) replaces `incrementCategory` with a `loadMechanism` × `isCompound` pair; Phase 4 (largest, one migration) adds a `strength`/`duration` prescription-type axis so RIR/rep-range stop being forced onto cardio warmups and mobility holds. Full design, exact migration SQL sequencing, and file-by-file detail in `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md` — **read that file first when resuming**, this log entry is a status summary, not a replacement for it.
+- The plan was independently stress-tested by a Plan agent that read the actual `drizzle-kit`/`drizzle-orm` source (not docs) before any phase was finalized — key finding: `npm run db:migrate` in this repo uses `@neondatabase/serverless`'s websocket driver via `drizzle-kit`'s own auto-detection (not the HTTP driver the app uses at runtime), and wraps each migration file in one real transaction, so crashes/SQL errors roll back cleanly. It does not protect against a backfill `UPDATE...CASE` that commits successfully but maps values wrong — that's why Phase 3's incrementCategory backfill ships as two separate deploys with a manual verification checkpoint in between, rather than one shot.
+- Ordering (small/low-risk cleanups before the largest/riskiest change) was explicitly confirmed with the user via a direct question before finalizing the plan, since the original off-the-cuff sequencing proposed earlier in conversation had duration-based exercises coming second, not last — worth remembering if a future session's memory of "the plan" conflicts with what's actually in the plan file.
+
+Implemented (Phase 1 of 4):
+- `src/plans/plan-builder-repository.ts`: added `cloneWorkoutPlanToDraft(athleteProfileId, sourcePlanId)` — copies a plan's sessions/exercises into a fresh `draft`-status plan, leaving the source untouched; filters to `weekNumber === 1` (same backward-compat handling as `toGeneratedWorkoutPlan`) so cloning an old legacy 4-week plan doesn't duplicate 20 templates.
+- `src/app/plan/actions.ts`: added `cloneActivePlanAction`, mirroring `editActivePlanAction`'s shape.
+- `src/app/plan/plan-page-content.tsx`: `ActivePlanSummary` now always renders "Editar mi plan" and "Duplicar como borrador" buttons — the same `editActivePlanAction` that previously only appeared as crash-recovery (`ActivePlanErrorNotice`) is now a normal, always-available action, not framed as an error state.
+- Tests: `plan-page-content.test.tsx` extended with a case asserting both buttons render on the active-plan view.
+
+Next iteration:
+- Deploy, then manually verify: edit the real active plan (confirm it reverts to draft, round-trips through the builder, reactivates correctly with history intact), duplicate it (confirm the original stays active/untouched and the duplicate opens correctly in the builder).
+- After that: Phase 2 (collapse `sideMode` to `isUnilateral` boolean) — see `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`.
+
 ## 2026-07-30 — Custom plan builder: Phase B (draft plan builder) implemented
 
 Status: code complete, `lint`/`typecheck`/`test` (123 passing)/`build` all green. Not yet committed/deployed/verified as of writing this entry — that's the immediate next step.

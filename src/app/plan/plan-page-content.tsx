@@ -18,6 +18,7 @@ export function PlanPageContent({
   justSaved,
   activatePlanAction,
   editActivePlanAction,
+  cloneActivePlanAction,
 }: {
   readiness: M1Readiness;
   gate: NonAiPlanGate;
@@ -28,6 +29,7 @@ export function PlanPageContent({
   justSaved: boolean;
   activatePlanAction: () => Promise<void>;
   editActivePlanAction: () => Promise<void>;
+  cloneActivePlanAction: () => Promise<void>;
 }) {
   const hasActivePlan = Boolean(activePlanPreview) || activePlanError;
 
@@ -96,7 +98,12 @@ export function PlanPageContent({
         ))}
 
         {activePlanPreview ? (
-          <ActivePlanSummary summary={activePlanPreview} activatedAt={activatedAt} />
+          <ActivePlanSummary
+            summary={activePlanPreview}
+            activatedAt={activatedAt}
+            editActivePlanAction={editActivePlanAction}
+            cloneActivePlanAction={cloneActivePlanAction}
+          />
         ) : activePlanError ? (
           <ActivePlanErrorNotice editActivePlanAction={editActivePlanAction} />
         ) : seededPreview ? (
@@ -257,7 +264,17 @@ function CustomPlanBuilderEntry({ hasActivePlan }: { hasActivePlan: boolean }) {
   );
 }
 
-function ActivePlanSummary({ summary, activatedAt }: { summary: PlanPreviewSummary; activatedAt: Date | null }) {
+function ActivePlanSummary({
+  summary,
+  activatedAt,
+  editActivePlanAction,
+  cloneActivePlanAction,
+}: {
+  summary: PlanPreviewSummary;
+  activatedAt: Date | null;
+  editActivePlanAction: () => Promise<void>;
+  cloneActivePlanAction: () => Promise<void>;
+}) {
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-emerald-300/30" aria-labelledby="active-plan-title">
       <p id="active-plan-title" className="text-sm font-semibold text-emerald-200">
@@ -303,6 +320,23 @@ function ActivePlanSummary({ summary, activatedAt }: { summary: PlanPreviewSumma
       </div>
 
       <PlanSessionsList sessions={summary.sessions} />
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <form action={editActivePlanAction}>
+          <SubmitButton className="w-full rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            Editar mi plan
+          </SubmitButton>
+        </form>
+        <form action={cloneActivePlanAction}>
+          <SubmitButton className="w-full rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            Duplicar como borrador
+          </SubmitButton>
+        </form>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-zinc-500">
+        Editar toma tu plan como borrador hasta que lo reactives; tu historial registrado no se pierde. Duplicar crea
+        un borrador nuevo a partir de este plan sin afectar el que está activo.
+      </p>
     </section>
   );
 }

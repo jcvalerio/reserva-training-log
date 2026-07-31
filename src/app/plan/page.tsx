@@ -8,7 +8,7 @@ import { getActivePlanForProfile, toGeneratedWorkoutPlan } from "@/plans/plan-re
 import { createSeededHypertrophyPlan } from "@/plans/seeded-plan";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
-import { activatePlanAction, editActivePlanAction } from "./actions";
+import { activatePlanAction, cloneActivePlanAction, editActivePlanAction } from "./actions";
 import { PlanPageContent } from "./plan-page-content";
 
 type PlanPageProps = {
@@ -63,6 +63,7 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
       justSaved={params.saved === "1"}
       activatePlanAction={activatePlanAction}
       editActivePlanAction={editActivePlanAction}
+      cloneActivePlanAction={cloneActivePlanAction}
     />
   );
 }
