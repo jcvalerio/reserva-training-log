@@ -18,7 +18,7 @@ const withDefault = <Value extends string>(fallback: Value, schema: z.ZodType<Va
   z.preprocess((value) => (typeof value === "string" && value.trim() !== "" ? value : fallback), schema);
 
 const phaseSchema = z.enum(["warmup", "main", "accessory", "mobility"]);
-const incrementCategorySchema = z.enum(["machine_or_lower_body", "upper_compound", "isolation", "dumbbell"]);
+const loadMechanismSchema = z.enum(["bodyweight", "dumbbell", "machine", "barbell"]);
 const rirSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
   z.union(rirValues.map((value) => z.literal(value)) as [
@@ -98,10 +98,19 @@ export const planBuilderExerciseInputSchema = z
         .map((item) => item.trim())
         .filter((item) => item !== "");
     }, z.array(z.string().min(1)).max(3)),
-    incrementCategory: z.preprocess(
+    loadMechanism: z.preprocess(
       (value) => (typeof value === "string" && value.trim() !== "" ? value : undefined),
-      incrementCategorySchema.optional(),
+      loadMechanismSchema.optional(),
     ),
+    isCompound: z.preprocess((value) => {
+      if (value === "true") {
+        return true;
+      }
+      if (value === "false") {
+        return false;
+      }
+      return undefined;
+    }, z.boolean().optional()),
   })
   .refine((exercise) => exercise.targetRepMin <= exercise.targetRepMax, {
     message: "Las reps mínimas deben ser menores o iguales a las máximas.",
@@ -136,7 +145,8 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
         notesEs: formData.get(`${prefix}:notesEs`),
         painSensitive: formData.get(`${prefix}:painSensitive`),
         substitutionOptionsEs: formData.get(`${prefix}:substitutionOptionsEs`),
-        incrementCategory: formData.get(`${prefix}:incrementCategory`),
+        loadMechanism: formData.get(`${prefix}:loadMechanism`),
+        isCompound: formData.get(`${prefix}:isCompound`),
       }),
     );
   }

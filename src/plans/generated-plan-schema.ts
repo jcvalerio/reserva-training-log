@@ -25,9 +25,10 @@ export const generatedExercisePrescriptionSchema = z
     notesEn: z.string().min(1).optional(),
     painSensitive: z.boolean().default(false),
     substitutionOptionsEs: z.array(z.string().min(1)).max(3).default([]),
-    // Optional: absent for plans persisted before this field existed, so
-    // consumers (weight-increment suggestions) must fall back gracefully.
-    incrementCategory: z.enum(["machine_or_lower_body", "upper_compound", "isolation", "dumbbell"]).optional(),
+    // Both optional: absent for unclassified exercises, so consumers
+    // (weight-increment suggestions) must fall back gracefully.
+    loadMechanism: z.enum(["bodyweight", "dumbbell", "machine", "barbell"]).optional(),
+    isCompound: z.boolean().optional(),
   })
   .refine((exercise) => exercise.targetRepMin <= exercise.targetRepMax, {
     message: "targetRepMin must be <= targetRepMax",

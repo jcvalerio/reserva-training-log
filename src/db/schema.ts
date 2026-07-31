@@ -34,12 +34,6 @@ export const workoutSessionStatusEnum = pgEnum("workout_session_status", [
   "completed",
   "skipped",
 ]);
-export const exerciseIncrementCategoryEnum = pgEnum("exercise_increment_category", [
-  "machine_or_lower_body",
-  "upper_compound",
-  "isolation",
-  "dumbbell",
-]);
 export const exerciseLoadMechanismEnum = pgEnum("exercise_load_mechanism", [
   "bodyweight",
   "dumbbell",
@@ -327,12 +321,11 @@ export const exercisePrescription = pgTable(
     notesEn: text("notes_en"),
     painSensitive: boolean("pain_sensitive").notNull().default(false),
     substitutionOptionsEs: jsonb("substitution_options_es").$type<string[]>().notNull().default([]),
-    // Deprecated, step A of the incrementCategory -> loadMechanism/isCompound
-    // migration: kept in place and unused by app code until step B verifies
-    // the backfill below and drops it.
-    incrementCategory: exerciseIncrementCategoryEnum("increment_category"),
-    // Replaces incrementCategory. Nullable: unclassified rows fall back to a
-    // flat increment, same as incrementCategory's original nullable design.
+    // Replaces the old incrementCategory enum (machine_or_lower_body |
+    // upper_compound | isolation | dumbbell), which conflated equipment type
+    // with body region and was being read by users as an exercise taxonomy
+    // rather than what it actually drives: the weight-suggestion percentage.
+    // Nullable: unclassified rows fall back to a flat increment.
     loadMechanism: exerciseLoadMechanismEnum("load_mechanism"),
     isCompound: boolean("is_compound"),
   },

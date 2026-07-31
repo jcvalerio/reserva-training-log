@@ -3,7 +3,7 @@ import type { Rir } from "@/training/rir";
 
 import type { SetLog } from "./workout-repository";
 
-export type IncrementCategory = "machine_or_lower_body" | "upper_compound" | "isolation" | "dumbbell";
+export type LoadMechanism = "bodyweight" | "dumbbell" | "machine" | "barbell";
 
 const FALLBACK_INCREASE_RATIO = 0.05;
 const REDUCE_RATIO = 0.05;
@@ -11,13 +11,14 @@ const DUMBBELL_STEP_KG = 2;
 
 // docs/product/progression-rules.md "Suggested increase" ranges, using the
 // conservative low end of each (the suggestion is a prefilled default, never
-// a rule). Isolation and dumbbell are handled separately below: isolation
-// gets no weight change (the doc says "smallest available jump or add reps
-// first" and this app doesn't model per-exercise minimum jumps), dumbbell
-// gets a fixed physical step instead of a percentage.
-const INCREASE_RATIO_BY_CATEGORY: Partial<Record<IncrementCategory, number>> = {
-  machine_or_lower_body: 0.05,
-  upper_compound: 0.025,
+// a rule). Only applies to compound movements (isCompound === true) — see
+// suggestNextWeightKg for the full matrix: bodyweight and any isolation
+// movement (isCompound === false) get "add a rep" instead of a weight change,
+// dumbbell gets a fixed physical step instead of a percentage regardless of
+// isCompound.
+const INCREASE_RATIO_BY_MECHANISM: Partial<Record<LoadMechanism, number>> = {
+  machine: 0.05,
+  barbell: 0.025,
 };
 
 /**
@@ -50,17 +51,22 @@ export function buildProgressionSuggestion(
 
 /**
  * Suggests a next weight for the "increase"/"reduce_or_modify" actions.
- * Category is optional — plans activated before incrementCategory existed
- * have `null` here, in which case this falls back to the flat +-5% used
- * before per-category suggestions were added. For "increase" on an
- * isolation exercise the weight is deliberately left unchanged: the docs
- * recommend adding a rep instead, which the caller should surface (see
+ * loadMechanism/isCompound are optional — plans activated before this
+ * classification existed (or unclassified rows) have `null` here, in which
+ * case this falls back to the flat +-5% used before per-category
+ * suggestions were added. Dumbbell movements always get a fixed physical
+ * step instead of a percentage, regardless of isCompound — the increment is
+ * about available dumbbell sizes, not movement complexity, so this check
+ * comes first. Otherwise, bodyweight exercises and any isolation movement
+ * (isCompound === false) leave the weight unchanged: the docs recommend
+ * adding a rep instead, which the caller should surface (see
  * `isRepsFirstIncrease`) rather than showing a same-weight "increase".
  */
 export function suggestNextWeightKg(
   lastWeightKg: string,
   action: ProgressionAction,
-  category?: IncrementCategory | null,
+  loadMechanism?: LoadMechanism | null,
+  isCompound?: boolean | null,
 ): string {
   const lastWeight = Number(lastWeightKg);
 
@@ -72,22 +78,34 @@ export function suggestNextWeightKg(
     return lastWeight.toFixed(2);
   }
 
-  if (category === "isolation") {
-    return lastWeight.toFixed(2);
-  }
-
-  if (category === "dumbbell") {
+  if (loadMechanism === "dumbbell") {
     return roundToHalf(lastWeight + DUMBBELL_STEP_KG).toFixed(2);
   }
 
-  const ratio = (category && INCREASE_RATIO_BY_CATEGORY[category]) ?? FALLBACK_INCREASE_RATIO;
+  if (loadMechanism === "bodyweight" || isCompound === false) {
+    return lastWeight.toFixed(2);
+  }
+
+  const ratio =
+    loadMechanism && isCompound === true
+      ? (INCREASE_RATIO_BY_MECHANISM[loadMechanism] ?? FALLBACK_INCREASE_RATIO)
+      : FALLBACK_INCREASE_RATIO;
   return roundToHalf(lastWeight * (1 + ratio)).toFixed(2);
 }
 
-/** True when the suggestion is "increase" on an isolation exercise, where the
- * app recommends adding a rep instead of more weight. */
-export function isRepsFirstIncrease(action: ProgressionAction, category?: IncrementCategory | null): boolean {
-  return action === "increase" && category === "isolation";
+/** True when the suggestion is "increase" on a bodyweight or isolation
+ * exercise, where the app recommends adding a rep instead of more weight.
+ * Dumbbell always wins over isCompound — a dumbbell isolation movement (e.g.
+ * a dumbbell lateral raise) still gets the fixed physical step, not a rep
+ * suggestion, matching `suggestNextWeightKg`'s check order. */
+export function isRepsFirstIncrease(
+  action: ProgressionAction,
+  loadMechanism?: LoadMechanism | null,
+  isCompound?: boolean | null,
+): boolean {
+  return (
+    action === "increase" && loadMechanism !== "dumbbell" && (loadMechanism === "bodyweight" || isCompound === false)
+  );
 }
 
 function roundToHalf(value: number): number {

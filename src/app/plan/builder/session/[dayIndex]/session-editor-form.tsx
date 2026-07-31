@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import { rirLabelsEs, rirValues } from "@/training/rir";
-import type { IncrementCategory } from "@/workouts/progression-view";
+import type { LoadMechanism } from "@/workouts/progression-view";
 
 import { SubmitButton } from "../../../../submit-button";
 
@@ -22,7 +22,8 @@ export type SessionEditorInitialExercise = {
   notesEs: string;
   painSensitive: boolean;
   substitutionOptionsEs: string[];
-  incrementCategory: IncrementCategory | null;
+  loadMechanism: LoadMechanism | null;
+  isCompound: boolean | null;
 };
 
 type ExerciseRowValue = SessionEditorInitialExercise & { key: string };
@@ -41,7 +42,8 @@ function blankRow(key: string): ExerciseRowValue {
     notesEs: "",
     painSensitive: false,
     substitutionOptionsEs: [],
-    incrementCategory: null,
+    loadMechanism: null,
+    isCompound: null,
   };
 }
 
@@ -269,17 +271,35 @@ function ExerciseRowFields({
         </label>
       </div>
 
-      <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
-        <span>Categoría de incremento (opcional)</span>
-        <select name={`${prefix}:incrementCategory`} defaultValue={value.incrementCategory ?? ""} className="input">
-          <option value="">Sin especificar</option>
-          {incrementCategoryOptions.map(([option, labelEs]) => (
-            <option key={option} value={option}>
-              {labelEs}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="grid gap-1 text-sm font-medium text-zinc-300">
+          <span>Mecanismo de carga (opcional)</span>
+          <select name={`${prefix}:loadMechanism`} defaultValue={value.loadMechanism ?? ""} className="input">
+            <option value="">Sin especificar</option>
+            {loadMechanismOptions.map(([option, labelEs]) => (
+              <option key={option} value={option}>
+                {labelEs}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-zinc-300">
+          <span>Tipo de movimiento (opcional)</span>
+          <select
+            name={`${prefix}:isCompound`}
+            defaultValue={value.isCompound === null ? "" : String(value.isCompound)}
+            className="input"
+          >
+            <option value="">Sin especificar</option>
+            <option value="true">Compuesto (varias articulaciones)</option>
+            <option value="false">Aislamiento (una articulación)</option>
+          </select>
+        </label>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">
+        Esto no clasifica el ejercicio — solo define cómo se sugiere el aumento de peso en Entrenar (ej. máquina
+        compuesta: +5%; aislamiento: suma una repetición en vez de subir peso).
+      </p>
 
       <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
         <span>Sustituciones (separadas por coma, opcional)</span>
@@ -323,9 +343,9 @@ const phaseOptions: Array<[Phase, string]> = [
   ["mobility", "Movilidad"],
 ];
 
-const incrementCategoryOptions: Array<[IncrementCategory, string]> = [
-  ["machine_or_lower_body", "Máquina o tren inferior"],
-  ["upper_compound", "Compuesto tren superior"],
-  ["isolation", "Aislamiento"],
+const loadMechanismOptions: Array<[LoadMechanism, string]> = [
+  ["bodyweight", "Peso corporal"],
   ["dumbbell", "Mancuerna"],
+  ["machine", "Máquina o cable"],
+  ["barbell", "Barra libre"],
 ];

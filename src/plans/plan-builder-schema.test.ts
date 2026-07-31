@@ -68,7 +68,8 @@ describe("parsePlanBuilderSessionFormData", () => {
     formData.set("exercise-0:notesEs", "Sube 2.5kg si completas todas las series.");
     formData.set("exercise-0:painSensitive", "on");
     formData.set("exercise-0:substitutionOptionsEs", "Sentadilla en máquina, Hack squat");
-    formData.set("exercise-0:incrementCategory", "machine_or_lower_body");
+    formData.set("exercise-0:loadMechanism", "machine");
+    formData.set("exercise-0:isCompound", "true");
 
     expect(parsePlanBuilderSessionFormData(formData)).toEqual([
       {
@@ -83,7 +84,8 @@ describe("parsePlanBuilderSessionFormData", () => {
         notesEs: "Sube 2.5kg si completas todas las series.",
         painSensitive: true,
         substitutionOptionsEs: ["Sentadilla en máquina", "Hack squat"],
-        incrementCategory: "machine_or_lower_body",
+        loadMechanism: "machine",
+        isCompound: true,
       },
     ]);
   });
@@ -110,7 +112,8 @@ describe("parsePlanBuilderSessionFormData", () => {
         notesEs: "Ajusta la carga y conserva técnica.",
         painSensitive: false,
         substitutionOptionsEs: [],
-        incrementCategory: undefined,
+        loadMechanism: undefined,
+        isCompound: undefined,
       },
     ]);
   });

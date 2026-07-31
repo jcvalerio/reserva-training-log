@@ -37,40 +37,52 @@ describe("suggestNextWeightKg", () => {
     expect(suggestNextWeightKg("27.50", "increase")).toBe("29.00");
   });
 
-  it("uses the flat 5%/-5% fallback when no category is given, matching pre-category behavior", () => {
-    expect(suggestNextWeightKg("80.00", "increase", null)).toBe("84.00");
-    expect(suggestNextWeightKg("80.00", "reduce_or_modify", null)).toBe("76.00");
+  it("uses the flat 5%/-5% fallback when unclassified, matching pre-category behavior", () => {
+    expect(suggestNextWeightKg("80.00", "increase", null, null)).toBe("84.00");
+    expect(suggestNextWeightKg("80.00", "reduce_or_modify", null, null)).toBe("76.00");
   });
 
-  it("uses a smaller +2.5% increase for upper_compound", () => {
-    expect(suggestNextWeightKg("80.00", "increase", "upper_compound")).toBe("82.00");
+  it("uses a smaller +2.5% increase for barbell compound movements", () => {
+    expect(suggestNextWeightKg("80.00", "increase", "barbell", true)).toBe("82.00");
   });
 
-  it("uses a +5% increase for machine_or_lower_body", () => {
-    expect(suggestNextWeightKg("80.00", "increase", "machine_or_lower_body")).toBe("84.00");
+  it("uses a +5% increase for machine compound movements", () => {
+    expect(suggestNextWeightKg("80.00", "increase", "machine", true)).toBe("84.00");
   });
 
-  it("adds a fixed 2kg step for dumbbell instead of a percentage", () => {
-    expect(suggestNextWeightKg("20.00", "increase", "dumbbell")).toBe("22.00");
+  it("adds a fixed 2kg step for dumbbell instead of a percentage, regardless of isCompound", () => {
+    expect(suggestNextWeightKg("20.00", "increase", "dumbbell", true)).toBe("22.00");
+    expect(suggestNextWeightKg("20.00", "increase", "dumbbell", false)).toBe("22.00");
   });
 
-  it("leaves isolation weight unchanged on increase (the app suggests adding a rep instead)", () => {
-    expect(suggestNextWeightKg("30.00", "increase", "isolation")).toBe("30.00");
+  it("leaves weight unchanged on increase for bodyweight exercises (the app suggests adding a rep instead)", () => {
+    expect(suggestNextWeightKg("30.00", "increase", "bodyweight", null)).toBe("30.00");
+  });
+
+  it("leaves weight unchanged on increase for any isolation movement, regardless of mechanism", () => {
+    expect(suggestNextWeightKg("30.00", "increase", "machine", false)).toBe("30.00");
+    expect(suggestNextWeightKg("30.00", "increase", "barbell", false)).toBe("30.00");
+  });
+
+  it("falls back to the flat ratio when loadMechanism is set but isCompound is unclassified", () => {
+    expect(suggestNextWeightKg("80.00", "increase", "machine", null)).toBe("84.00");
   });
 
   it("still reduces by 5% regardless of category", () => {
-    expect(suggestNextWeightKg("80.00", "reduce_or_modify", "isolation")).toBe("76.00");
-    expect(suggestNextWeightKg("80.00", "reduce_or_modify", "dumbbell")).toBe("76.00");
+    expect(suggestNextWeightKg("80.00", "reduce_or_modify", "machine", false)).toBe("76.00");
+    expect(suggestNextWeightKg("80.00", "reduce_or_modify", "dumbbell", true)).toBe("76.00");
   });
 });
 
 describe("isRepsFirstIncrease", () => {
-  it("is true only for an increase on an isolation exercise", () => {
-    expect(isRepsFirstIncrease("increase", "isolation")).toBe(true);
-    expect(isRepsFirstIncrease("increase", "machine_or_lower_body")).toBe(false);
-    expect(isRepsFirstIncrease("hold", "isolation")).toBe(false);
-    expect(isRepsFirstIncrease("increase", null)).toBe(false);
-    expect(isRepsFirstIncrease("increase", undefined)).toBe(false);
+  it("is true for an increase on a bodyweight exercise or any isolation movement", () => {
+    expect(isRepsFirstIncrease("increase", "bodyweight", null)).toBe(true);
+    expect(isRepsFirstIncrease("increase", "machine", false)).toBe(true);
+    expect(isRepsFirstIncrease("increase", "barbell", false)).toBe(true);
+    expect(isRepsFirstIncrease("increase", "machine", true)).toBe(false);
+    expect(isRepsFirstIncrease("hold", "machine", false)).toBe(false);
+    expect(isRepsFirstIncrease("increase", null, null)).toBe(false);
+    expect(isRepsFirstIncrease("increase", undefined, undefined)).toBe(false);
   });
 });
 

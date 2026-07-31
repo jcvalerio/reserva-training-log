@@ -143,7 +143,8 @@ export async function activateSeededPlanForProfile(athleteProfileId: string): Pr
       notesEn: exercise.notesEn ?? null,
       painSensitive: exercise.painSensitive,
       substitutionOptionsEs: exercise.substitutionOptionsEs,
-      incrementCategory: exercise.incrementCategory ?? null,
+      loadMechanism: exercise.loadMechanism ?? null,
+      isCompound: exercise.isCompound ?? null,
     })),
   );
 
@@ -203,7 +204,8 @@ export function toGeneratedWorkoutPlan(active: ActivePlanWithSessions): Generate
             notesEn: orUndefined(exercise.notesEn),
             painSensitive: exercise.painSensitive,
             substitutionOptionsEs: exercise.substitutionOptionsEs,
-            incrementCategory: orUndefined(exercise.incrementCategory),
+            loadMechanism: orUndefined(exercise.loadMechanism),
+            isCompound: orUndefined(exercise.isCompound),
           })),
       })),
   });

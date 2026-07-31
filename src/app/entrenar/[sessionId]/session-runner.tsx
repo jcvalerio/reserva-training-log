@@ -69,11 +69,16 @@ export function SessionRunner({
       )
     : null;
   const repsFirstIncrease = previousSuggestion
-    ? isRepsFirstIncrease(previousSuggestion.action, currentExercise.incrementCategory)
+    ? isRepsFirstIncrease(previousSuggestion.action, currentExercise.loadMechanism, currentExercise.isCompound)
     : false;
   const suggestedWeightKg =
     previousLastSet && previousSuggestion
-      ? suggestNextWeightKg(previousLastSet.actualWeightKg, previousSuggestion.action, currentExercise.incrementCategory)
+      ? suggestNextWeightKg(
+          previousLastSet.actualWeightKg,
+          previousSuggestion.action,
+          currentExercise.loadMechanism,
+          currentExercise.isCompound,
+        )
       : null;
 
   const defaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";

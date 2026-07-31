@@ -45,7 +45,8 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
     notesEs: exercise.notesEs,
     painSensitive: exercise.painSensitive,
     substitutionOptionsEs: exercise.substitutionOptionsEs,
-    incrementCategory: exercise.incrementCategory,
+    loadMechanism: exercise.loadMechanism,
+    isCompound: exercise.isCompound,
   }));
 
   return (

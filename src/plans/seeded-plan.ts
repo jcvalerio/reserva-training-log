@@ -1,24 +1,27 @@
 import { generatedWorkoutPlanSchema, type GeneratedWorkoutPlan } from "./generated-plan-schema";
 
-// incrementCategory classification (docs/product/progression-rules.md "Suggested increase"):
-// - machine_or_lower_body: any fixed-machine or cable-stack compound movement
-//   (multi-joint, seated/plate-loaded/cable), regardless of upper/lower body.
-// - upper_compound: free-weight barbell-style upper-body compounds. Unused by
-//   this seeded plan today (no barbell work in it) but kept for future plans.
-// - isolation: single-joint movements regardless of equipment (curls,
-//   extensions, lateral raises, pushdowns, pullovers, face pulls).
+// loadMechanism × isCompound classification (docs/product/progression-rules.md
+// "Suggested increase"):
+// - machine: any fixed-machine or cable-stack movement (multi-joint or
+//   single-joint), regardless of upper/lower body — isCompound distinguishes
+//   the two (true for multi-joint main/accessory lifts, false for isolation).
+// - barbell: free-weight barbell-style compounds. Unused by this seeded plan
+//   today (no barbell work in it) but kept for future plans.
 // - dumbbell: free-dumbbell movements, which increment in fixed physical
-//   steps rather than a percentage.
+//   steps rather than a percentage (isCompound doesn't affect that branch,
+//   set true here since these are all compound presses/RDLs).
+// - isCompound=false marks single-joint movements regardless of equipment
+//   (curls, extensions, lateral raises, pushdowns, pullovers, face pulls).
 const baseSessions = [
   {
     dayIndex: 1,
     nameEs: "Pierna — cuádriceps y pantorrilla",
     focus: "Cuádriceps, pantorrilla y unilateral controlado",
     exercises: [
-      ["Prensa de piernas", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Prensa unilateral", "accessory", true, 3, 10, 12, 2, 120, "machine_or_lower_body"],
-      ["Extensión de piernas", "accessory", false, 3, 12, 15, 2, 90, "isolation"],
-      ["Elevación de pantorrillas", "accessory", false, 4, 10, 15, 2, 75, "machine_or_lower_body"],
+      ["Prensa de piernas", "main", false, 4, 8, 12, 2, 150, "machine", true],
+      ["Prensa unilateral", "accessory", true, 3, 10, 12, 2, 120, "machine", true],
+      ["Extensión de piernas", "accessory", false, 3, 12, 15, 2, 90, "machine", false],
+      ["Elevación de pantorrillas", "accessory", false, 4, 10, 15, 2, 75, "machine", true],
     ],
   },
   {
@@ -26,10 +29,10 @@ const baseSessions = [
     nameEs: "Torso — empuje seguro",
     focus: "Pecho, tríceps y hombro con control de dolor",
     exercises: [
-      ["Press de pecho en máquina", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Press inclinado con mancuernas neutras", "accessory", false, 3, 8, 12, 2, 120, "dumbbell"],
-      ["Elevaciones laterales en cable", "accessory", false, 3, 12, 20, 3, 75, "isolation"],
-      ["Tríceps en cuerda", "accessory", false, 3, 10, 15, 2, 75, "isolation"],
+      ["Press de pecho en máquina", "main", false, 4, 8, 12, 2, 150, "machine", true],
+      ["Press inclinado con mancuernas neutras", "accessory", false, 3, 8, 12, 2, 120, "dumbbell", true],
+      ["Elevaciones laterales en cable", "accessory", false, 3, 12, 20, 3, 75, "machine", false],
+      ["Tríceps en cuerda", "accessory", false, 3, 10, 15, 2, 75, "machine", false],
     ],
   },
   {
@@ -37,10 +40,10 @@ const baseSessions = [
     nameEs: "Tirón — espalda y bíceps",
     focus: "Dorsal, remos y brazos sin irritar hombro",
     exercises: [
-      ["Jalón al pecho agarre neutro", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Remo sentado en cable", "main", false, 4, 8, 12, 2, 150, "machine_or_lower_body"],
-      ["Pullover en cable", "accessory", false, 3, 12, 15, 2, 90, "isolation"],
-      ["Curl de bíceps en cable", "accessory", false, 3, 10, 15, 2, 75, "isolation"],
+      ["Jalón al pecho agarre neutro", "main", false, 4, 8, 12, 2, 150, "machine", true],
+      ["Remo sentado en cable", "main", false, 4, 8, 12, 2, 150, "machine", true],
+      ["Pullover en cable", "accessory", false, 3, 12, 15, 2, 90, "machine", false],
+      ["Curl de bíceps en cable", "accessory", false, 3, 10, 15, 2, 75, "machine", false],
     ],
   },
   {
@@ -48,10 +51,10 @@ const baseSessions = [
     nameEs: "Pierna — posterior y glúteo",
     focus: "Femoral, glúteo y estabilidad",
     exercises: [
-      ["Curl femoral sentado", "main", false, 4, 8, 12, 2, 120, "machine_or_lower_body"],
-      ["Hack squat controlado", "main", false, 3, 8, 10, 2, 150, "machine_or_lower_body"],
-      ["Peso muerto rumano con mancuernas", "accessory", false, 3, 8, 12, 3, 150, "dumbbell"],
-      ["Pantorrilla sentado", "accessory", false, 4, 12, 20, 2, 75, "machine_or_lower_body"],
+      ["Curl femoral sentado", "main", false, 4, 8, 12, 2, 120, "machine", true],
+      ["Hack squat controlado", "main", false, 3, 8, 10, 2, 150, "machine", true],
+      ["Peso muerto rumano con mancuernas", "accessory", false, 3, 8, 12, 3, 150, "dumbbell", true],
+      ["Pantorrilla sentado", "accessory", false, 4, 12, 20, 2, 75, "machine", true],
     ],
   },
   {
@@ -59,10 +62,10 @@ const baseSessions = [
     nameEs: "Upper/lower accesorio",
     focus: "Volumen extra, brazos, deltoides y movilidad",
     exercises: [
-      ["Remo pecho apoyado", "main", false, 3, 8, 12, 2, 120, "machine_or_lower_body"],
-      ["Press de pecho en cable", "accessory", false, 3, 10, 15, 2, 90, "machine_or_lower_body"],
-      ["Extensión unilateral de pierna", "accessory", true, 3, 12, 15, 2, 75, "isolation"],
-      ["Face pull", "mobility", false, 3, 12, 20, 3, 60, "isolation"],
+      ["Remo pecho apoyado", "main", false, 3, 8, 12, 2, 120, "machine", true],
+      ["Press de pecho en cable", "accessory", false, 3, 10, 15, 2, 90, "machine", true],
+      ["Extensión unilateral de pierna", "accessory", true, 3, 12, 15, 2, 75, "machine", false],
+      ["Face pull", "mobility", false, 3, 12, 20, 3, 60, "machine", false],
     ],
   },
 ] as const;
@@ -93,7 +96,8 @@ export function createSeededHypertrophyPlan(): GeneratedWorkoutPlan {
           targetRepMax,
           targetRir,
           restSeconds,
-          incrementCategory,
+          loadMechanism,
+          isCompound,
         ]) => ({
           exerciseNameEs,
           phase,
@@ -106,7 +110,8 @@ export function createSeededHypertrophyPlan(): GeneratedWorkoutPlan {
           notesEs: "Ajusta la carga usando tus pesos base y conserva técnica estricta.",
           painSensitive: exerciseNameEs.toLowerCase().includes("press"),
           substitutionOptionsEs: ["Máquina equivalente", "Cable equivalente"],
-          incrementCategory,
+          loadMechanism,
+          isCompound,
         }),
       ),
     })),

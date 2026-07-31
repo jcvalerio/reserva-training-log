@@ -59,9 +59,8 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       notesEn: exercise.notesEn ?? null,
       painSensitive: exercise.painSensitive,
       substitutionOptionsEs: exercise.substitutionOptionsEs,
-      incrementCategory: exercise.incrementCategory ?? null,
-      loadMechanism: null,
-      isCompound: null,
+      loadMechanism: exercise.loadMechanism ?? null,
+      isCompound: exercise.isCompound ?? null,
     }));
 
     return { template, exercises };

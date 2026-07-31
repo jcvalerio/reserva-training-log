@@ -42,7 +42,8 @@ describe("SessionEditorForm", () => {
             notesEs: "Ajusta la carga.",
             painSensitive: false,
             substitutionOptionsEs: ["Máquina equivalente"],
-            incrementCategory: "machine_or_lower_body",
+            loadMechanism: "machine",
+            isCompound: true,
           },
         ]}
       />,

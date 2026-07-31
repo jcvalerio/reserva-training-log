@@ -2,6 +2,23 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Exercise model redesign: Phase 3 complete (incrementCategory → loadMechanism × isCompound)
+
+Status: code complete, `lint`/`typecheck`/`test` (133 passing)/`build` all green. Both migrations verified against the dev DB; not yet deployed to production as of this entry.
+
+Correction to the step A entry below: it claimed `isCompound=false` (isolation) "routes to the same 'add a rep' suggestion regardless of `loadMechanism`'s value." That was wrong as first implemented — `suggestNextWeightKg`/`isRepsFirstIncrease` checked `isCompound === false` *before* checking `loadMechanism === "dumbbell"`, so a dumbbell+isolation exercise (e.g. a dumbbell lateral raise) would have incorrectly gotten a "add a rep" suggestion instead of the fixed +2kg step. Caught by a test written against the plan's own stated priority (dumbbell always wins, isCompound is "irrelevant to that branch") failing against the actual implementation. Fixed by reordering both functions to check `loadMechanism === "dumbbell"` first. No real-world impact — the seeded plan and the user's current data have no dumbbell+isolation exercises — but worth flagging since it means step A's "zero behavioral impact either way" reasoning was itself resting on a bug that's now fixed.
+
+Implemented (Phase 3 step B of 4, cutover + cleanup):
+- `src/workouts/progression-view.ts`: replaced `IncrementCategory`/`INCREASE_RATIO_BY_CATEGORY` with `LoadMechanism`/`INCREASE_RATIO_BY_MECHANISM`. New suggestion matrix in `suggestNextWeightKg`/`isRepsFirstIncrease`, in priority order: `dumbbell` → fixed +2kg regardless of `isCompound`; else `bodyweight` or `isCompound === false` → unchanged weight (reps-first); else `machine`+compound → +5%, `barbell`+compound → +2.5%; else (unclassified) → flat ±5% fallback.
+- `src/db/schema.ts`: dropped `incrementCategory`/`exerciseIncrementCategoryEnum` entirely. `drizzle/0011_foamy_brother_voodoo.sql`: `DROP COLUMN` + `DROP TYPE`, verified against dev DB (`information_schema.columns` confirms `increment_category` gone, `load_mechanism`/`is_compound` present).
+- App-code cutover across the same file list as Phase 2's pattern: `generated-plan-schema.ts`, `plan-builder-schema.ts` (new `loadMechanism` select + `isCompound` tri-state select — `Sin especificar` / `Compuesto` / `Aislamiento`, since a checkbox can't represent "unclassified"), `plan-repository.ts`, `plan-builder-repository.ts`, `seeded-plan.ts` (all 20 exercises reclassified using the exact same mapping as the migration's backfill — `machine_or_lower_body`→`(machine, true)`, `upper_compound`→`(barbell, true)`, `dumbbell`→`(dumbbell, true)`, `isolation`→`(machine, false)`), the builder session page, `session-runner.tsx`.
+- `session-editor-form.tsx`: replaced the single "Categoría de incremento" dropdown with two selects (mecanismo de carga / tipo de movimiento) plus an inline explanation sentence directly addressing the user's original confusion — this field doesn't classify the exercise, it only drives the weight-suggestion math.
+- Fixtures updated in every touched test file. Two were silently testing stale behavior (`toEqual` comparisons where the expected object's `incrementCategory` key just didn't match the new output shape) rather than failing to compile — `plan-builder-schema.test.ts` was actually asserting on the wrong resulting object until this pass caught it via `npm run test`, not `typecheck` (a reminder that schema-shape changes need a full test run, not just a clean typecheck, to catch stale runtime assertions on loosely-typed FormData-parsing tests).
+
+Next iteration:
+- Deploy, then manually verify a machine-compound, an isolation, and a dumbbell exercise in the real plan each show correct suggested-weight behavior in `/entrenar`.
+- After that: Phase 4 (duration-based exercises — the largest, riskiest phase, touches the live `set_log` history table, deliberately sequenced last).
+
 ## 2026-07-30 — Exercise model redesign: Phase 3 step A complete (loadMechanism/isCompound added, additive only)
 
 Status: code complete, `lint`/`typecheck`/`test` (131 passing)/`build` all green. Migration generated and its logic verified; not yet deployed to production as of this entry.

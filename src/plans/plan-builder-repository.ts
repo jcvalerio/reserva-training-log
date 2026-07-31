@@ -189,7 +189,8 @@ export async function saveDraftSession(
         notesEn: null,
         painSensitive: exerciseInput.painSensitive,
         substitutionOptionsEs: exerciseInput.substitutionOptionsEs,
-        incrementCategory: exerciseInput.incrementCategory ?? null,
+        loadMechanism: exerciseInput.loadMechanism ?? null,
+        isCompound: exerciseInput.isCompound ?? null,
       })),
     );
   }
@@ -275,7 +276,8 @@ export async function cloneWorkoutPlanToDraft(
           notesEn: exercise.notesEn,
           painSensitive: exercise.painSensitive,
           substitutionOptionsEs: exercise.substitutionOptionsEs,
-          incrementCategory: exercise.incrementCategory,
+          loadMechanism: exercise.loadMechanism,
+          isCompound: exercise.isCompound,
         })),
       );
     }

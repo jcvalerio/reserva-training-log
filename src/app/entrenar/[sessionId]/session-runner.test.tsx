@@ -72,9 +72,8 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     notesEn: null,
     painSensitive: false,
     substitutionOptionsEs: [],
-    incrementCategory: "machine_or_lower_body",
-    loadMechanism: null,
-    isCompound: null,
+    loadMechanism: "machine",
+    isCompound: true,
     loggedSets: [],
     previousPerformance: null,
     ...overrides,
@@ -303,7 +302,8 @@ describe("SessionRunner", () => {
     const exercise = buildExercise({
       targetSets: 3,
       loggedSets: [],
-      incrementCategory: "isolation",
+      loadMechanism: "machine",
+      isCompound: false,
       previousPerformance: {
         sessionId: "session-previous",
         targetRepMax: 15,
@@ -328,11 +328,12 @@ describe("SessionRunner", () => {
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(20);
   });
 
-  it("suggests a smaller +2.5% jump for upper_compound exercises", () => {
+  it("suggests a smaller +2.5% jump for barbell compound exercises", () => {
     const exercise = buildExercise({
       targetSets: 3,
       loggedSets: [],
-      incrementCategory: "upper_compound",
+      loadMechanism: "barbell",
+      isCompound: true,
       previousPerformance: {
         sessionId: "session-previous",
         targetRepMax: 10,
