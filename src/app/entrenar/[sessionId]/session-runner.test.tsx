@@ -73,6 +73,8 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     painSensitive: false,
     substitutionOptionsEs: [],
     incrementCategory: "machine_or_lower_body",
+    loadMechanism: null,
+    isCompound: null,
     loggedSets: [],
     previousPerformance: null,
     ...overrides,

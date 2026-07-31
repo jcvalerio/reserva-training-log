@@ -160,6 +160,8 @@ function buildActivePlan(): ActivePlanWithSessions {
     painSensitive: false,
     substitutionOptionsEs: [],
     incrementCategory: "machine_or_lower_body" as const,
+    loadMechanism: null,
+    isCompound: null,
   };
 
   return {

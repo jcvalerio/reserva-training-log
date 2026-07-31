@@ -71,6 +71,13 @@
       "when": 1785457999135,
       "tag": "0009_mature_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785459725132,
+      "tag": "0010_steady_eternals",
+      "breakpoints": true
     }
   ]
 }

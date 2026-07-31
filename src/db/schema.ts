@@ -40,6 +40,12 @@ export const exerciseIncrementCategoryEnum = pgEnum("exercise_increment_category
   "isolation",
   "dumbbell",
 ]);
+export const exerciseLoadMechanismEnum = pgEnum("exercise_load_mechanism", [
+  "bodyweight",
+  "dumbbell",
+  "machine",
+  "barbell",
+]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -321,10 +327,14 @@ export const exercisePrescription = pgTable(
     notesEn: text("notes_en"),
     painSensitive: boolean("pain_sensitive").notNull().default(false),
     substitutionOptionsEs: jsonb("substitution_options_es").$type<string[]>().notNull().default([]),
-    // Nullable (no default): existing rows from plans activated before this
-    // column existed have no category, and the suggestion logic falls back
-    // to a flat increment for those rather than requiring a backfill.
+    // Deprecated, step A of the incrementCategory -> loadMechanism/isCompound
+    // migration: kept in place and unused by app code until step B verifies
+    // the backfill below and drops it.
     incrementCategory: exerciseIncrementCategoryEnum("increment_category"),
+    // Replaces incrementCategory. Nullable: unclassified rows fall back to a
+    // flat increment, same as incrementCategory's original nullable design.
+    loadMechanism: exerciseLoadMechanismEnum("load_mechanism"),
+    isCompound: boolean("is_compound"),
   },
   (table) => [
     index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),

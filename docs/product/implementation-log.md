@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Exercise model redesign: Phase 3 step A complete (loadMechanism/isCompound added, additive only)
+
+Status: code complete, `lint`/`typecheck`/`test` (131 passing)/`build` all green. Migration generated and its logic verified; not yet deployed to production as of this entry.
+
+Implemented (Phase 3 step A of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`):
+- `src/db/schema.ts`: added `exerciseLoadMechanismEnum` (`bodyweight | dumbbell | machine | barbell`) and two new nullable columns on `exercisePrescription` — `loadMechanism` and `isCompound`. `incrementCategory` stays in place, untouched by app code — this step is purely additive, no behavior change.
+- `drizzle/0010_steady_eternals.sql`: `CREATE TYPE` + two `ADD COLUMN` (drizzle-kit generated) followed by a hand-inserted `UPDATE...CASE` backfill (`machine_or_lower_body`→`machine`/`true`, `upper_compound`→`barbell`/`true`, `dumbbell`→`dumbbell`/`true`, `isolation`→`machine`/`false`, `NULL`→`NULL`/`NULL`), matching the plan file's mapping exactly.
+- Verification approach adapted from the plan: the dev DB turned out to have **zero** non-null `increment_category` rows (95 rows, all null — the dev DB's data is the user's own custom-built plan, which defaults every exercise's category to "Sin especificar" unless explicitly set; the seeded plan's classified exercises were never actually present there), so there was nothing real to backfill-diff against. Verified the `CASE` mapping logic directly instead — ran it as a read-only `SELECT ... FROM unnest(enum_range(NULL::exercise_increment_category))`, touching no table data, confirming all 4 possible category values map exactly per the plan's table. Given this, and that `isCompound=false` (the isolation case, the one with any real judgment call) routes to the same "add a rep" suggestion regardless of `loadMechanism`'s value in the new suggestion matrix, the residual risk flagged in the plan (a user-edited dumbbell-isolation row defaulting to `machine`) has zero behavioral impact even in the worst case — proceeding without a separate prod spot-check.
+- Test fixtures in `session-runner.test.tsx`, `plan-repository.test.ts`, `session-progress.test.ts` updated with the new nullable fields (TypeScript now requires them on any full `ExercisePrescription`-shaped object literal, even though no app logic reads them yet).
+
+Next iteration:
+- Deploy step A, confirm the build's `db:migrate` succeeds against production (additive-only, no app behavior changes to verify manually).
+- Then Phase 3 step B: cut the app over to read/write `loadMechanism`/`isCompound` everywhere `incrementCategory` was used, then drop the old column/enum in the same migration.
+
 ## 2026-07-30 — Exercise model redesign: Phase 2 complete, deployed; found and fixed a real unilateral set-counting bug
 
 Status: completed. Deployed and manually verified by the user: `/plan` and `/entrenar` both work correctly against the real active plan post-migration.
@@ -9,7 +23,8 @@ Status: completed. Deployed and manually verified by the user: `/plan` and `/ent
 Bug found during that verification, unrelated to the sideMode migration itself but surfaced by testing a unilateral exercise afterward: a unilateral exercise's `targetSets` was being checked against the *total* logged sets across both sides combined (`session-runner.tsx`), not per side — so "3 sets" completed after any 3 sets regardless of left/right split (e.g. left/right/left), never actually asking for 3 on each side. This was pre-existing behavior, not something the sideMode→isUnilateral change introduced (confirmed: the old sideMode-based code had the identical bug, just never surfaced because the user hadn't tested a unilateral exercise until now). Fixed and deployed same day:
 - `session-runner.tsx`: exercise completion now requires `targetSets` on *each* side independently for unilateral exercises (`leftCount >= targetSets && rightCount >= targetSets`), not `loggedSets.length >= targetSets`. The side radio for whichever side already hit its target is now disabled, so the alternating left/right flow can't be broken by manually re-selecting the completed side. Target display now shows "por lado" for unilateral exercises to make the per-side expectation explicit.
 - Found and fixed the same bug class one layer deeper: `progression-view.ts`'s `buildProgressionSuggestion` used the same `sets.length >= targetSets` check to decide `allPlannedSetsCompleted` (which gates the "Sube carga" suggestion) — a lopsided previous session (e.g. 3 sets all on one side) could incorrectly read as "all sets completed" and suggest increasing load. Added an `isUnilateral` parameter and threaded `isUnilateral` through `PreviousExercisePerformance` (`workout-repository.ts`) so this check is side-aware too.
-- New tests cover both the exact reported scenario (3 total sets, uneven split, exercise must not read as complete) and the fixed progression-suggestion path. No DB migration needed — pure app logic. `lint`/`typecheck`/`test` (131 passing)/`build` all green, deployed, awaiting the user's re-verification.
+- New tests cover both the exact reported scenario (3 total sets, uneven split, exercise must not read as complete) and the fixed progression-suggestion path. No DB migration needed — pure app logic. `lint`/`typecheck`/`test` (131 passing)/`build` all green.
+- User re-verified: unilateral exercises now correctly ask for the full per-side set count in `/entrenar`. Phase 2, including this bugfix, is fully closed out.
 
 Implemented (Phase 2 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`):
 - `src/db/schema.ts`: dropped `exerciseSideModeEnum`/`sideMode` (bilateral | unilateral_separate | unilateral_matched), replaced with `isUnilateral boolean NOT NULL`. Shipped as two migration files rather than one, for a mechanical reason discovered while running `db:generate`, not a change to the plan's risk posture: `drizzle-kit generate` needs a way to resolve a brand-new `NOT NULL` column against existing rows, so a single generate call from "has sideMode" straight to "has isUnilateral NOT NULL" would hit an interactive default-value prompt this non-interactive workflow can't answer. Split into `drizzle/0008_mean_the_leader.sql` (add `is_unilateral` nullable, hand-inserted `UPDATE` backfill from `side_mode != 'bilateral'`) and `drizzle/0009_mature_paper_doll.sql` (`SET NOT NULL`, `DROP COLUMN side_mode`, `DROP TYPE`) — both apply automatically in the same `db:migrate` run, so it's still one deploy, one verification checkpoint, matching the plan's intent.
@@ -18,8 +33,7 @@ Implemented (Phase 2 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-m
 - Fixtures updated in every touched test file. `npm run typecheck` came back clean on the first pass after the full cutover — no missed call sites.
 
 Next iteration:
-- Have the user re-verify a unilateral exercise in `/entrenar` now asks for the full per-side set count and alternates correctly.
-- After that: Phase 3 (replace `incrementCategory` with `loadMechanism` × `isCompound`, two-step rollout with a manual Neon-console verification checkpoint before the irreversible cutover).
+- Phase 3 (replace `incrementCategory` with `loadMechanism` × `isCompound`, two-step rollout with a manual verification checkpoint before the irreversible cutover).
 
 ## 2026-07-30 — Exercise model redesign: Phase 1 complete, deployed, verified
 

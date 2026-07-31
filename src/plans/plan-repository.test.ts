@@ -60,6 +60,8 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       painSensitive: exercise.painSensitive,
       substitutionOptionsEs: exercise.substitutionOptionsEs,
       incrementCategory: exercise.incrementCategory ?? null,
+      loadMechanism: null,
+      isCompound: null,
     }));
 
     return { template, exercises };
