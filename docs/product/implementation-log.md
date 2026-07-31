@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Rewrote docs/architecture/data-model.md against the real schema
+
+Status: complete. Documentation-only change — no code, no schema, no migration, nothing to deploy.
+
+The doc had drifted badly: it was still describing the pre-MVP conceptual design from before most of this project was actually built, not the real `src/db/schema.ts`. Concretely wrong or fictional: `ExercisePrescription.exerciseId`/`sideMode`/`targetWeightKg` (none exist — real columns are free-text `exerciseNameEs`, boolean `isUnilateral`, no target weight at all), `ExerciseLog.exerciseId`/`sideMode`/`notes` (the real table has none of these — it's a lean 5-column join record), `SetLog.plannedWeightKg`/`plannedRepsMin`/`plannedRepsMax` (never existed — planned values are read from `ExercisePrescription`, never duplicated per set), a whole `ProgressionSuggestion` table (never built — suggestions are computed live by `src/training/progression.ts` on every render, nothing persisted), `WorkoutPlan.durationWeeks` described as "default 4" (vestigial, always 1 — the plan repeats indefinitely, no fixed week model), and `/baseline` described as an active, in-use flow (removed entirely earlier today).
+
+Rewrote every section against the actual current schema, and — matching this session's running theme of tracing real usage instead of guessing — explicitly called out which tables/fields are live vs. orphaned rather than silently correcting the field lists:
+- `Exercise` and `BaselineLift` tables: still in the DB (left in place when "Pesos base" was removed, a deliberate reversible choice), but zero application code touches them now.
+- `AthleteProfile`, `Limitation`, `MusclePriority`: every field beyond existence/the row itself is write-only, per the onboarding audit finding from earlier this session — noted here rather than presented as if fully wired up.
+- `WorkoutSession.notes`: found during the rewrite — this one's a genuine, non-deliberate gap (never wired to any UI at all, unlike the deliberately-orphaned baseline tables). Added to `docs/product/next-task.md` as a small candidate.
+
+Next iteration: none queued from this pass. See `docs/product/next-task.md` for the remaining candidates (real-device validation, Perfil simplification, the newly-found `WorkoutSession.notes` gap).
+
+
 ## 2026-07-31 — Estimated 1RM + asymmetry-improvement signals on /progreso
 
 Status: code complete, `lint`/`typecheck`/`test` (172 passing)/`build` all green. `db:generate` confirms zero schema diff.
