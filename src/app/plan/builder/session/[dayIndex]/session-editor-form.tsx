@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
+import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
+import type { DurationUnit } from "@/training/duration";
 import { rirLabelsEs, rirValues } from "@/training/rir";
 import type { LoadMechanism } from "@/workouts/progression-view";
 
@@ -167,6 +169,17 @@ function ExerciseRowFields({
   const [prescriptionType, setPrescriptionType] = useState<PrescriptionType>(value.prescriptionType);
   const isDuration = prescriptionType === "duration";
 
+  const initialDuration = secondsToDurationInput(value.durationSeconds);
+  const [durationUnit, setDurationUnit] = useState<DurationUnit>(initialDuration.unit);
+  const [durationValue, setDurationValue] = useState<number | "">(initialDuration.value);
+
+  function handleDurationUnitChange(nextUnit: DurationUnit) {
+    setDurationValue((current) => (current === "" ? current : convertDurationValue(current, durationUnit, nextUnit)));
+    setDurationUnit(nextUnit);
+  }
+
+  const durationSecondsToSubmit = durationValue === "" ? "" : durationInputToSeconds(durationValue, durationUnit);
+
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
       <div className="flex items-start justify-between gap-3">
@@ -233,7 +246,7 @@ function ExerciseRowFields({
       </div>
 
       {isDuration ? (
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-3 gap-3">
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Rondas</span>
             <input
@@ -247,17 +260,30 @@ function ExerciseRowFields({
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
-            <span>Duración (segundos)</span>
+            <span>Duración</span>
             <input
-              name={`${prefix}:durationSeconds`}
               type="number"
-              inputMode="numeric"
-              min={5}
-              max={3600}
-              defaultValue={value.durationSeconds ?? 60}
+              inputMode={durationUnit === "minutes" ? "decimal" : "numeric"}
+              step={durationUnit === "minutes" ? 0.5 : 1}
+              min={durationUnit === "minutes" ? 0.5 : 5}
+              max={durationUnit === "minutes" ? 60 : 3600}
+              value={durationValue}
+              onChange={(event) => setDurationValue(event.target.value === "" ? "" : Number(event.target.value))}
               className="input"
             />
           </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Unidad</span>
+            <select
+              value={durationUnit}
+              onChange={(event) => handleDurationUnitChange(event.target.value as DurationUnit)}
+              className="input"
+            >
+              <option value="seconds">Segundos</option>
+              <option value="minutes">Minutos</option>
+            </select>
+          </label>
+          <input type="hidden" name={`${prefix}:durationSeconds`} value={durationSecondsToSubmit} />
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-3 gap-3">

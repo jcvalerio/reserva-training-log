@@ -404,4 +404,40 @@ describe("SessionRunner", () => {
 
     expect(screen.queryByText("Última vez")).toBeNull();
   });
+
+  it("logs a duration-type exercise in minutes and converts it to seconds for submission", () => {
+    const exercise = buildExercise({
+      prescriptionType: "duration",
+      targetSets: 1,
+      targetRepMin: null,
+      targetRepMax: null,
+      targetRir: null,
+      durationSeconds: 300,
+      loadMechanism: null,
+      isCompound: null,
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Peso (kg)")).toBeNull();
+    expect(screen.queryByText("Reps en reserva (RIR)")).toBeNull();
+
+    // durationSeconds=300 reads as 5 minutes by default.
+    expect(screen.getByLabelText("Unidad")).toHaveValue("minutes");
+    expect(screen.getByLabelText("Duración real")).toHaveValue(5);
+
+    fireEvent.change(screen.getByLabelText("Unidad"), { target: { value: "seconds" } });
+    expect(screen.getByLabelText("Duración real")).toHaveValue(300);
+
+    const hiddenInput = document.querySelector('input[name="actualDurationSeconds"]');
+    expect(hiddenInput).toHaveValue("300");
+  });
 });

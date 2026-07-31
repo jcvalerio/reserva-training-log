@@ -2,9 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
-## 2026-07-30 — Exercise model redesign: Phase 4 code complete (duration-based exercises), not yet deployed
+## 2026-07-30 — Duration input UX: segundos/minutos toggle
 
-Status: code complete, `lint`/`typecheck`/`test` (134 passing)/`build` all green locally. Migration `drizzle/0012_hesitant_marauders.sql` generated cleanly in one step (the `prescriptionType` column uses a DB-level `DEFAULT 'strength'`, so no backfill was needed — every existing row is unambiguously strength-type). Not yet applied to the dev/prod DB or deployed as of this entry.
+Status: code complete, `lint`/`typecheck`/`test` (144 passing)/`build` all green locally. Deployed to production.
+
+User feedback right after Phase 4 shipped: entering a 10-minute cardio warmup as "600 segundos" is bad UX (and a 30-second mobility hold as "0.5 minutos" would be equally bad the other way) — asked for a unit toggle instead of a single fixed unit.
+
+Implemented: new shared pure-function module `src/training/duration.ts` (`secondsToDurationInput`, `convertDurationValue`, `durationInputToSeconds` — mirrors the existing `training/rir.ts` pattern for small cross-form training-domain helpers) with its own test file. `durationSeconds`/`actualDurationSeconds` are still stored and submitted in seconds on the wire — no schema or Zod change — only the input widget changed:
+- `session-editor-form.tsx` (builder): the "Duración (segundos)" field became a "Duración" number input + "Unidad" (Segundos/Minutos) select, with a hidden `${prefix}:durationSeconds` field carrying the converted value. Switching units converts the displayed number (e.g. 5 min → 300s → back to 5 min), rather than resetting it.
+- `session-runner.tsx` (`/entrenar` logging): extracted a `DurationSetInput` subcomponent with the same toggle, relying on the existing `key={exercise.id:setNumber}` on the parent `<form>` to reset the subcomponent's local state on every new set/exercise (no extra reset code needed).
+- Smart default: `secondsToDurationInput` shows minutes when the stored value is an exact multiple of 60 (typical for cardio warmups), seconds otherwise (typical for holds) — so a freshly-created duration row (60s default) initially shows "1 minuto", and prefilled values pick whichever unit round-trips cleanly.
+
+Next iteration: manual verification of the full Phase 4 flow (see entry below) still pending — this UX fix landed before that verification happened, so both should be checked together.
+
+## 2026-07-30 — Exercise model redesign: Phase 4 complete, deployed
+
+Status: code complete, `lint`/`typecheck`/`test` (134 passing)/`build` all green locally. Migration `drizzle/0012_hesitant_marauders.sql` generated cleanly in one step (the `prescriptionType` column uses a DB-level `DEFAULT 'strength'`, so no backfill was needed — every existing row is unambiguously strength-type). Deployed to production; manual verification pending (see the duration-input UX entry above for a same-day follow-up shipped before that verification happened).
 
 Implemented (Phase 4 of 4, per `/Users/jcvalerio/.claude/plans/snazzy-waddling-mountain.md`, the final phase of this redesign):
 - `src/db/schema.ts`: new `exercisePrescriptionTypeEnum` (`strength | duration`). `exercisePrescription` gains `prescriptionType` (NOT NULL, default `strength`) and nullable `durationSeconds`; `targetRepMin`/`targetRepMax`/`targetRir` made nullable. `setLog` gains nullable `actualDurationSeconds`; `actualWeightKg`/`actualReps`/`rir` made nullable.

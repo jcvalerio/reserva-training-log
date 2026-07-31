@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
+import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
+import type { DurationUnit } from "@/training/duration";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import type { ProgressionAction } from "@/training/progression";
 import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
@@ -196,19 +198,7 @@ export function SessionRunner({
             )}
 
             {isDuration ? (
-              <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                <span>Duración real (segundos)</span>
-                <input
-                  name="actualDurationSeconds"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={3600}
-                  defaultValue={defaultDurationSeconds}
-                  required
-                  className="input"
-                />
-              </label>
+              <DurationSetInput defaultSeconds={defaultDurationSeconds} />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -407,6 +397,48 @@ function isExerciseComplete(exercise: ExerciseWithLoggedSets): boolean {
   const leftCount = exercise.loggedSets.filter((set) => set.side === "left").length;
   const rightCount = exercise.loggedSets.filter((set) => set.side === "right").length;
   return leftCount >= exercise.targetSets && rightCount >= exercise.targetSets;
+}
+
+function DurationSetInput({ defaultSeconds }: { defaultSeconds: number | "" }) {
+  const initial = secondsToDurationInput(typeof defaultSeconds === "number" ? defaultSeconds : null);
+  const [unit, setUnit] = useState<DurationUnit>(initial.unit);
+  const [value, setValue] = useState<number | "">(initial.value);
+
+  function handleUnitChange(nextUnit: DurationUnit) {
+    setValue((current) => (current === "" ? current : convertDurationValue(current, unit, nextUnit)));
+    setUnit(nextUnit);
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Duración real</span>
+        <input
+          type="number"
+          inputMode={unit === "minutes" ? "decimal" : "numeric"}
+          step={unit === "minutes" ? 0.5 : 1}
+          min={unit === "minutes" ? 0.5 : 1}
+          max={unit === "minutes" ? 60 : 3600}
+          value={value}
+          onChange={(event) => setValue(event.target.value === "" ? "" : Number(event.target.value))}
+          required
+          className="input"
+        />
+      </label>
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Unidad</span>
+        <select value={unit} onChange={(event) => handleUnitChange(event.target.value as DurationUnit)} className="input">
+          <option value="seconds">Segundos</option>
+          <option value="minutes">Minutos</option>
+        </select>
+      </label>
+      <input
+        type="hidden"
+        name="actualDurationSeconds"
+        value={value === "" ? "" : durationInputToSeconds(value, unit)}
+      />
+    </div>
+  );
 }
 
 function formatStoredRir(rir: number) {

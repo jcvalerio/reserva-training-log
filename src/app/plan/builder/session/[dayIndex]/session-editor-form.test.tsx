@@ -71,15 +71,42 @@ describe("SessionEditorForm", () => {
 
     expect(screen.getByLabelText("Reps mín.")).toBeVisible();
     expect(screen.getByLabelText("RIR objetivo")).toBeVisible();
-    expect(screen.queryByLabelText("Duración (segundos)")).toBeNull();
+    expect(screen.queryByLabelText("Duración")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Tipo de ejercicio"), { target: { value: "duration" } });
 
-    expect(screen.getByLabelText("Duración (segundos)")).toBeVisible();
+    expect(screen.getByLabelText("Duración")).toBeVisible();
     expect(screen.getByLabelText("Rondas")).toBeVisible();
     expect(screen.queryByLabelText("Reps mín.")).toBeNull();
     expect(screen.queryByLabelText("RIR objetivo")).toBeNull();
     expect(screen.queryByLabelText("Mecanismo de carga (opcional)")).toBeNull();
+  });
+
+  it("converts the duración value when the unit toggle switches between segundos and minutos", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Tipo de ejercicio"), { target: { value: "duration" } });
+
+    // blankRow() defaults durationSeconds to 60, which reads as 1 minute.
+    expect(screen.getByLabelText("Unidad")).toHaveValue("minutes");
+    expect(screen.getByLabelText("Duración")).toHaveValue(1);
+
+    fireEvent.change(screen.getByLabelText("Duración"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Unidad"), { target: { value: "seconds" } });
+
+    expect(screen.getByLabelText("Duración")).toHaveValue(300);
+
+    const hiddenInput = document.querySelector('input[name="exercise-0:durationSeconds"]');
+    expect(hiddenInput).toHaveValue("300");
   });
 
   it("adds and removes exercise rows, keeping at least one", () => {
