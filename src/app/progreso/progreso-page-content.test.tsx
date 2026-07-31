@@ -77,6 +77,8 @@ describe("ProgresoPageContent", () => {
 
     expect(screen.getByRole("link", { name: /Pierna — cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
     expect(screen.getByText(/Día 1/)).toBeVisible();
+    // startedAt 12:00, completedAt 13:00 in the fixture.
+    expect(screen.getByText(/60 min/)).toBeVisible();
     expect(
       screen.getByText("Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí."),
     ).toBeVisible();
@@ -92,6 +94,8 @@ describe("ProgresoPageContent", () => {
           signals: ["volume_load"],
           latestVolumeLoadKg: 840,
           previousVolumeLoadKg: 800,
+          latestAvgWeightKg: 84,
+          previousAvgWeightKg: 80,
         }),
       },
     ];
@@ -106,6 +110,7 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByText("Prensa de piernas")).toBeVisible();
     expect(screen.getByText("Mejora ≥5%")).toBeVisible();
     expect(screen.getByText("Volumen +5%")).toBeVisible();
+    expect(screen.getByText(/Peso prom: 80\.0kg → 84\.0kg/)).toBeVisible();
   });
 
   it("shows a neutral badge and no signal chips for an exercise with no 5% change", () => {

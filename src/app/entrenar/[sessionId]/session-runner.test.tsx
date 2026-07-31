@@ -143,7 +143,16 @@ describe("SessionRunner", () => {
   it("shows completed sets and hides the logging form once the target is reached", () => {
     const exercise = buildExercise({
       targetSets: 1,
-      loggedSets: [buildSet({ setNumber: 1, actualWeightKg: "82.50", actualReps: 9, rir: 1, painScore: 2 })],
+      loggedSets: [
+        buildSet({
+          setNumber: 1,
+          actualWeightKg: "82.50",
+          actualReps: 9,
+          rir: 1,
+          painScore: 2,
+          notes: "Hombro un poco inestable en la última rep.",
+        }),
+      ],
     });
 
     render(
@@ -157,6 +166,7 @@ describe("SessionRunner", () => {
     );
 
     expect(screen.getByText(/82\.50kg × 9 · RIR 1 · dolor 2/)).toBeVisible();
+    expect(screen.getByText("Hombro un poco inestable en la última rep.")).toBeVisible();
     expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
   });
@@ -300,6 +310,45 @@ describe("SessionRunner", () => {
 
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
     expect(screen.getByLabelText("Reps")).toHaveValue(12);
+  });
+
+  it("shows a risk-flag badge when the previous set's notes flag technique or discomfort", () => {
+    const exercise = buildExercise({
+      targetSets: 2,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({
+            id: "prev-1",
+            setNumber: 1,
+            actualWeightKg: "80.00",
+            actualReps: 12,
+            rir: 2,
+            painScore: 0,
+            notes: "Hombro inestable en la última rep.",
+          }),
+          buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText(/Mantén la carga/)).toBeVisible();
+    expect(screen.getByText("Técnica")).toBeVisible();
   });
 
   it("suggests adding a rep instead of a weight jump for isolation exercises", () => {

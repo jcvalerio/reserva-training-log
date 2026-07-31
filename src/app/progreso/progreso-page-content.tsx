@@ -80,6 +80,7 @@ export function ProgresoPageContent({
             >
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
                 Día {template.dayIndex} · {formatDate(session.completedAt)}
+                {formatSessionDuration(session.startedAt, session.completedAt)}
               </p>
               <p className="mt-1 font-semibold text-zinc-100">{template.nameEs}</p>
             </Link>
@@ -108,6 +109,10 @@ function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {
       <p className="mt-2 text-sm leading-6 text-zinc-400">
         Volumen: {improvement.previousVolumeLoadKg.toFixed(0)}kg → {improvement.latestVolumeLoadKg.toFixed(0)}kg
         · Dolor máx: {improvement.previousMaxPain} → {improvement.latestMaxPain}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-zinc-500">
+        Peso prom: {improvement.previousAvgWeightKg.toFixed(1)}kg → {improvement.latestAvgWeightKg.toFixed(1)}kg · Reps
+        prom: {improvement.previousAvgReps.toFixed(1)} → {improvement.latestAvgReps.toFixed(1)}
       </p>
       {improvement.signals.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-2">
@@ -139,4 +144,15 @@ function formatDate(date: Date | null) {
     return "";
   }
   return new Intl.DateTimeFormat("es-CR", { day: "2-digit", month: "short" }).format(date);
+}
+
+function formatSessionDuration(startedAt: Date | null, completedAt: Date | null) {
+  if (!startedAt || !completedAt) {
+    return "";
+  }
+  const minutes = Math.round((completedAt.getTime() - startedAt.getTime()) / 60000);
+  if (minutes <= 0) {
+    return "";
+  }
+  return ` · ${minutes} min`;
 }

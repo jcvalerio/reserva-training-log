@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Surfaced five computed-but-hidden values on /entrenar and /progreso
+
+Status: code complete, `lint`/`typecheck`/`test` (150 passing)/`build` all green.
+
+Follow-up to the onboarding value audit — evaluated `/entrenar` and `/progreso` the same way (trace usage, don't guess). Unlike onboarding, these are the app's real value loop, so nothing warranted removal — instead found values that were already computed (cheap) but never reached the screen:
+
+- **Per-set notes**: turned out these weren't actually dead — `suggestProgression`'s `hasNegativeNote` check already keyword-matches set notes ("dolor/molestia/técnica/inestable/...") to downgrade a suggestion to "hold, revisar técnica." The note text itself was just never shown back, so that reasoning was invisible. Now shown under every `LoggedSetRow` (active exercise, "Última vez" card, completed-session summary — one shared component, one fix).
+- **Progression risk flag** (`pain`/`fatigue`/`technique`/`none`): only the plain-language reason text showed; now a small badge next to the suggestion when it's not `none`.
+- **`/progreso` improvement cards**: `latestAvgWeightKg`/`previousAvgWeightKg`/`latestAvgReps`/`previousAvgReps` were already computed internally for the reps/load signals but never displayed — added a line under the volume/pain summary.
+- **Session duration**: `completedAt - startedAt` was available but unused — added to `/progreso`'s history list next to the date.
+- **Exercise count per day**: `EntrenarSessionItem.exerciseCount` was computed by `buildEntrenarSessions` but never rendered — added to both the "Sugerido para hoy" card and each day's list row on `/entrenar`.
+
+No schema or repository changes — every value here was already flowing through existing queries; this was purely a "show it" pass.
+
 ## 2026-07-31 — Removed "Pesos base" (baseline lifts), simplified the pre-plan gate to profile-only
 
 Status: code complete, `lint`/`typecheck`/`test` (149 passing)/`build` all green. `db:generate` confirms zero schema diff — DB tables (`baseline_lift`, `exercise`) are left in place, unused but intact; nothing destructive, fully reversible via git if needed.

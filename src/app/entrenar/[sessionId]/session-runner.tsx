@@ -6,7 +6,7 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { rirValues, toDisplayRir } from "@/training/rir";
-import type { ProgressionAction } from "@/training/progression";
+import type { ProgressionAction, ProgressionRiskFlag } from "@/training/progression";
 import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
@@ -150,9 +150,18 @@ export function SessionRunner({
                 <LoggedSetRow key={set.id} set={set} />
               ))}
             </div>
-            <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
-              {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
-              {suggestedWeightKg && !repsFirstIncrease ? ` → ${suggestedWeightKg}kg` : ""}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
+                {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
+                {suggestedWeightKg && !repsFirstIncrease ? ` → ${suggestedWeightKg}kg` : ""}
+              </div>
+              {previousSuggestion.riskFlag !== "none" ? (
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-semibold ${riskFlagClass(previousSuggestion.riskFlag)}`}
+                >
+                  {riskFlagLabelEs(previousSuggestion.riskFlag)}
+                </span>
+              ) : null}
             </div>
             <p className="mt-1 text-xs leading-5 text-zinc-400">
               {repsFirstIncrease
@@ -365,22 +374,25 @@ function LoggedSetRow({ set }: { set: SetLog }) {
   const sideLabel = set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : "";
 
   return (
-    <div className="flex items-center justify-between rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800">
-      <span className="text-zinc-300">
-        Set {set.setNumber}
-        {sideLabel}
-      </span>
-      <span className="font-semibold text-zinc-100">
-        {set.actualDurationSeconds !== null ? (
-          <>
-            {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
-          </>
-        ) : (
-          <>
-            {set.actualWeightKg}kg × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor {set.painScore}
-          </>
-        )}
-      </span>
+    <div className="rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800">
+      <div className="flex items-center justify-between">
+        <span className="text-zinc-300">
+          Set {set.setNumber}
+          {sideLabel}
+        </span>
+        <span className="font-semibold text-zinc-100">
+          {set.actualDurationSeconds !== null ? (
+            <>
+              {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
+            </>
+          ) : (
+            <>
+              {set.actualWeightKg}kg × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor {set.painScore}
+            </>
+          )}
+        </span>
+      </div>
+      {set.notes ? <p className="mt-1 text-xs leading-5 text-zinc-400">{set.notes}</p> : null}
     </div>
   );
 }
@@ -464,4 +476,17 @@ function suggestionClass(action: ProgressionAction) {
     hold: "bg-sky-300/10 text-sky-200",
     reduce_or_modify: "bg-amber-300/10 text-amber-200",
   }[action];
+}
+
+function riskFlagLabelEs(riskFlag: ProgressionRiskFlag) {
+  return { pain: "Dolor", fatigue: "Fatiga", technique: "Técnica", none: "" }[riskFlag];
+}
+
+function riskFlagClass(riskFlag: ProgressionRiskFlag) {
+  return {
+    pain: "bg-amber-300/10 text-amber-200",
+    fatigue: "bg-amber-300/10 text-amber-200",
+    technique: "bg-sky-300/10 text-sky-200",
+    none: "",
+  }[riskFlag];
 }

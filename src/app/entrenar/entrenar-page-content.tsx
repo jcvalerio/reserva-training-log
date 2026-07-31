@@ -68,6 +68,7 @@ export function EntrenarPageContent({
           <h2 className="mt-2 text-xl font-semibold text-zinc-100">Día {suggested.dayIndex}</h2>
           <p className="mt-1 font-semibold text-zinc-100">{suggested.nameEs}</p>
           <p className="mt-1 text-sm leading-6 text-zinc-400">{suggested.focus}</p>
+          <p className="mt-1 text-xs text-zinc-500">{suggested.exerciseCount} ejercicios</p>
           <SessionAction session={suggested} action={startOrResumeSessionAction} emphasize />
         </section>
       ) : null}
@@ -83,9 +84,12 @@ export function EntrenarPageContent({
                 Día {session.dayIndex}
               </p>
               <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
-              <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(session.status)}`}>
-                {statusLabelEs(session.status)}
-              </span>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(session.status)}`}>
+                  {statusLabelEs(session.status)}
+                </span>
+                <span className="text-xs text-zinc-500">{session.exerciseCount} ejercicios</span>
+              </div>
             </div>
             <SessionAction session={session} action={startOrResumeSessionAction} />
           </article>

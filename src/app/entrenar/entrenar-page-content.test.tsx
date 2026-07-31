@@ -47,6 +47,8 @@ describe("EntrenarPageContent", () => {
     expect(screen.getByText("Sugerido para hoy")).toBeVisible();
     expect(screen.getAllByRole("button", { name: "Empezar" })).toHaveLength(2);
     expect(screen.getByText("No iniciada")).toBeVisible();
+    // Shown once in the suggested card and once in the list row for the same session.
+    expect(screen.getAllByText("4 ejercicios")).toHaveLength(2);
   });
 
   it("shows continue/view links for in-progress and completed sessions", () => {
