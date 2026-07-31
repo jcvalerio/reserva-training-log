@@ -19,7 +19,7 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
 
   const activePlan = profile ? await getActivePlanForProfile(profile.id) : null;
 
-  const readiness = getM1Readiness({ hasProfile: Boolean(profile) });
+  const readiness = getM1Readiness({ hasProfile: Boolean(profile), hasActivePlan: Boolean(activePlan) });
   const gate = getNonAiPlanGate(readiness);
   const showStartFork = !activePlan && readiness.foundationReady;
 

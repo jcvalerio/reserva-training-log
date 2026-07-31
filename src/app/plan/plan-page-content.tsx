@@ -35,7 +35,7 @@ export function PlanPageContent({
     <AppShell activeHref="/plan">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {hasActivePlan
               ? "Tu plan"
@@ -75,7 +75,7 @@ export function PlanPageContent({
             </div>
 
             <div className="mt-5 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Acción sugerida</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Acción sugerida</p>
               <Link
                 href={gate.ctaHref}
                 className="mt-3 block rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
@@ -87,7 +87,7 @@ export function PlanPageContent({
 
           <section className="mt-6 grid gap-3" aria-labelledby="plan-checklist-title">
             <div>
-              <p id="plan-checklist-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+              <p id="plan-checklist-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
                 Checklist pre-plan
               </p>
               <p className="mt-1 text-sm leading-6 text-zinc-400">
@@ -132,7 +132,7 @@ export function PlanPageContent({
 export function StatusTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-zinc-950 px-2 py-3 ring-1 ring-zinc-800">
-      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
       <p className="mt-1 text-sm font-semibold text-zinc-100">{value}</p>
     </div>
   );
@@ -284,63 +284,22 @@ function ActivePlanSummary({
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
         <form action={editActivePlanAction}>
-          <SubmitButton className="rounded-lg py-1.5 text-sm font-semibold text-emerald-300 underline decoration-emerald-300/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          <SubmitButton className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-emerald-300 underline decoration-emerald-300/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
             Editar mi plan
           </SubmitButton>
         </form>
         <span className="text-zinc-700">·</span>
         <form action={cloneActivePlanAction}>
-          <SubmitButton className="rounded-lg py-1.5 text-sm font-semibold text-emerald-300 underline decoration-emerald-300/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          <SubmitButton className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-emerald-300 underline decoration-emerald-300/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
             Duplicar como borrador
           </SubmitButton>
         </form>
       </div>
-      <p className="mt-2 text-xs leading-5 text-zinc-500">
+      <p className="mt-2 text-xs leading-5 text-zinc-400">
         Editar toma tu plan como borrador hasta que lo reactives; tu historial registrado no se pierde. Duplicar crea
         un borrador nuevo a partir de este plan sin afectar el que está activo.
       </p>
     </section>
-  );
-}
-
-export function PlanSessionsList({ sessions }: { sessions: PlanPreviewSummary["sessions"] }) {
-  return (
-    <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Tu rutina</p>
-      <div className="mt-3 grid gap-3">
-        {sessions.map((session) => (
-          <article key={session.dayIndex} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Día {session.dayIndex}</p>
-            <h3 className="mt-1 font-semibold text-zinc-100">{session.nameEs}</h3>
-            <p className="mt-1 text-sm leading-5 text-zinc-400">{session.focus}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-              <span className="rounded-full bg-zinc-950 px-2 py-1 text-zinc-300 ring-1 ring-zinc-800">
-                {session.exerciseCount} ejercicios
-              </span>
-              {session.unilateralExerciseCount > 0 ? (
-                <span className="rounded-full bg-emerald-300/10 px-2 py-1 text-emerald-300">unilateral</span>
-              ) : null}
-              {session.painSensitiveExerciseCount > 0 ? (
-                <span className="rounded-full bg-amber-300/10 px-2 py-1 text-amber-200">dolor vigilado</span>
-              ) : null}
-            </div>
-
-            <details className="mt-3 rounded-2xl bg-zinc-950 p-3 text-sm ring-1 ring-zinc-800">
-              <summary className="min-h-12 cursor-pointer rounded-xl py-3 font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
-                Ver ejercicios y objetivos
-                <span className="ml-2 text-xs font-medium text-zinc-500">tocar para expandir</span>
-              </summary>
-              <div className="mt-3 grid gap-3">
-                {session.exercises.map((exercise) => (
-                  <PlanExerciseCard key={exercise.orderIndex} exercise={exercise} />
-                ))}
-              </div>
-              <p className="mt-3 text-xs leading-5 text-zinc-500">{session.mobilityNotesEs}</p>
-            </details>
-          </article>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -353,7 +312,7 @@ export function PlanExerciseCard({ exercise }: { exercise: PlanPreviewSummary["s
         </span>
         <div className="min-w-0 flex-1">
           <h4 className="font-semibold text-zinc-100">{exercise.nameEs}</h4>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-400">
             {exercise.phaseLabelEs} · {exercise.sideLabelEs}
           </p>
         </div>

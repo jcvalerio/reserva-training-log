@@ -22,7 +22,7 @@ export function EntrenarPageContent({
       <AppShell activeHref="/entrenar">
         <header className="space-y-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Entrenar</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Entrenar</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Todavía no hay plan activo</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               Activa tu plan en la sección Plan antes de registrar entrenamientos.
@@ -46,7 +46,7 @@ export function EntrenarPageContent({
     <AppShell activeHref="/entrenar">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Entrenar</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Entrenar</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tus sesiones</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             Elige la sesión sugerida o cualquier otra de tu plan activo.
@@ -68,7 +68,7 @@ export function EntrenarPageContent({
           <h2 className="mt-2 text-xl font-semibold text-zinc-100">Día {suggested.dayIndex}</h2>
           <p className="mt-1 font-semibold text-zinc-100">{suggested.nameEs}</p>
           <p className="mt-1 text-sm leading-6 text-zinc-400">{suggested.focus}</p>
-          <p className="mt-1 text-xs text-zinc-500">{suggested.exerciseCount} ejercicios</p>
+          <p className="mt-1 text-xs text-zinc-400">{suggested.exerciseCount} ejercicios</p>
           <SessionAction session={suggested} action={startOrResumeSessionAction} emphasize />
         </section>
       ) : null}
@@ -80,7 +80,7 @@ export function EntrenarPageContent({
             className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
           >
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
                 Día {session.dayIndex}
               </p>
               <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
@@ -88,7 +88,7 @@ export function EntrenarPageContent({
                 <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(session.status)}`}>
                   {statusLabelEs(session.status)}
                 </span>
-                <span className="text-xs text-zinc-500">{session.exerciseCount} ejercicios</span>
+                <span className="text-xs text-zinc-400">{session.exerciseCount} ejercicios</span>
               </div>
             </div>
             <SessionAction session={session} action={startOrResumeSessionAction} />

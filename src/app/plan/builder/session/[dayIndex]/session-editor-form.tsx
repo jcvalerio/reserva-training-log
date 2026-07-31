@@ -54,6 +54,8 @@ function blankRow(key: string): ExerciseRowValue {
   };
 }
 
+const KNOWN_EXERCISE_NAMES_DATALIST_ID = "known-exercise-names";
+
 export function SessionEditorForm({
   action,
   draftPlanId,
@@ -61,6 +63,7 @@ export function SessionEditorForm({
   initialNameEs,
   initialFocus,
   initialExercises,
+  knownExerciseNames,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   draftPlanId: string;
@@ -68,6 +71,7 @@ export function SessionEditorForm({
   initialNameEs: string;
   initialFocus: string;
   initialExercises: SessionEditorInitialExercise[];
+  knownExerciseNames: string[];
 }) {
   const nextKeyRef = useRef(Math.max(initialExercises.length, 1));
   const [rows, setRows] = useState<ExerciseRowValue[]>(() =>
@@ -119,10 +123,16 @@ export function SessionEditorForm({
         </label>
       </section>
 
-      <p className="text-xs leading-5 text-zinc-500">
+      <p className="text-xs leading-5 text-zinc-400">
         Necesitas al menos {MIN_SESSION_EXERCISES} ejercicios en esta sesión para poder activar el plan
         ({rows.length}/{MIN_SESSION_EXERCISES} por ahora).
       </p>
+
+      <datalist id={KNOWN_EXERCISE_NAMES_DATALIST_ID}>
+        {knownExerciseNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
 
       <div className="grid gap-3">
         {rows.map((row, index) => (
@@ -183,7 +193,7 @@ function ExerciseRowFields({
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Ejercicio {index + 1}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Ejercicio {index + 1}</p>
         {canRemove ? (
           <button
             type="button"
@@ -204,6 +214,8 @@ function ExerciseRowFields({
           defaultValue={value.exerciseNameEs}
           className="input"
           placeholder="Prensa de piernas"
+          list={KNOWN_EXERCISE_NAMES_DATALIST_ID}
+          autoComplete="off"
         />
       </label>
 
@@ -219,7 +231,7 @@ function ExerciseRowFields({
           <option value="duration">Duración (calentamiento cardio, movilidad)</option>
         </select>
       </label>
-      <p className="mt-1 text-xs leading-5 text-zinc-500">
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
         Duración es para calentamientos de cardio (escaladora, cinta) o movilidad — no aplica RIR ni rango de reps.
       </p>
 
@@ -381,7 +393,7 @@ function ExerciseRowFields({
               </select>
             </label>
           </div>
-          <p className="mt-2 text-xs leading-5 text-zinc-500">
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
             Esto no clasifica el ejercicio — solo define cómo se sugiere el aumento de peso en Entrenar (ej. máquina
             compuesta: +5%; aislamiento: suma una repetición en vez de subir peso).
           </p>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getDraftPlanForProfile } from "@/plans/plan-builder-repository";
+import { getDraftPlanForProfile, getKnownExerciseNamesForProfile } from "@/plans/plan-builder-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 import { AppShell } from "../../../../app-shell";
@@ -32,6 +32,8 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
     redirect("/plan/builder");
   }
 
+  const knownExerciseNames = await getKnownExerciseNamesForProfile(profile.id);
+
   const existingSession = draft.sessions.find((session) => session.template.dayIndex === dayIndex);
   const initialExercises: SessionEditorInitialExercise[] = (existingSession?.exercises ?? []).map((exercise) => ({
     exerciseNameEs: exercise.exerciseNameEs,
@@ -55,7 +57,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
     <AppShell activeHref="/plan">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan · Día {dayIndex}</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan · Día {dayIndex}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {existingSession ? "Editar sesión" : "Nueva sesión"}
           </h1>
@@ -78,6 +80,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
         initialNameEs={existingSession?.template.nameEs ?? ""}
         initialFocus={existingSession?.template.focus ?? ""}
         initialExercises={initialExercises}
+        knownExerciseNames={knownExerciseNames}
       />
     </AppShell>
   );

@@ -183,7 +183,7 @@ describe("SessionRunner", () => {
       />,
     );
 
-    expect(screen.getByText(/82\.50kg × 9 · RIR 1 · dolor 2/)).toBeVisible();
+    expect(screen.getByText(/82\.5kg × 9 · RIR 1 · dolor 2/)).toBeVisible();
     expect(screen.getByText("Hombro un poco inestable en la última rep.")).toBeVisible();
     expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
@@ -357,9 +357,9 @@ describe("SessionRunner", () => {
     );
 
     expect(screen.getByText("Última vez")).toBeVisible();
-    expect(screen.getAllByText(/80\.00kg × 12 · RIR 2 · dolor 0/)).toHaveLength(2);
+    expect(screen.getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(2);
     expect(screen.getByText(/Sube carga/)).toBeVisible();
-    expect(screen.getByText(/84\.00kg/)).toBeVisible();
+    expect(screen.getByText(/84kg/)).toBeVisible();
 
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
     expect(screen.getByLabelText("Reps")).toHaveValue(12);
@@ -431,7 +431,7 @@ describe("SessionRunner", () => {
     );
 
     expect(screen.getByText("Añade una repetición")).toBeVisible();
-    expect(screen.queryByText(/→ 21\.00kg/)).toBeNull();
+    expect(screen.queryByText(/→ 21kg/)).toBeNull();
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(20);
   });
 
@@ -461,7 +461,7 @@ describe("SessionRunner", () => {
       />,
     );
 
-    expect(screen.getByText(/82\.00kg/)).toBeVisible();
+    expect(screen.getByText(/82kg/)).toBeVisible();
   });
 
   it("hides the previous-performance card once a set has been logged this session", () => {

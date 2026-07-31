@@ -8,6 +8,7 @@ import {
   activateDraftPlanAction,
   createDraftPlanAction,
   deleteSessionAction,
+  discardDraftPlanAction,
   updatePlanDetailsAction,
 } from "./actions";
 import { BuilderPageContent, type DraftPlanSummary } from "./builder-page-content";
@@ -52,6 +53,7 @@ export default async function PlanBuilderPage({ searchParams }: BuilderPageProps
       createDraftPlanAction={createDraftPlanAction}
       updatePlanDetailsAction={updatePlanDetailsAction}
       deleteSessionAction={deleteSessionAction}
+      discardDraftPlanAction={discardDraftPlanAction}
       activateDraftPlanAction={activateDraftPlanAction}
     />
   );

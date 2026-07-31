@@ -3,7 +3,8 @@ import Link from "next/link";
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
 
 import { AppShell } from "../../../app-shell";
-import { PlanSessionsList, StatusTile } from "../../plan-page-content";
+import { PlanDayPager } from "../../plan-day-pager";
+import { StatusTile } from "../../plan-page-content";
 import { SubmitButton } from "../../../submit-button";
 
 export function TemplatePreviewContent({
@@ -24,7 +25,7 @@ export function TemplatePreviewContent({
           <Link href="/plan/templates" className="text-xs font-semibold text-emerald-300">
             ← Volver a plantillas
           </Link>
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan · Plantilla</p>
+          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan · Plantilla</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{summary.nameEs}</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{objectiveEs}</p>
         </div>
@@ -58,7 +59,7 @@ export function TemplatePreviewContent({
         <p className="mt-4 text-sm leading-6 text-zinc-300">{summary.safetySummaryEs}</p>
 
         <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Logging futuro por serie</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Logging futuro por serie</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {summary.requiredSetLogFieldsEs.map((field) => (
               <span
@@ -71,7 +72,9 @@ export function TemplatePreviewContent({
           </div>
         </div>
 
-        <PlanSessionsList sessions={summary.sessions} />
+        <div className="mt-4">
+          <PlanDayPager sessions={summary.sessions} />
+        </div>
 
         <form action={activatePlanAction} className="mt-4">
           <input type="hidden" name="templateId" value={templateId} />

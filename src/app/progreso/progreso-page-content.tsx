@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { formatKg } from "@/lib/format";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
@@ -23,7 +24,7 @@ export function ProgresoPageContent({
       <AppShell activeHref="/progreso">
         <header className="space-y-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Progreso</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Progreso</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Todavía no hay historial</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               Completa al menos una sesión en Entrenar para empezar a ver tu progreso aquí.
@@ -47,7 +48,7 @@ export function ProgresoPageContent({
     <AppShell activeHref="/progreso">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Progreso</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Progreso</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tu historial</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             Comparaciones de volumen y dolor entre tus dos sesiones más recientes por ejercicio, más tu historial de
@@ -59,7 +60,7 @@ export function ProgresoPageContent({
       {bodyMeasurementTrend ? <BodyMeasurementTrendCard trend={bodyMeasurementTrend} /> : null}
 
       <section className="mt-7" aria-labelledby="improvements-title">
-        <p id="improvements-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+        <p id="improvements-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
           Mejoras recientes
         </p>
         {improvements.length === 0 ? (
@@ -77,11 +78,11 @@ export function ProgresoPageContent({
 
       <section className="mt-6 grid gap-3 pb-10" aria-labelledby="history-title">
         <div className="flex items-center justify-between gap-3">
-          <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+          <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
             Historial de sesiones
           </p>
           {recentAverageLoad !== null ? (
-            <p className="text-xs text-zinc-500">Carga promedio (últimas sesiones): {recentAverageLoad} UA</p>
+            <p className="text-xs text-zinc-400">Carga promedio (últimas sesiones): {recentAverageLoad} UA</p>
           ) : null}
         </div>
         <div className="grid gap-2">
@@ -91,7 +92,7 @@ export function ProgresoPageContent({
               href={`/entrenar/${session.id}`}
               className="block rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
                 Día {template.dayIndex} · {formatDate(session.completedAt)}
                 {formatSessionDuration(session.startedAt, session.completedAt)}
                 {formatTrainingLoad(computeSessionTrainingLoad(session))}
@@ -109,10 +110,10 @@ function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
   return (
     <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="body-trend-title">
       <div className="flex items-center justify-between gap-3">
-        <p id="body-trend-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+        <p id="body-trend-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
           Tendencia corporal
         </p>
-        <Link href="/mediciones" className="text-xs font-semibold text-emerald-300">
+        <Link href="/mediciones" className="inline-flex min-h-11 items-center text-xs font-semibold text-emerald-300">
           Ver mediciones
         </Link>
       </div>
@@ -136,14 +137,14 @@ function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
             </p>
           ) : null}
           {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)}
               {trend.thighGapImproved ? " (mejoró vs. la anterior)" : ""} · Pantorrilla:{" "}
               {formatGap(trend.latestCalfGapCm)}
               {trend.calfGapImproved ? " (mejoró vs. la anterior)" : ""}
             </p>
           ) : null}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             {trend.measurementCount} mediciones desde {formatDate(trend.firstMeasuredAt)}
           </p>
         </div>
@@ -181,23 +182,22 @@ function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {
         </span>
       </div>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Volumen: {improvement.previousVolumeLoadKg.toFixed(0)}kg → {improvement.latestVolumeLoadKg.toFixed(0)}kg
+        Volumen: {formatKg(improvement.previousVolumeLoadKg, 0)} → {formatKg(improvement.latestVolumeLoadKg, 0)}{" "}
         · Dolor máx: {improvement.previousMaxPain} → {improvement.latestMaxPain}
       </p>
-      <p className="mt-1 text-xs leading-5 text-zinc-500">
-        Peso prom: {improvement.previousAvgWeightKg.toFixed(1)}kg → {improvement.latestAvgWeightKg.toFixed(1)}kg · Reps
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
+        Peso prom: {formatKg(improvement.previousAvgWeightKg, 1)} → {formatKg(improvement.latestAvgWeightKg, 1)} · Reps
         prom: {improvement.previousAvgReps.toFixed(1)} → {improvement.latestAvgReps.toFixed(1)}
       </p>
       {improvement.latestEstimated1RmKg !== null && improvement.previousEstimated1RmKg !== null ? (
-        <p className="mt-1 text-xs leading-5 text-zinc-500">
-          1RM estimado: {improvement.previousEstimated1RmKg.toFixed(1)}kg → {improvement.latestEstimated1RmKg.toFixed(1)}
-          kg
+        <p className="mt-1 text-xs leading-5 text-zinc-400">
+          1RM estimado: {formatKg(improvement.previousEstimated1RmKg, 1)} → {formatKg(improvement.latestEstimated1RmKg, 1)}
         </p>
       ) : null}
       {improvement.latestAsymmetryGapKg !== null && improvement.previousAsymmetryGapKg !== null ? (
-        <p className="mt-1 text-xs leading-5 text-zinc-500">
-          Asimetría izq/der: {improvement.previousAsymmetryGapKg.toFixed(1)}kg → {improvement.latestAsymmetryGapKg.toFixed(1)}
-          kg
+        <p className="mt-1 text-xs leading-5 text-zinc-400">
+          Asimetría izq/der: {formatKg(improvement.previousAsymmetryGapKg, 1)} →{" "}
+          {formatKg(improvement.latestAsymmetryGapKg, 1)}
         </p>
       ) : null}
       {improvement.signals.length > 0 ? (

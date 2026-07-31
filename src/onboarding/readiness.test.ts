@@ -4,7 +4,7 @@ import { getM1Readiness } from "./readiness";
 
 describe("getM1Readiness", () => {
   it("blocks plan review before a profile exists", () => {
-    const readiness = getM1Readiness({ hasProfile: false });
+    const readiness = getM1Readiness({ hasProfile: false, hasActivePlan: false });
 
     expect(readiness.completedFoundationSteps).toBe(0);
     expect(readiness.totalFoundationSteps).toBe(1);
@@ -22,7 +22,7 @@ describe("getM1Readiness", () => {
   });
 
   it("is foundation-ready as soon as a profile exists", () => {
-    const readiness = getM1Readiness({ hasProfile: true });
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: false });
 
     expect(readiness.completedFoundationSteps).toBe(1);
     expect(readiness.totalFoundationSteps).toBe(1);
@@ -35,6 +35,21 @@ describe("getM1Readiness", () => {
       href: "/plan",
       status: "pending",
       statusLabelEs: "Elige tu plan",
+    });
+  });
+
+  it("points a returning user with an active plan at Entrenar instead of the plan picker", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+
+    expect(readiness.foundationReady).toBe(true);
+    expect(readiness.primaryAction).toMatchObject({
+      labelEs: "Ir a Entrenar",
+      href: "/entrenar",
+    });
+    expect(readiness.steps.find((step) => step.id === "plan")).toMatchObject({
+      href: "/plan",
+      status: "complete",
+      statusLabelEs: "Activo",
     });
   });
 });

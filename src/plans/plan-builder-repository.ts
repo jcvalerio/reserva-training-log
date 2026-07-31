@@ -25,6 +25,23 @@ export type DraftPlanWithSessions = {
 const DEFAULT_SAFETY_SUMMARY_ES =
   "Registra dolor en cada serie, evita progresar con dolor sobre 2 y modifica ejercicios con dolor sobre 3.";
 
+export async function getKnownExerciseNamesForProfile(athleteProfileId: string): Promise<string[]> {
+  // Sourced across every plan status (draft/active/archived), not just the
+  // active one — the point is nudging name consistency across edits, and an
+  // exercise from an archived or draft plan is just as real a prior name as
+  // one from the currently active plan. Exact-string matching is how
+  // progression history is keyed (see workout-repository.ts), so this is a
+  // continuity aid, not a restriction — free text is still allowed.
+  const rows = await db
+    .selectDistinct({ exerciseNameEs: exercisePrescription.exerciseNameEs })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(exercisePrescription.planSessionTemplateId, planSessionTemplate.id))
+    .innerJoin(workoutPlan, eq(planSessionTemplate.workoutPlanId, workoutPlan.id))
+    .where(eq(workoutPlan.athleteProfileId, athleteProfileId));
+
+  return rows.map((row) => row.exerciseNameEs).sort((a, b) => a.localeCompare(b, "es"));
+}
+
 export async function getDraftPlanForProfile(athleteProfileId: string): Promise<DraftPlanWithSessions | null> {
   const [planRow] = await db
     .select()
@@ -341,6 +358,15 @@ export async function deleteDraftSession(draftPlanId: string, dayIndex: number) 
   await db
     .delete(planSessionTemplate)
     .where(and(eq(planSessionTemplate.workoutPlanId, draftPlanId), eq(planSessionTemplate.dayIndex, dayIndex)));
+}
+
+export async function discardDraftPlan(athleteProfileId: string): Promise<void> {
+  // Scoped to status "draft" so this can never touch an active or archived
+  // plan — a draft has never been activated, so it has no logged sets to
+  // orphan. Sessions/exercises cascade-delete via the existing FKs.
+  await db
+    .delete(workoutPlan)
+    .where(and(eq(workoutPlan.athleteProfileId, athleteProfileId), eq(workoutPlan.status, "draft")));
 }
 
 export async function revertActivePlanToDraft(athleteProfileId: string): Promise<void> {

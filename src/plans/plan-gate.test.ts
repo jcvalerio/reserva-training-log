@@ -6,7 +6,7 @@ import { getNonAiPlanGate } from "./plan-gate";
 
 describe("getNonAiPlanGate", () => {
   it("blocks plan review until a profile exists", () => {
-    const readiness = getM1Readiness({ hasProfile: false });
+    const readiness = getM1Readiness({ hasProfile: false, hasActivePlan: false });
 
     const gate = getNonAiPlanGate(readiness);
 
@@ -21,7 +21,7 @@ describe("getNonAiPlanGate", () => {
   });
 
   it("allows only manual review once a profile exists", () => {
-    const readiness = getM1Readiness({ hasProfile: true });
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: false });
 
     const gate = getNonAiPlanGate(readiness);
 

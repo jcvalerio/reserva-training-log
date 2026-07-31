@@ -15,6 +15,7 @@ describe("PlanPageContent", () => {
   it("offers the start-plan fork (template or custom) once foundations are ready, with neither pre-expanded", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
+      hasActivePlan: false,
     });
     const gate = getNonAiPlanGate(readiness);
 
@@ -49,7 +50,7 @@ describe("PlanPageContent", () => {
   });
 
   it("hides the start-plan fork until foundations are complete", () => {
-    const readiness = getM1Readiness({ hasProfile: false });
+    const readiness = getM1Readiness({ hasProfile: false, hasActivePlan: false });
     const gate = getNonAiPlanGate(readiness);
 
     render(
@@ -77,6 +78,7 @@ describe("PlanPageContent", () => {
   it("renders the active plan instead of the start fork once activated", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
+      hasActivePlan: true,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -109,7 +111,7 @@ describe("PlanPageContent", () => {
   });
 
   it("links to the full plan detail instead of inlining every exercise on the summary page", () => {
-    const readiness = getM1Readiness({ hasProfile: true });
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
 
@@ -134,6 +136,7 @@ describe("PlanPageContent", () => {
   it("still offers the custom plan builder entry point when a plan is already active", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
+      hasActivePlan: true,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -159,6 +162,7 @@ describe("PlanPageContent", () => {
   it("offers first-class edit and duplicate actions on the active plan, not just as error recovery", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
+      hasActivePlan: true,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -184,6 +188,7 @@ describe("PlanPageContent", () => {
   it("shows a recoverable error state and no crash when the active plan fails to render", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
+      hasActivePlan: true,
     });
     const gate = getNonAiPlanGate(readiness);
 

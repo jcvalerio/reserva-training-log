@@ -51,14 +51,3 @@ body {
 .input::placeholder {
   color: rgb(113 113 122);
 }
-
-.sticky-submit {
-  position: sticky;
-  bottom: calc(5.75rem + max(1rem, env(safe-area-inset-bottom)));
-}
-
-.sticky-submit:disabled,
-.sticky-submit[aria-disabled="true"] {
-  cursor: progress;
-  opacity: 0.72;
-}

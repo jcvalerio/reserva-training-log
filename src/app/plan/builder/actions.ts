@@ -8,6 +8,7 @@ import {
   activateDraftPlan,
   createDraftPlan,
   deleteDraftSession,
+  discardDraftPlan,
   getDraftPlanForProfile,
   saveDraftSession,
   updateDraftPlanDetails,
@@ -133,6 +134,30 @@ export async function deleteSessionAction(formData: FormData) {
 
   revalidatePath("/plan/builder");
   redirect("/plan/builder?saved=1");
+}
+
+export async function discardDraftPlanAction(formData: FormData) {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    redirect("/perfil");
+  }
+
+  const draftPlanId = formData.get("draftPlanId");
+  if (typeof draftPlanId !== "string") {
+    redirect("/plan/builder");
+  }
+
+  const draft = await getDraftPlanForProfile(profile.id);
+  if (!draft || draft.plan.id !== draftPlanId) {
+    redirect("/plan/builder");
+  }
+
+  await discardDraftPlan(profile.id);
+
+  revalidatePath("/plan/builder");
+  redirect("/plan/builder");
 }
 
 export async function activateDraftPlanAction(formData: FormData) {

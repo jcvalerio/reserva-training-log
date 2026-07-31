@@ -13,6 +13,7 @@ describe("SessionEditorForm", () => {
         initialNameEs=""
         initialFocus=""
         initialExercises={[]}
+        knownExerciseNames={[]}
       />,
     );
 
@@ -48,6 +49,7 @@ describe("SessionEditorForm", () => {
             isCompound: true,
           },
         ]}
+        knownExerciseNames={[]}
       />,
     );
 
@@ -66,6 +68,7 @@ describe("SessionEditorForm", () => {
         initialNameEs=""
         initialFocus=""
         initialExercises={[]}
+        knownExerciseNames={[]}
       />,
     );
 
@@ -91,6 +94,7 @@ describe("SessionEditorForm", () => {
         initialNameEs=""
         initialFocus=""
         initialExercises={[]}
+        knownExerciseNames={[]}
       />,
     );
 
@@ -118,6 +122,7 @@ describe("SessionEditorForm", () => {
         initialNameEs=""
         initialFocus=""
         initialExercises={[]}
+        knownExerciseNames={[]}
       />,
     );
 
@@ -130,5 +135,27 @@ describe("SessionEditorForm", () => {
     fireEvent.click(removeButtons[0] as HTMLElement);
     expect(screen.queryByText("Ejercicio 2")).toBeNull();
     expect(screen.queryByRole("button", { name: "Eliminar" })).toBeNull();
+  });
+
+  it("offers previously-used exercise names as autocomplete suggestions", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+        knownExerciseNames={["Prensa de piernas", "Sentadilla"]}
+      />,
+    );
+
+    const nameInput = screen.getByLabelText("Nombre del ejercicio");
+    const datalistId = nameInput.getAttribute("list");
+    expect(datalistId).toBeTruthy();
+
+    const datalist = document.getElementById(datalistId!);
+    const options = datalist ? Array.from(datalist.querySelectorAll("option")).map((option) => option.value) : [];
+    expect(options).toEqual(["Prensa de piernas", "Sentadilla"]);
   });
 });

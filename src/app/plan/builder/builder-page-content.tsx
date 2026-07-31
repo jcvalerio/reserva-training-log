@@ -26,6 +26,7 @@ export function BuilderPageContent({
   createDraftPlanAction,
   updatePlanDetailsAction,
   deleteSessionAction,
+  discardDraftPlanAction,
   activateDraftPlanAction,
 }: {
   draft: DraftPlanSummary | null;
@@ -34,6 +35,7 @@ export function BuilderPageContent({
   createDraftPlanAction: (formData: FormData) => Promise<void>;
   updatePlanDetailsAction: (formData: FormData) => Promise<void>;
   deleteSessionAction: (formData: FormData) => Promise<void>;
+  discardDraftPlanAction: (formData: FormData) => Promise<void>;
   activateDraftPlanAction: (formData: FormData) => Promise<void>;
 }) {
   if (!draft) {
@@ -41,7 +43,7 @@ export function BuilderPageContent({
       <AppShell activeHref="/plan">
         <header className="space-y-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Crea tu propia rutina</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               Define tus propios días de entrenamiento y ejercicios. Puedes revisar y ajustar todo antes de
@@ -95,10 +97,11 @@ export function BuilderPageContent({
     <AppShell activeHref="/plan">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{draft.nameEs}</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Borrador, todavía no activo. Completa cada día con al menos un ejercicio antes de activar.
+            Borrador, todavía no activo. Completa cada día con al menos {MIN_SESSION_EXERCISES} ejercicios antes de
+            activar.
           </p>
         </div>
       </header>
@@ -139,7 +142,7 @@ export function BuilderPageContent({
               className="input"
             />
           </label>
-          <p className="text-xs leading-5 text-zinc-500">
+          <p className="text-xs leading-5 text-zinc-400">
             Si reduces los días, las sesiones ya creadas fuera de ese rango no se eliminan, pero quedan ocultas hasta
             que vuelvas a subir el número.
           </p>
@@ -148,6 +151,13 @@ export function BuilderPageContent({
           </SubmitButton>
         </form>
       </details>
+
+      <form action={discardDraftPlanAction} className="mt-3">
+        <input type="hidden" name="draftPlanId" value={draft.id} />
+        <SubmitButton className="min-h-11 rounded-2xl px-2 text-sm font-semibold text-amber-200 underline decoration-amber-200/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+          Descartar borrador
+        </SubmitButton>
+      </form>
 
       <section className="mt-6 grid gap-2 pb-6">
         {dayIndexes.map((dayIndex) => {
@@ -159,14 +169,14 @@ export function BuilderPageContent({
               className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
             >
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Día {dayIndex}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Día {dayIndex}</p>
                 {session ? (
                   <>
                     <p className="truncate font-semibold text-zinc-100">{session.nameEs}</p>
                     <p
-                      className={`text-xs ${session.exerciseCount < MIN_SESSION_EXERCISES ? "text-amber-200" : "text-zinc-500"}`}
+                      className={`text-xs ${session.exerciseCount < MIN_SESSION_EXERCISES ? "text-amber-200" : "text-zinc-400"}`}
                     >
-                      {session.exerciseCount} ejercicios
+                      {session.exerciseCount} {session.exerciseCount === 1 ? "ejercicio" : "ejercicios"}
                       {session.exerciseCount < MIN_SESSION_EXERCISES ? ` (mínimo ${MIN_SESSION_EXERCISES})` : ""}
                     </p>
                   </>

@@ -151,7 +151,7 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByText("Prensa de piernas")).toBeVisible();
     expect(screen.getByText("Mejora ≥5%")).toBeVisible();
     expect(screen.getByText("Volumen +5%")).toBeVisible();
-    expect(screen.getByText(/Peso prom: 80\.0kg → 84\.0kg/)).toBeVisible();
+    expect(screen.getByText(/Peso prom: 80kg → 84kg/)).toBeVisible();
   });
 
   it("shows a neutral badge and no signal chips for an exercise with no 5% change", () => {

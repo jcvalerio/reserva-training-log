@@ -47,7 +47,7 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
     <AppShell activeHref="/mediciones">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Mediciones</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Mediciones</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tendencias y asimetrías</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             Guarda una nueva fila cada vez. No se sobrescribe el historial. Cadencia recomendada: cada 2 semanas, no cada sesión.
@@ -113,7 +113,7 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
           />
         </Field>
 
-        <SubmitButton className="sticky-submit rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
+        <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
           Guardar nueva medición
         </SubmitButton>
       </form>
@@ -121,10 +121,10 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
       <section className="mt-8 pb-10">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Historial</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Historial</p>
             <h2 className="mt-1 text-2xl font-semibold">Mediciones recientes</h2>
           </div>
-          <span className="text-xs text-zinc-500">{measurements.length}/10</span>
+          <span className="text-xs text-zinc-400">{measurements.length}/10</span>
         </div>
 
         {measurements.length === 0 ? (
@@ -143,7 +143,7 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
                       <p className="text-sm font-semibold text-emerald-300">
                         {formatDateTime(measurement.measuredAt)}
                       </p>
-                      <p className="mt-1 text-xs text-zinc-500">Nueva fila histórica preservada</p>
+                      <p className="mt-1 text-xs text-zinc-400">Nueva fila histórica preservada</p>
                     </div>
                     <div className="text-right text-xs text-zinc-400">
                       <p>Muslo: {formatGap(gaps.thighGapCm)}</p>
@@ -192,7 +192,7 @@ function MeasurementInput({ name, label, placeholder }: { name: string; label: s
 function GapCard({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-emerald-400/30">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-emerald-300">{formatGap(value)}</p>
       <p className="mt-1 text-xs text-zinc-400">izq - der</p>
     </div>
@@ -202,7 +202,7 @@ function GapCard({ label, value }: { label: string; value: number | null }) {
 function MeasurementValue({ label, value, unit }: { label: string; value: string | null; unit: string }) {
   return (
     <div className="rounded-2xl bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
-      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dt className="text-xs text-zinc-400">{label}</dt>
       <dd className="mt-1 font-semibold text-zinc-100">{formatMeasurement(value, unit)}</dd>
     </div>
   );

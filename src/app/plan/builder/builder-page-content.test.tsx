@@ -6,6 +6,7 @@ import { BuilderPageContent, type DraftPlanSummary } from "./builder-page-conten
 const noopCreateDraftPlanAction = vi.fn(async () => {});
 const noopUpdatePlanDetailsAction = vi.fn(async () => {});
 const noopDeleteSessionAction = vi.fn(async () => {});
+const noopDiscardDraftPlanAction = vi.fn(async () => {});
 const noopActivateDraftPlanAction = vi.fn(async () => {});
 
 describe("BuilderPageContent", () => {
@@ -18,6 +19,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );
@@ -45,6 +47,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );
@@ -76,6 +79,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );
@@ -106,6 +110,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );
@@ -133,6 +138,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );
@@ -152,6 +158,7 @@ describe("BuilderPageContent", () => {
         createDraftPlanAction={noopCreateDraftPlanAction}
         updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
+        discardDraftPlanAction={noopDiscardDraftPlanAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
     );

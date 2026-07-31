@@ -9,7 +9,7 @@ export function TemplatesPageContent({ templates }: { templates: PlanTemplateMet
     <AppShell activeHref="/plan">
       <header className="space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Plan</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Elige una plantilla</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             Cada plantilla es solo lectura hasta que la actives. Puedes revisarla completa antes de decidir.

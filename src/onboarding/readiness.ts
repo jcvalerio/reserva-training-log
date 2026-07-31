@@ -3,6 +3,7 @@ export type M1ReadinessStatus = "complete" | "incomplete" | "blocked" | "pending
 
 export type M1ReadinessInput = {
   hasProfile: boolean;
+  hasActivePlan: boolean;
 };
 
 export type M1ReadinessStep = {
@@ -25,6 +26,7 @@ export type M1Readiness = {
   completedFoundationSteps: number;
   totalFoundationSteps: number;
   foundationReady: boolean;
+  hasActivePlan: boolean;
   nextStep: M1ReadinessStep;
   primaryAction: M1ReadinessPrimaryAction;
 };
@@ -50,22 +52,7 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           descriptionEs: "Crea tu contexto antes de revisar cualquier plan.",
           href: "/perfil",
         },
-    foundationReady
-      ? {
-          id: "plan",
-          labelEs: "Plan",
-          status: "pending",
-          statusLabelEs: "Elige tu plan",
-          descriptionEs: "Perfil listo. Elige una plantilla o crea tu propio plan.",
-          href: "/plan",
-        }
-      : {
-          id: "plan",
-          labelEs: "Plan",
-          status: "blocked",
-          statusLabelEs: "Esperando perfil",
-          descriptionEs: "Completa tu perfil antes de revisar cualquier plan.",
-        },
+    getPlanStep(foundationReady, input.hasActivePlan),
   ];
 
   const foundationSteps = steps.filter((step) => step.id !== "plan");
@@ -76,12 +63,57 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
     completedFoundationSteps: foundationSteps.filter((step) => step.status === "complete").length,
     totalFoundationSteps: foundationSteps.length,
     foundationReady,
+    hasActivePlan: input.hasActivePlan,
     nextStep,
-    primaryAction: getPrimaryAction(nextStep, foundationReady),
+    primaryAction: getPrimaryAction(nextStep, foundationReady, input.hasActivePlan),
   };
 }
 
-function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): M1ReadinessPrimaryAction {
+function getPlanStep(foundationReady: boolean, hasActivePlan: boolean): M1ReadinessStep {
+  if (!foundationReady) {
+    return {
+      id: "plan",
+      labelEs: "Plan",
+      status: "blocked",
+      statusLabelEs: "Esperando perfil",
+      descriptionEs: "Completa tu perfil antes de revisar cualquier plan.",
+    };
+  }
+
+  if (hasActivePlan) {
+    return {
+      id: "plan",
+      labelEs: "Plan",
+      status: "complete",
+      statusLabelEs: "Activo",
+      descriptionEs: "Tu plan está activo. Ve a Entrenar para registrar tu próxima sesión.",
+      href: "/plan",
+    };
+  }
+
+  return {
+    id: "plan",
+    labelEs: "Plan",
+    status: "pending",
+    statusLabelEs: "Elige tu plan",
+    descriptionEs: "Perfil listo. Elige una plantilla o crea tu propio plan.",
+    href: "/plan",
+  };
+}
+
+function getPrimaryAction(
+  nextStep: M1ReadinessStep,
+  foundationReady: boolean,
+  hasActivePlan: boolean,
+): M1ReadinessPrimaryAction {
+  if (foundationReady && hasActivePlan) {
+    return {
+      labelEs: "Ir a Entrenar",
+      helperEs: "Tu plan ya está activo — abre /entrenar para registrar tu próxima sesión.",
+      href: "/entrenar",
+    };
+  }
+
   if (foundationReady) {
     return {
       labelEs: "Elegir mi plan",
