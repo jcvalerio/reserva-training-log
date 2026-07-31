@@ -167,34 +167,76 @@ export async function saveDraftSession(
     });
   }
 
-  // Replace-all, mirroring saveBaselineLiftsForProfile's exact pattern.
-  await db.delete(exercisePrescription).where(eq(exercisePrescription.planSessionTemplateId, templateId));
+  function toExercisePrescriptionValues(exerciseInput: PlanBuilderExerciseInput) {
+    return {
+      exerciseNameEs: exerciseInput.exerciseNameEs,
+      exerciseNameEn: null,
+      phase: exerciseInput.phase,
+      isUnilateral: exerciseInput.isUnilateral,
+      prescriptionType: exerciseInput.prescriptionType,
+      targetSets: exerciseInput.targetSets,
+      targetRepMin: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRepMin : null,
+      targetRepMax: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRepMax : null,
+      targetRir: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRir : null,
+      durationSeconds: exerciseInput.prescriptionType === "duration" ? exerciseInput.durationSeconds : null,
+      restSeconds: exerciseInput.restSeconds,
+      notesEs: exerciseInput.notesEs,
+      notesEn: null,
+      painSensitive: exerciseInput.painSensitive,
+      substitutionOptionsEs: exerciseInput.substitutionOptionsEs,
+      loadMechanism: exerciseInput.prescriptionType === "strength" ? (exerciseInput.loadMechanism ?? null) : null,
+      isCompound: exerciseInput.prescriptionType === "strength" ? (exerciseInput.isCompound ?? null) : null,
+    };
+  }
 
-  if (exercises.length > 0) {
+  // Update existing rows in place by position instead of delete+reinsert.
+  // Once a session has been activated and logged against, exerciseLog rows
+  // reference exercisePrescription.id with onDelete: "restrict" — a blind
+  // delete-all here throws a raw FK violation the moment any exercise in
+  // this session has real set history. Updating in place never deletes a
+  // referenced row, so it's safe regardless of logged history.
+  const existingExercises = await db
+    .select({ id: exercisePrescription.id, exerciseNameEs: exercisePrescription.exerciseNameEs })
+    .from(exercisePrescription)
+    .where(eq(exercisePrescription.planSessionTemplateId, templateId))
+    .orderBy(asc(exercisePrescription.orderIndex));
+
+  const updateCount = Math.min(existingExercises.length, exercises.length);
+
+  for (let index = 0; index < updateCount; index += 1) {
+    await db
+      .update(exercisePrescription)
+      .set({ ...toExercisePrescriptionValues(exercises[index]!), orderIndex: index + 1 })
+      .where(eq(exercisePrescription.id, existingExercises[index]!.id));
+  }
+
+  if (exercises.length > updateCount) {
     await db.insert(exercisePrescription).values(
-      exercises.map((exerciseInput, index) => ({
+      exercises.slice(updateCount).map((exerciseInput, offset) => ({
         id: randomUUID(),
         planSessionTemplateId: templateId,
-        orderIndex: index + 1,
-        exerciseNameEs: exerciseInput.exerciseNameEs,
-        exerciseNameEn: null,
-        phase: exerciseInput.phase,
-        isUnilateral: exerciseInput.isUnilateral,
-        prescriptionType: exerciseInput.prescriptionType,
-        targetSets: exerciseInput.targetSets,
-        targetRepMin: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRepMin : null,
-        targetRepMax: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRepMax : null,
-        targetRir: exerciseInput.prescriptionType === "strength" ? exerciseInput.targetRir : null,
-        durationSeconds: exerciseInput.prescriptionType === "duration" ? exerciseInput.durationSeconds : null,
-        restSeconds: exerciseInput.restSeconds,
-        notesEs: exerciseInput.notesEs,
-        notesEn: null,
-        painSensitive: exerciseInput.painSensitive,
-        substitutionOptionsEs: exerciseInput.substitutionOptionsEs,
-        loadMechanism: exerciseInput.prescriptionType === "strength" ? (exerciseInput.loadMechanism ?? null) : null,
-        isCompound: exerciseInput.prescriptionType === "strength" ? (exerciseInput.isCompound ?? null) : null,
+        orderIndex: updateCount + offset + 1,
+        ...toExercisePrescriptionValues(exerciseInput),
       })),
     );
+  }
+
+  if (existingExercises.length > updateCount) {
+    const leftoverRows = existingExercises.slice(updateCount);
+    try {
+      await db.delete(exercisePrescription).where(
+        inArray(
+          exercisePrescription.id,
+          leftoverRows.map((row) => row.id),
+        ),
+      );
+    } catch (error) {
+      const names = leftoverRows.map((row) => row.exerciseNameEs).join(", ");
+      throw new Error(
+        `No se pudo quitar ${leftoverRows.length > 1 ? "estos ejercicios" : "este ejercicio"} (${names}) porque ya tiene${leftoverRows.length > 1 ? "n" : ""} sets registrados. Consérva${leftoverRows.length > 1 ? "los" : "lo"} en la sesión en vez de eliminarlo.`,
+        { cause: error },
+      );
+    }
   }
 }
 

@@ -2,6 +2,19 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Fix: session editor save crashed once a session had logged history; React controlled-input warning
+
+Status: fixed, `lint`/`typecheck`/`test` (144 passing)/`build` all green. Fix verified directly against real dev data (see below) before deploying.
+
+Two bugs surfaced by the user testing "Editar mi plan" against the real active-turned-draft plan, immediately after the duration-toggle deploy:
+
+1. **React warning "changing an uncontrolled input to be controlled"** when switching a row's "Tipo de ejercicio" between fuerza/duración in `session-editor-form.tsx`. Root cause: the two conditional branches (`isDuration ? <div>...duration fields...</div> : <div>...strength fields...</div>`) are both plain `div`s at the same JSX position, so React reconciles their children *by index* instead of unmounting/remounting the subtree — the "Duración" input (controlled, `value=`) and "Reps mín." input (uncontrolled, `defaultValue=`) landed at the same child slot and got treated as the same DOM node with a flip-flopping `value` prop. Fixed by giving each branch's wrapper `div` a distinct `key` ("duration-fields" / "strength-fields"), forcing React to treat them as genuinely different elements.
+
+2. **500 on save: `update or delete on table "exercise_prescription" violates RESTRICT setting of foreign key constraint` on `exercise_log`.** `saveDraftSession` (`plan-builder-repository.ts`) used a delete-all-then-reinsert "replace-all" pattern for a session's `exercisePrescription` rows, mirrored from `saveBaselineLiftsForProfile`. That pattern silently assumed a session's exercise rows never have dependents — true for baseline lifts, false here: `exerciseLog.exercisePrescriptionId` references `exercisePrescription.id` with `onDelete: "restrict"` (deliberate, so historical logs never dangle). The moment a plan is edited via "Editar mi plan" (Phase 1) after any set has been logged against it, saving the session tries to delete a still-referenced row and Postgres rejects it — this is exactly the scenario Phase 1 exists for, so it broke the primary use case, not an edge case. Reproduced against the user's real dev-DB template (`5ad9a6aa-...`, all 3 exercises had logged sets) before fixing.
+   - Fix: `saveDraftSession` now updates existing `exercisePrescription` rows **in place by position** (same row id, new field values) instead of delete+insert. Only inserts rows beyond the previous count (session grew) and only deletes rows beyond the new count (session shrank) — and that trailing delete is wrapped in a try/catch that raises a clear Spanish message naming the exercise(s) if a to-be-removed row still has logged sets, instead of letting the raw Postgres/Drizzle error surface as an unhandled 500.
+   - Verified directly against the dev DB with a throwaway script calling `saveDraftSession` against the real template with 3 logged-against exercises, unchanged data (the user's exact "just refresh and press save" repro): succeeded, same row ids preserved, zero orphaned `exercise_log` rows afterward.
+   - Known residual gap, intentionally not solved here: this action isn't wired through `useActionState`, so the friendly error message still surfaces via Next's generic error boundary rather than inline in the form — acceptable for how rare the shrink-a-logged-exercise case is, but worth revisiting if it comes up again.
+
 ## 2026-07-30 — Duration input UX: segundos/minutos toggle
 
 Status: code complete, `lint`/`typecheck`/`test` (144 passing)/`build` all green locally. Deployed to production.

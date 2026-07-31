@@ -246,7 +246,7 @@ function ExerciseRowFields({
       </div>
 
       {isDuration ? (
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <div key="duration-fields" className="mt-3 grid grid-cols-3 gap-3">
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Rondas</span>
             <input
@@ -286,7 +286,7 @@ function ExerciseRowFields({
           <input type="hidden" name={`${prefix}:durationSeconds`} value={durationSecondsToSubmit} />
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <div key="strength-fields" className="mt-3 grid grid-cols-3 gap-3">
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Series</span>
             <input
