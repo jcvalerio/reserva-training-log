@@ -2,6 +2,17 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Deployed and committed the mobile UI/UX audit
+
+Status: shipped. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, migration step ran with zero diff since this was a UI-only change), then committed locally as `79abc58` on `main` ("fix: mobile UI/UX audit — button-contrast bug, /plan scroll, nav cleanup").
+
+Two things worth recording for future sessions, now written up in `docs/architecture/release-workflow.md`'s new "How deploys actually happen today" section:
+- **This repo currently has no git remote** (`git remote -v` is empty) — deploys go straight from the local working directory via the Vercel CLI, not through git push/PR/Vercel's git integration. The `.github/workflows/ci.yml` and the branching model documented further down `release-workflow.md` are the intended future state, not current practice.
+- **`vercel` must be run via `npx vercel`**, not a bare `vercel` command, after `nvm use v24.18.0` — the Vercel CLI binary on this machine is installed under nvm's v22.11.0, so the bare command isn't on `PATH` once you've switched to v24.18.0 for the project's own Node requirement.
+- Left `next-env.d.ts` and `.playwright-mcp/` out of the commit — the former is Next's own auto-generated file that flips between dev/build modes and isn't a real change; the latter is this session's Playwright MCP scratch output (snapshots/console logs), not project code.
+
+Next iteration: the real-device pass on an actual iPhone flagged in every entry below — still the one open item before this audit is fully closed out.
+
 ## 2026-07-31 — Mobile UI/UX audit: root-caused the button contrast bug, trimmed /plan, moved Mediciones under Perfil
 
 Status: code complete, `lint`/`typecheck`/`test` (188 passing)/`build` all green. No schema/migration involved. Not yet deployed as of this entry — verified against the real dev DB (Juan Carlos's actual active plan and logged history) via Playwright at an iPhone viewport (390×844), logged in as the real user through the real Google OAuth flow (no bypass, no seeded test session).
