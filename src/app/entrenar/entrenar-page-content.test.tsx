@@ -88,6 +88,35 @@ describe("EntrenarPageContent", () => {
     expect(screen.getByText("Completada")).toBeVisible();
   });
 
+  it("lets a completed session be started again, since the plan repeats indefinitely", () => {
+    const sessions: EntrenarSessionItem[] = [
+      {
+        templateId: "template-1",
+        dayIndex: 1,
+        nameEs: "Pierna",
+        focus: "Cuádriceps",
+        exerciseCount: 4,
+        isSuggested: true,
+        status: "completed",
+        sessionId: "session-1",
+      },
+    ];
+
+    render(
+      <EntrenarPageContent
+        hasActivePlan={true}
+        sessions={sessions}
+        justCompleted={false}
+        startOrResumeSessionAction={noopStartAction}
+      />,
+    );
+
+    // The suggested card and the list row both render a completed session's
+    // action, so both expect an "Empezar de nuevo" button.
+    expect(screen.getAllByRole("button", { name: "Empezar de nuevo" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Ver resumen" })[0]).toHaveAttribute("href", "/entrenar/session-1");
+  });
+
   it("shows the completion banner after finishing a session", () => {
     render(
       <EntrenarPageContent

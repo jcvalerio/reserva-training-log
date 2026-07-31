@@ -110,9 +110,18 @@ function SessionAction({
 
   if (session.status === "completed") {
     return (
-      <Link href={`/entrenar/${session.sessionId}`} className={linkClassName}>
-        Ver resumen
-      </Link>
+      <div className={emphasize ? "mt-4 grid gap-2" : "flex shrink-0 flex-col items-end gap-2"}>
+        <form action={action}>
+          <input type="hidden" name="planSessionTemplateId" value={session.templateId} />
+          <SubmitButton className={linkClassName}>Empezar de nuevo</SubmitButton>
+        </form>
+        <Link
+          href={`/entrenar/${session.sessionId}`}
+          className="text-center text-xs font-semibold text-zinc-400 underline-offset-2 hover:underline"
+        >
+          Ver resumen
+        </Link>
+      </div>
     );
   }
 

@@ -2,6 +2,16 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-30 — Fix: no way to start a session again once every day showed "completed"
+
+Status: fixed, `lint`/`typecheck`/`test` (145 passing)/`build` all green.
+
+User hit this after finishing a full pass through all 5 days and asked "how do I define how many weeks the plan is" — the real issue wasn't missing week-count config, it's that the plan is designed to repeat indefinitely (Phase A deliberately removed the fixed-week model; `session-progress.ts`'s `getSuggestedTemplateId` already picks whichever day was trained longest ago, cycling forever with no explicit week bookkeeping — see its doc comment). The backend was already correct. The bug was purely in `entrenar-page-content.tsx`'s `SessionAction`: a `"completed"` status only ever rendered a "Ver resumen" link, with no way to start a new session for that day — including in the emphasized "Sugerido para hoy" card, so once every day had at least one completed session, there was no start action anywhere on the page.
+
+Fix: a completed session's action now renders both an "Empezar de nuevo" button (submits the same `startOrResumeSessionAction`; `startOrResumeWorkoutSession` already creates a fresh `active` `workoutSession` row whenever there's no existing active one for that template, so no repository change was needed) and a smaller "Ver resumen" link to the last summary underneath it.
+
+No "define how many weeks" feature was added — that would contradict the indefinite-repeat model this app deliberately moved to. Worth revisiting only if the user still wants explicit week/cycle tracking after understanding this is by design.
+
 ## 2026-07-30 — Fix: session editor save crashed once a session had logged history; React controlled-input warning
 
 Status: fixed, `lint`/`typecheck`/`test` (144 passing)/`build` all green. Fix verified directly against real dev data (see below) before deploying.
