@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Deployed and committed the round-2 mobile UX audit
+
+Status: shipped. Committed as `64ad0be` on `main` ("fix: round-2 mobile UX audit — Home stale state, sticky-button overlap, builder gaps, a11y"), then deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, no migration involved since this round had no schema changes).
+
+Next iteration: a real-device pass on an actual iPhone — this round's changes (especially the Home state fix and the sticky-button removal) haven't been confirmed on-device yet, only via Playwright's emulated viewport. See `docs/product/next-task.md`.
+
 ## 2026-07-31 — Round-2 mobile UX audit: fixed all 8 findings
 
 Status: code complete, `lint`/`typecheck`/`test` (195 passing)/`build` all green. No schema/migration involved. Not yet deployed as of this entry. Every fix verified live via Playwright at an iPhone viewport (390×844) against the real dev DB, logged in as the real user — same standard as round 1.
