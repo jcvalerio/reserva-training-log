@@ -4,7 +4,12 @@ import { requireCurrentUser } from "@/lib/auth-server";
 import { getDraftPlanForProfile } from "@/plans/plan-builder-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
-import { activateDraftPlanAction, createDraftPlanAction, deleteSessionAction } from "./actions";
+import {
+  activateDraftPlanAction,
+  createDraftPlanAction,
+  deleteSessionAction,
+  updatePlanDetailsAction,
+} from "./actions";
 import { BuilderPageContent, type DraftPlanSummary } from "./builder-page-content";
 
 type BuilderPageProps = {
@@ -45,6 +50,7 @@ export default async function PlanBuilderPage({ searchParams }: BuilderPageProps
       justSaved={params.saved === "1"}
       errorType={errorType}
       createDraftPlanAction={createDraftPlanAction}
+      updatePlanDetailsAction={updatePlanDetailsAction}
       deleteSessionAction={deleteSessionAction}
       activateDraftPlanAction={activateDraftPlanAction}
     />

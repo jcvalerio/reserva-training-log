@@ -24,6 +24,7 @@ export function BuilderPageContent({
   justSaved,
   errorType,
   createDraftPlanAction,
+  updatePlanDetailsAction,
   deleteSessionAction,
   activateDraftPlanAction,
 }: {
@@ -31,6 +32,7 @@ export function BuilderPageContent({
   justSaved: boolean;
   errorType: "validation" | "incomplete" | "activation" | null;
   createDraftPlanAction: (formData: FormData) => Promise<void>;
+  updatePlanDetailsAction: (formData: FormData) => Promise<void>;
   deleteSessionAction: (formData: FormData) => Promise<void>;
   activateDraftPlanAction: (formData: FormData) => Promise<void>;
 }) {
@@ -103,14 +105,49 @@ export function BuilderPageContent({
 
       <FormStatusBanner
         saved={justSaved}
-        error={errorType === "incomplete" || errorType === "activation"}
+        error={errorType === "incomplete" || errorType === "activation" || errorType === "validation"}
         savedMessage="Guardado en tu borrador."
         errorMessage={
           errorType === "incomplete"
             ? `Completa todos los días con al menos ${MIN_SESSION_EXERCISES} ejercicios antes de activar.`
-            : "No se pudo activar el plan. Intenta de nuevo."
+            : errorType === "validation"
+              ? "Escribe un nombre y elige cuántos días entrenas por semana."
+              : "No se pudo activar el plan. Intenta de nuevo."
         }
       />
+
+      <details className="mt-6 rounded-2xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          Editar nombre y días del plan
+        </summary>
+        <form action={updatePlanDetailsAction} className="mt-3 grid gap-3">
+          <input type="hidden" name="draftPlanId" value={draft.id} />
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Nombre del plan</span>
+            <input name="nameEs" type="text" maxLength={120} required defaultValue={draft.nameEs} className="input" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Días de entrenamiento por semana</span>
+            <input
+              name="daysPerWeek"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={7}
+              required
+              defaultValue={draft.daysPerWeek}
+              className="input"
+            />
+          </label>
+          <p className="text-xs leading-5 text-zinc-500">
+            Si reduces los días, las sesiones ya creadas fuera de ese rango no se eliminan, pero quedan ocultas hasta
+            que vuelvas a subir el número.
+          </p>
+          <SubmitButton className="rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            Guardar cambios
+          </SubmitButton>
+        </form>
+      </details>
 
       <section className="mt-6 grid gap-2 pb-6">
         {dayIndexes.map((dayIndex) => {

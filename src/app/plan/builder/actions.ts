@@ -10,6 +10,7 @@ import {
   deleteDraftSession,
   getDraftPlanForProfile,
   saveDraftSession,
+  updateDraftPlanDetails,
 } from "@/plans/plan-builder-repository";
 import {
   parsePlanBuilderSessionFormData,
@@ -37,6 +38,37 @@ export async function createDraftPlanAction(formData: FormData) {
   }
 
   await createDraftPlan(profile.id, input);
+
+  revalidatePath("/plan/builder");
+  redirect("/plan/builder?saved=1");
+}
+
+export async function updatePlanDetailsAction(formData: FormData) {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    redirect("/perfil");
+  }
+
+  const draftPlanId = formData.get("draftPlanId");
+  if (typeof draftPlanId !== "string") {
+    redirect("/plan/builder");
+  }
+
+  const draft = await getDraftPlanForProfile(profile.id);
+  if (!draft || draft.plan.id !== draftPlanId) {
+    redirect("/plan/builder");
+  }
+
+  let input;
+  try {
+    input = parsePlanBuilderSetupFormData(formData);
+  } catch {
+    redirect("/plan/builder?error=validation");
+  }
+
+  await updateDraftPlanDetails(profile.id, draftPlanId, input);
 
   revalidatePath("/plan/builder");
   redirect("/plan/builder?saved=1");

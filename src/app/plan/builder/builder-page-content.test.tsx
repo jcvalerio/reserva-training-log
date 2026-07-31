@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BuilderPageContent, type DraftPlanSummary } from "./builder-page-content";
 
 const noopCreateDraftPlanAction = vi.fn(async () => {});
+const noopUpdatePlanDetailsAction = vi.fn(async () => {});
 const noopDeleteSessionAction = vi.fn(async () => {});
 const noopActivateDraftPlanAction = vi.fn(async () => {});
 
@@ -15,6 +16,7 @@ describe("BuilderPageContent", () => {
         justSaved={false}
         errorType={null}
         createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
@@ -41,6 +43,7 @@ describe("BuilderPageContent", () => {
         justSaved={false}
         errorType={null}
         createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
@@ -55,6 +58,33 @@ describe("BuilderPageContent", () => {
     expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Activar este plan" })).toBeNull();
     expect(screen.getByText("Completa cada día con al menos 3 ejercicios para poder activar este plan.")).toBeVisible();
+  });
+
+  it("offers a form to rename the plan and change its days-per-week, prefilled with current values", () => {
+    const draft: DraftPlanSummary = {
+      id: "draft-1",
+      nameEs: "Mi rutina",
+      daysPerWeek: 3,
+      sessions: [],
+    };
+
+    render(
+      <BuilderPageContent
+        draft={draft}
+        justSaved={false}
+        errorType={null}
+        createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
+        deleteSessionAction={noopDeleteSessionAction}
+        activateDraftPlanAction={noopActivateDraftPlanAction}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Editar nombre y días del plan"));
+
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue("Mi rutina");
+    expect(screen.getByLabelText("Días de entrenamiento por semana")).toHaveValue(3);
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
   });
 
   it("blocks activation and flags a day that has exercises but fewer than the minimum of 3", () => {
@@ -74,6 +104,7 @@ describe("BuilderPageContent", () => {
         justSaved={false}
         errorType={null}
         createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
@@ -100,6 +131,7 @@ describe("BuilderPageContent", () => {
         justSaved={true}
         errorType={null}
         createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,
@@ -118,6 +150,7 @@ describe("BuilderPageContent", () => {
         justSaved={false}
         errorType="incomplete"
         createDraftPlanAction={noopCreateDraftPlanAction}
+        updatePlanDetailsAction={noopUpdatePlanDetailsAction}
         deleteSessionAction={noopDeleteSessionAction}
         activateDraftPlanAction={noopActivateDraftPlanAction}
       />,

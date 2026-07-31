@@ -111,6 +111,23 @@ export async function createDraftPlan(
   return { plan: insertedPlan, sessions: [] };
 }
 
+export async function updateDraftPlanDetails(
+  athleteProfileId: string,
+  draftPlanId: string,
+  input: PlanBuilderSetupInput,
+): Promise<void> {
+  await db
+    .update(workoutPlan)
+    .set({ nameEs: input.nameEs, daysPerWeek: input.daysPerWeek })
+    .where(
+      and(
+        eq(workoutPlan.id, draftPlanId),
+        eq(workoutPlan.athleteProfileId, athleteProfileId),
+        eq(workoutPlan.status, "draft"),
+      ),
+    );
+}
+
 export async function saveDraftSession(
   draftPlanId: string,
   dayIndex: number,
