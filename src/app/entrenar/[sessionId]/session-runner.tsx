@@ -28,7 +28,7 @@ export function SessionRunner({
   completeSessionAction: (formData: FormData) => Promise<void>;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
-    const firstIncomplete = exercises.findIndex((exercise) => exercise.loggedSets.length < exercise.targetSets);
+    const firstIncomplete = exercises.findIndex((exercise) => !isExerciseComplete(exercise));
     return firstIncomplete === -1 ? Math.max(exercises.length - 1, 0) : firstIncomplete;
   });
   const [saveState, formAction] = useActionState(saveSetAction, initialSaveSetState);
@@ -53,13 +53,20 @@ export function SessionRunner({
   const isUnilateral = currentExercise.isUnilateral;
   const leftCount = currentExercise.loggedSets.filter((set) => set.side === "left").length;
   const rightCount = currentExercise.loggedSets.filter((set) => set.side === "right").length;
-  const defaultSide = leftCount <= rightCount ? "left" : "right";
+  const leftSideComplete = isUnilateral && leftCount >= currentExercise.targetSets;
+  const rightSideComplete = isUnilateral && rightCount >= currentExercise.targetSets;
+  const defaultSide = leftSideComplete ? "right" : rightSideComplete ? "left" : leftCount <= rightCount ? "left" : "right";
   const justSavedThisExercise = saveState.status === "saved" && saveState.exercisePrescriptionId === currentExercise.id;
 
   const previousPerformance = loggedCount === 0 ? currentExercise.previousPerformance : null;
   const previousLastSet = previousPerformance?.sets.at(-1) ?? null;
   const previousSuggestion = previousPerformance
-    ? buildProgressionSuggestion(previousPerformance.sets, previousPerformance.targetRepMax, previousPerformance.targetSets)
+    ? buildProgressionSuggestion(
+        previousPerformance.sets,
+        previousPerformance.targetRepMax,
+        previousPerformance.targetSets,
+        previousPerformance.isUnilateral,
+      )
     : null;
   const repsFirstIncrease = previousSuggestion
     ? isRepsFirstIncrease(previousSuggestion.action, currentExercise.incrementCategory)
@@ -93,8 +100,8 @@ export function SessionRunner({
         </p>
         <h2 className="mt-2 text-xl font-semibold text-zinc-100">{currentExercise.exerciseNameEs}</h2>
         <p className="mt-1 text-sm leading-6 text-zinc-400">
-          {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax} · RIR{" "}
-          {currentExercise.targetRir} · descanso {currentExercise.restSeconds}s
+          {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
+          {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso {currentExercise.restSeconds}s
         </p>
         {currentExercise.painSensitive ? (
           <p className="mt-2 text-xs leading-5 text-amber-200">
@@ -145,29 +152,31 @@ export function SessionRunner({
           </div>
         ) : null}
 
-        {loggedCount < currentExercise.targetSets ? (
+        {!isExerciseComplete(currentExercise) ? (
           <form key={`${currentExercise.id}:${nextSetNumber}`} action={formAction} className="mt-4 grid gap-3">
             <input type="hidden" name="workoutSessionId" value={session.id} />
             <input type="hidden" name="exercisePrescriptionId" value={currentExercise.id} />
 
             {isUnilateral ? (
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-950 px-3 py-3 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300">
+                <label className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-950 px-3 py-3 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300 has-[:disabled]:opacity-40">
                   <input
                     type="radio"
                     name="side"
                     value="left"
                     defaultChecked={defaultSide === "left"}
+                    disabled={leftSideComplete}
                     className="sr-only"
                   />
                   Izquierda
                 </label>
-                <label className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-950 px-3 py-3 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300">
+                <label className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-950 px-3 py-3 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300 has-[:disabled]:opacity-40">
                   <input
                     type="radio"
                     name="side"
                     value="right"
                     defaultChecked={defaultSide === "right"}
+                    disabled={rightSideComplete}
                     className="sr-only"
                   />
                   Derecha
@@ -337,6 +346,20 @@ function CompletedSessionSummary({
       </div>
     </AppShell>
   );
+}
+
+/**
+ * A unilateral exercise's targetSets means sets per side, not a shared total
+ * — completing 3 left-side sets says nothing about the right side.
+ */
+function isExerciseComplete(exercise: ExerciseWithLoggedSets): boolean {
+  if (!exercise.isUnilateral) {
+    return exercise.loggedSets.length >= exercise.targetSets;
+  }
+
+  const leftCount = exercise.loggedSets.filter((set) => set.side === "left").length;
+  const rightCount = exercise.loggedSets.filter((set) => set.side === "right").length;
+  return leftCount >= exercise.targetSets && rightCount >= exercise.targetSets;
 }
 
 function formatStoredRir(rir: number) {

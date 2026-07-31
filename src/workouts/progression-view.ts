@@ -20,11 +20,22 @@ const INCREASE_RATIO_BY_CATEGORY: Partial<Record<IncrementCategory, number>> = {
   upper_compound: 0.025,
 };
 
+/**
+ * For a unilateral exercise, targetSets means sets per side, not a shared
+ * total — completing 3 sets on one side alone shouldn't count as "all
+ * planned sets completed" while the other side has none logged.
+ */
 export function buildProgressionSuggestion(
   sets: SetLog[],
   targetRepMax: number,
   targetSets: number,
+  isUnilateral: boolean,
 ): ProgressionSuggestion {
+  const allPlannedSetsCompleted = isUnilateral
+    ? sets.filter((set) => set.side === "left").length >= targetSets &&
+      sets.filter((set) => set.side === "right").length >= targetSets
+    : sets.length >= targetSets;
+
   return suggestProgression({
     sets: sets.map((set) => ({
       actualReps: set.actualReps,
@@ -33,7 +44,7 @@ export function buildProgressionSuggestion(
       painScore: set.painScore,
       notes: set.notes,
     })),
-    allPlannedSetsCompleted: sets.length >= targetSets,
+    allPlannedSetsCompleted,
   });
 }
 

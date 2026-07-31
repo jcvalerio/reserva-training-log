@@ -81,7 +81,7 @@ describe("buildProgressionSuggestion", () => {
       buildSet({ id: "set-2", setNumber: 2, actualReps: 12, rir: 2, painScore: 0 }),
     ];
 
-    const suggestion = buildProgressionSuggestion(sets, 12, 2);
+    const suggestion = buildProgressionSuggestion(sets, 12, 2, false);
 
     expect(suggestion.action).toBe("increase");
     expect(suggestion.riskFlag).toBe("none");
@@ -90,7 +90,7 @@ describe("buildProgressionSuggestion", () => {
   it("holds instead of increasing when fewer sets were logged than the target", () => {
     const sets = [buildSet({ setNumber: 1, actualReps: 12, rir: 2, painScore: 0 })];
 
-    const suggestion = buildProgressionSuggestion(sets, 12, 2);
+    const suggestion = buildProgressionSuggestion(sets, 12, 2, false);
 
     expect(suggestion.action).toBe("hold");
   });
@@ -98,9 +98,29 @@ describe("buildProgressionSuggestion", () => {
   it("flags reduce_or_modify when pain is high", () => {
     const sets = [buildSet({ painScore: 5 })];
 
-    const suggestion = buildProgressionSuggestion(sets, 12, 1);
+    const suggestion = buildProgressionSuggestion(sets, 12, 1, false);
 
     expect(suggestion.action).toBe("reduce_or_modify");
     expect(suggestion.riskFlag).toBe("pain");
+  });
+
+  it("for a unilateral exercise, requires targetSets per side before allowing an increase", () => {
+    const lopsided = [
+      buildSet({ id: "l1", side: "left", setNumber: 1, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "l2", side: "left", setNumber: 2, actualReps: 12, rir: 2, painScore: 0 }),
+    ];
+
+    // Both sets are on the left side only — right side has none logged, so
+    // this should hold, not increase, even though sets.length already
+    // reaches targetSets.
+    expect(buildProgressionSuggestion(lopsided, 12, 2, true).action).toBe("hold");
+
+    const evenSides = [
+      ...lopsided,
+      buildSet({ id: "r1", side: "right", setNumber: 3, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "r2", side: "right", setNumber: 4, actualReps: 12, rir: 2, painScore: 0 }),
+    ];
+
+    expect(buildProgressionSuggestion(evenSides, 12, 2, true).action).toBe("increase");
   });
 });

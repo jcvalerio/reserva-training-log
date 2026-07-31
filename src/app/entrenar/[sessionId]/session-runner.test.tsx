@@ -185,6 +185,63 @@ describe("SessionRunner", () => {
     expect(screen.getByRole("radio", { name: "Derecha" })).toBeVisible();
   });
 
+  it("requires targetSets per side for a unilateral exercise, not a shared total", () => {
+    const exercise = buildExercise({
+      isUnilateral: true,
+      targetSets: 2,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1, side: "left" }),
+        buildSet({ id: "s2", setNumber: 2, side: "right" }),
+        buildSet({ id: "s3", setNumber: 3, side: "left" }),
+      ],
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    // 3 total sets logged (>= targetSets of 2), but only 1 on the right side
+    // — the exercise must not be marked complete, and the left radio (already
+    // at its per-side target) must be disabled so the user can't over-log it.
+    expect(screen.queryByText("Series objetivo completadas para este ejercicio.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar set 4" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Izquierda" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Derecha" })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Derecha" })).toBeChecked();
+  });
+
+  it("marks a unilateral exercise complete only once both sides reach targetSets", () => {
+    const exercise = buildExercise({
+      isUnilateral: true,
+      targetSets: 2,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1, side: "left" }),
+        buildSet({ id: "s2", setNumber: 2, side: "left" }),
+        buildSet({ id: "s3", setNumber: 3, side: "right" }),
+        buildSet({ id: "s4", setNumber: 4, side: "right" }),
+      ],
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
+  });
+
   it("renders a read-only summary instead of logging forms once the session is completed", () => {
     const exercise = buildExercise({
       loggedSets: [buildSet()],
@@ -213,6 +270,7 @@ describe("SessionRunner", () => {
         sessionId: "session-previous",
         targetRepMax: 12,
         targetSets: 2,
+        isUnilateral: false,
         sets: [
           buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
           buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
@@ -248,6 +306,7 @@ describe("SessionRunner", () => {
         sessionId: "session-previous",
         targetRepMax: 15,
         targetSets: 1,
+        isUnilateral: false,
         sets: [buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "20.00", actualReps: 15, rir: 2, painScore: 0 })],
       },
     });
@@ -276,6 +335,7 @@ describe("SessionRunner", () => {
         sessionId: "session-previous",
         targetRepMax: 10,
         targetSets: 1,
+        isUnilateral: false,
         sets: [buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 10, rir: 2, painScore: 0 })],
       },
     });
@@ -301,6 +361,7 @@ describe("SessionRunner", () => {
         sessionId: "session-previous",
         targetRepMax: 12,
         targetSets: 1,
+        isUnilateral: false,
         sets: [buildSet({ id: "prev-1", setNumber: 1 })],
       },
     });

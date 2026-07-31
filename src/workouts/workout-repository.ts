@@ -14,6 +14,7 @@ export type PreviousExercisePerformance = {
   sessionId: string;
   targetRepMax: number;
   targetSets: number;
+  isUnilateral: boolean;
   sets: SetLog[];
 };
 
@@ -146,6 +147,7 @@ export async function getPreviousExercisePerformance(
       workoutSessionId: exerciseLog.workoutSessionId,
       targetRepMax: exercisePrescription.targetRepMax,
       targetSets: exercisePrescription.targetSets,
+      isUnilateral: exercisePrescription.isUnilateral,
     })
     .from(exerciseLog)
     .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
@@ -178,6 +180,7 @@ export async function getPreviousExercisePerformance(
     sessionId: mostRecent.workoutSessionId,
     targetRepMax: mostRecent.targetRepMax,
     targetSets: mostRecent.targetSets,
+    isUnilateral: mostRecent.isUnilateral,
     sets,
   };
 }
