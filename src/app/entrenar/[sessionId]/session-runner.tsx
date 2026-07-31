@@ -6,6 +6,8 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { rirValues, toDisplayRir } from "@/training/rir";
+import { rpeLabelsEs, rpeValues } from "@/training/rpe";
+import type { Rpe } from "@/training/rpe";
 import type { ProgressionAction, ProgressionRiskFlag } from "@/training/progression";
 import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
@@ -36,7 +38,7 @@ export function SessionRunner({
   const [saveState, formAction] = useActionState(saveSetAction, initialSaveSetState);
 
   if (session.status === "completed") {
-    return <CompletedSessionSummary template={template} exercises={exercises} />;
+    return <CompletedSessionSummary session={session} template={template} exercises={exercises} />;
   }
 
   const currentExercise = exercises[exerciseIndex];
@@ -103,8 +105,35 @@ export function SessionRunner({
         <p className="text-xs leading-5 text-zinc-500">{template.mobilityNotesEs}</p>
       </header>
 
-      <form action={completeSessionAction} className="mt-4">
+      <form action={completeSessionAction} className="mt-4 grid gap-3">
         <input type="hidden" name="workoutSessionId" value={session.id} />
+        <details className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
+          <summary className="cursor-pointer text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            ¿Cómo te sentiste? (opcional)
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Esfuerzo percibido (RPE)</span>
+              <select name="sessionRpe" defaultValue="" className="input">
+                <option value="">Sin especificar</option>
+                {rpeValues.map((value) => (
+                  <option key={value} value={value}>
+                    {value} — {rpeLabelsEs[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Notas de la sesión</span>
+              <textarea
+                name="notes"
+                rows={2}
+                className="input resize-none"
+                placeholder="¿Algo a considerar para la próxima?"
+              />
+            </label>
+          </div>
+        </details>
         <SubmitButton className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
           Completar entrenamiento
         </SubmitButton>
@@ -338,9 +367,11 @@ export function SessionRunner({
 }
 
 function CompletedSessionSummary({
+  session,
   template,
   exercises,
 }: {
+  session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
 }) {
@@ -350,6 +381,12 @@ function CompletedSessionSummary({
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
         <p className="text-sm font-semibold text-emerald-300">Sesión completada</p>
+        {session.sessionRpe !== null ? (
+          <p className="text-sm leading-6 text-zinc-300">
+            Esfuerzo percibido: {session.sessionRpe} — {rpeLabelsEs[session.sessionRpe as Rpe]}
+          </p>
+        ) : null}
+        {session.notes ? <p className="text-sm leading-6 text-zinc-400">{session.notes}</p> : null}
       </header>
 
       <div className="mt-6 grid gap-3 pb-10">

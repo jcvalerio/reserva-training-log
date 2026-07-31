@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
+import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
 import { AppShell } from "../app-shell";
@@ -40,6 +41,8 @@ export function ProgresoPageContent({
     );
   }
 
+  const recentAverageLoad = averageRecentTrainingLoad(completedSessions);
+
   return (
     <AppShell activeHref="/progreso">
       <header className="space-y-3">
@@ -73,9 +76,14 @@ export function ProgresoPageContent({
       </section>
 
       <section className="mt-6 grid gap-3 pb-10" aria-labelledby="history-title">
-        <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
-          Historial de sesiones
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
+            Historial de sesiones
+          </p>
+          {recentAverageLoad !== null ? (
+            <p className="text-xs text-zinc-500">Carga promedio (últimas sesiones): {recentAverageLoad} UA</p>
+          ) : null}
+        </div>
         <div className="grid gap-2">
           {completedSessions.map(({ session, template }) => (
             <Link
@@ -86,6 +94,7 @@ export function ProgresoPageContent({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
                 Día {template.dayIndex} · {formatDate(session.completedAt)}
                 {formatSessionDuration(session.startedAt, session.completedAt)}
+                {formatTrainingLoad(computeSessionTrainingLoad(session))}
               </p>
               <p className="mt-1 font-semibold text-zinc-100">{template.nameEs}</p>
             </Link>
@@ -234,4 +243,11 @@ function formatSessionDuration(startedAt: Date | null, completedAt: Date | null)
     return "";
   }
   return ` · ${minutes} min`;
+}
+
+function formatTrainingLoad(trainingLoad: number | null) {
+  if (trainingLoad === null) {
+    return "";
+  }
+  return ` · ${trainingLoad} UA`;
 }

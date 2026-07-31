@@ -305,10 +305,13 @@ async function ensureExerciseLog(workoutSessionId: string, exercisePrescriptionI
   return raceWinner.id;
 }
 
-export async function completeWorkoutSession(workoutSessionId: string): Promise<void> {
+export async function completeWorkoutSession(
+  workoutSessionId: string,
+  input: { notes: string | null; sessionRpe: number | null },
+): Promise<void> {
   await db
     .update(workoutSession)
-    .set({ status: "completed", completedAt: new Date() })
+    .set({ status: "completed", completedAt: new Date(), notes: input.notes, sessionRpe: input.sessionRpe })
     .where(eq(workoutSession.id, workoutSessionId));
 }
 

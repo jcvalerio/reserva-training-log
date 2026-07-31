@@ -53,6 +53,7 @@ function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
     startedAt: new Date("2026-07-20T12:00:00Z"),
     completedAt: new Date("2026-07-20T13:00:00Z"),
     notes: null,
+    sessionRpe: null,
     createdAt: new Date("2026-07-20T12:00:00Z"),
     updatedAt: new Date("2026-07-20T13:00:00Z"),
     ...overrides,
@@ -87,6 +88,41 @@ describe("ProgresoPageContent", () => {
     expect(
       screen.getByText("Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí."),
     ).toBeVisible();
+  });
+
+  it("shows per-session training load and a recent-average summary when RPE was logged", () => {
+    const completedSessions: CompletedSessionSummary[] = [
+      { session: buildSession({ sessionRpe: 7 }), template: buildTemplate() }, // 60min * 7 = 420 UA
+    ];
+
+    render(
+      <ProgresoPageContent
+        hasProfile={true}
+        improvements={[]}
+        completedSessions={completedSessions}
+        bodyMeasurementTrend={null}
+      />,
+    );
+
+    expect(screen.getAllByText(/420 UA/)[0]).toBeVisible();
+    expect(screen.getByText(/Carga promedio \(últimas sesiones\): 420 UA/)).toBeVisible();
+  });
+
+  it("omits the training-load summary entirely when no session has an RPE", () => {
+    const completedSessions: CompletedSessionSummary[] = [
+      { session: buildSession({ sessionRpe: null }), template: buildTemplate() },
+    ];
+
+    render(
+      <ProgresoPageContent
+        hasProfile={true}
+        improvements={[]}
+        completedSessions={completedSessions}
+        bodyMeasurementTrend={null}
+      />,
+    );
+
+    expect(screen.queryByText(/UA/)).toBeNull();
   });
 
   it("shows an improved badge and matching signals for an exercise that improved", () => {

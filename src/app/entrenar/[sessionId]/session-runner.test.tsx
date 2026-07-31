@@ -32,6 +32,7 @@ function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
     startedAt: new Date("2026-07-20T12:00:00Z"),
     completedAt: null,
     notes: null,
+    sessionRpe: null,
     createdAt: new Date("2026-07-20T12:00:00Z"),
     updatedAt: new Date("2026-07-20T12:00:00Z"),
     ...overrides,
@@ -291,6 +292,41 @@ describe("SessionRunner", () => {
     expect(screen.getByText("Sesión completada")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Completar entrenamiento" })).toBeNull();
+  });
+
+  it("shows the session's RPE label and notes on the completed summary", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+
+    render(
+      <SessionRunner
+        session={buildSession({ status: "completed", sessionRpe: 8, notes: "Semana pesada, dormí poco." })}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText(/8 — Muy duro/)).toBeVisible();
+    expect(screen.getByText("Semana pesada, dormí poco.")).toBeVisible();
+  });
+
+  it("offers an optional RPE and notes section on the complete-session form", () => {
+    const exercise = buildExercise({ loggedSets: [] });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    expect(screen.getByText("¿Cómo te sentiste? (opcional)")).toBeVisible();
+    expect(screen.getByLabelText("Esfuerzo percibido (RPE)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Notas de la sesión")).toBeInTheDocument();
   });
 
   it("shows previous performance and a suggestion, prefilling weight/reps from it, before the first set is logged", () => {

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getActivePlanForProfile } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import { parseSessionCompletionFormData } from "@/workouts/session-completion-schema";
 import { parseSetLogFormData } from "@/workouts/set-log-schema";
 import {
   completeWorkoutSession,
@@ -102,9 +103,19 @@ export async function completeSessionAction(formData: FormData) {
 
   const session = await getWorkoutSessionForProfile(workoutSessionId, profile.id);
   if (session) {
-    await completeWorkoutSession(session.id);
+    let input;
+    try {
+      input = parseSessionCompletionFormData(formData);
+    } catch {
+      input = { notes: undefined, sessionRpe: undefined };
+    }
+    await completeWorkoutSession(session.id, {
+      notes: input.notes ?? null,
+      sessionRpe: input.sessionRpe ?? null,
+    });
   }
 
   revalidatePath("/entrenar");
+  revalidatePath("/progreso");
   redirect("/entrenar?completed=1");
 }

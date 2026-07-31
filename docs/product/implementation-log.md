@@ -2,6 +2,23 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Session notes + RPE, and a training-load trend on /progreso
+
+Status: code complete, `lint`/`typecheck`/`test` (187 passing)/`build` all green. Migration `drizzle/0013_eminent_betty_brant.sql` (single nullable column, additive) generated and applied to dev DB; confirmed via `information_schema.columns`.
+
+Fixes the real gap found while rewriting `data-model.md`: `workoutSession.notes` existed but was never wired to any UI. While scoping that fix, evaluated whether to also add session-level RPE (user's suggestion, the Borg CR10-style "how did it feel?" scale) — recommended building it since it's a genuinely different axis from per-set RIR (RIR = effort relative to failure on one lift; RPE = systemic fatigue across the whole session) and pairs directly with the session-duration data already surfaced on `/progreso`. Confirmed scope with the user before adding a new column.
+
+Implemented:
+- `src/db/schema.ts`: `workoutSession.sessionRpe` (nullable integer, 1-10). No backfill needed (nullable, additive).
+- `src/training/rpe.ts`: the 10-point scale + Spanish labels (Extremadamente ligero → Esfuerzo máximo), mirroring `training/rir.ts`'s existing pattern.
+- `src/workouts/session-completion-schema.ts`: Zod parsing for the complete-session form (both fields optional — same low-friction philosophy as per-set notes).
+- `completeWorkoutSession`/`completeSessionAction`: now accept and persist `{ notes, sessionRpe }`.
+- `session-runner.tsx`: the "Completar entrenamiento" form gained a collapsed-by-default `<details>` section ("¿Cómo te sentiste? (opcional)") with an RPE select and a notes textarea — collapsed so it doesn't clutter the page for someone who just wants to tap the button, but present. `CompletedSessionSummary` now shows both back once the session is done — the actual "read back" step, not just another write-only field.
+- `src/workouts/session-load.ts`: `computeSessionTrainingLoad` (RPE × duration in minutes — Foster's session-RPE method, a real, established autoregulation metric) and `averageRecentTrainingLoad` (last 5 sessions, skipping ones with no RPE rather than averaging them in as zero). Both cheap to compute since duration was already available from an earlier pass.
+- `progreso-page-content.tsx`: each session in the history list shows its training load (when computable) next to date/duration, plus a "Carga promedio (últimas sesiones)" summary line — only rendered when at least one recent session has one, so it doesn't appear as a confusing "0 UA" for users who never fill in RPE.
+
+Next iteration: none queued. This closes out the `WorkoutSession.notes` gap found during the data-model rewrite; no further candidates flagged in `docs/product/next-task.md` beyond the real-device pass and the deferred Perfil simplification.
+
 ## 2026-07-31 — Rewrote docs/architecture/data-model.md against the real schema
 
 Status: complete. Documentation-only change — no code, no schema, no migration, nothing to deploy.

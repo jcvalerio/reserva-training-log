@@ -366,6 +366,12 @@ export const workoutSession = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     notes: text("notes"),
+    // Whole-session Borg CR10-style effort rating (1 Extremadamente ligero -
+    // 10 Esfuerzo máximo), captured on completion. Nullable/optional — low
+    // friction to skip, matches notes. Distinct from per-set RIR: RIR is
+    // effort relative to failure on one lift, this is systemic fatigue for
+    // the whole session. See src/training/rpe.ts for the label scale.
+    sessionRpe: integer("session_rpe"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: updatedAtColumn(),
   },

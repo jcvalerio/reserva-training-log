@@ -1,0 +1,1 @@
+ALTER TABLE "workout_session" ADD COLUMN "session_rpe" integer;
