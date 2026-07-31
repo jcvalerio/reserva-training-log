@@ -2,6 +2,19 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Removed "AI Personal Trainer" framing; app is manual plan + RIR progression tracking
+
+Status: code complete, `lint`/`typecheck`/`test` (187 passing)/`build` all green. No schema/migration involved.
+
+User's call: AI generation was never built and isn't the roadmap ("we are not doing something related") — the real product is manual plan creation (templates + a custom builder) plus RIR-based progression tracking from logged sets. Asked to remove the AI branding and reinforce that framing everywhere.
+
+- **README.md**: title/description rewritten around the real mechanism (build a plan manually, log every set, get RIR-based suggestions), explicitly states "No AI generation."
+- **In-app copy**: every "IA"/"Entrenador Personal IA"/"no-IA" reference removed from `layout.tsx` (page title), `home-shell.tsx` (heading, "Preparación M1" → "Preparación," a few stale sub-lines), `readiness.ts`/`plan-gate.ts` (the pre-plan gate's labels/descriptions — also fixed real staleness found along the way, e.g. "no genera, guarda ni activa un plan" was flatly false once `/plan/builder` and `/plan/templates` shipped), `perfil/page.tsx`, `plan-page-content.tsx` (dropped the pointless "IA: Apagada" status tile and "Sin IA" badge; fixed another stale claim — "todavía no... registra series" — from before `/entrenar` existed), `entrenar-page-content.tsx`, `template-preview-content.tsx`/`plan-preview.ts` (the preview badges said "No activable," which was false — that screen's own button does activate the plan for real; replaced with `["Solo lectura", "Aún no activado"]`).
+- **`src/ai/provider.ts` deleted** — zero imports anywhere (confirmed during the earlier onboarding audit). Its only dependencies, `@ai-sdk/google` and `ai`, removed from `package.json`; `GOOGLE_GENERATIVE_AI_API_KEY`/`_MODEL` removed from `src/env.ts` and `.env.example`.
+- **Planning docs** (`milestones.md`, `mvp-plan.md`, `docs/specs/generated-plan-contract.md`, `docs/architecture/technical-stack.md`, `docs/specs/first-features.md`, `docs/product/open-questions.md`): added accuracy status notes rather than full rewrites — these are historical planning records, so the original AI-generation design intent is kept, but each now says clearly it was never pursued and points to what shipped instead. `milestones.md`'s M3 marked "Not pursued," M2 updated to reflect the Pesos base removal, M5 updated from "4 of 6 signals" to all 6 (matches the earlier 1RM/asymmetry work). `mvp-plan.md`'s MVP loop rewritten to the real current flow (template-or-builder, not "generate a 4-week plan").
+
+Next iteration: none queued here — see the separate UI/UX mobile-audit kickoff prompt (`docs/product/ux-mobile-audit-prompt.md`) for what's next.
+
 ## 2026-07-31 — Session notes + RPE, and a training-load trend on /progreso
 
 Status: code complete, `lint`/`typecheck`/`test` (187 passing)/`build` all green. Migration `drizzle/0013_eminent_betty_brant.sql` (single nullable column, additive) generated and applied to dev DB; confirmed via `information_schema.columns`.

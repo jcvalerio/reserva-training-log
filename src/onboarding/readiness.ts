@@ -55,8 +55,8 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           id: "plan",
           labelEs: "Plan",
           status: "pending",
-          statusLabelEs: "Revisión no-IA",
-          descriptionEs: "Perfil listo para revisión manual; generación y activación siguen apagadas.",
+          statusLabelEs: "Elige tu plan",
+          descriptionEs: "Perfil listo. Elige una plantilla o crea tu propio plan.",
           href: "/plan",
         }
       : {
@@ -84,8 +84,8 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
 function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): M1ReadinessPrimaryAction {
   if (foundationReady) {
     return {
-      labelEs: "Revisar preparación del plan",
-      helperEs: "Abre la revisión no-IA: no genera, guarda ni activa un plan todavía.",
+      labelEs: "Elegir mi plan",
+      helperEs: "Abre /plan para elegir una plantilla o crear tu propio plan.",
       href: "/plan",
     };
   }
@@ -93,13 +93,13 @@ function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): 
   if (nextStep.id === "profile") {
     return {
       labelEs: "Crear o completar perfil",
-      helperEs: "Empieza aquí para desbloquear la revisión del plan.",
+      helperEs: "Empieza aquí para desbloquear la elección del plan.",
       href: "/perfil",
     };
   }
 
   return {
     labelEs: "Plan pendiente",
-    helperEs: "La generación del plan sigue bloqueada hasta una iteración futura.",
+    helperEs: "Completa tu perfil para continuar.",
   };
 }

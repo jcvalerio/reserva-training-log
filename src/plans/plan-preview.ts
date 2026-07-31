@@ -56,7 +56,11 @@ export function getPlanPreviewSummary(plan: GeneratedWorkoutPlan): PlanPreviewSu
     exerciseCount: sessions.reduce((total, session) => total + session.exerciseCount, 0),
     unilateralExerciseCount: sessions.reduce((total, session) => total + session.unilateralExerciseCount, 0),
     painSensitiveExerciseCount: sessions.reduce((total, session) => total + session.painSensitiveExerciseCount, 0),
-    previewBoundaryLabelsEs: ["Solo lectura", "Sin IA", "No guardado", "No activable"],
+    // "No activable" was dropped: this preview's own CTA does activate the
+    // plan for real. These describe its current state, not a limitation.
+    // ("Vista previa" is deliberately not reused here — the section heading
+    // right above these badges already says exactly that.)
+    previewBoundaryLabelsEs: ["Solo lectura", "Aún no activado"],
     // Duration-type exercises (calentamientos de cardio, movilidad) log a
     // duración instead of reps/RIR — included whenever the plan has any.
     requiredSetLogFieldsEs: hasDurationExercises

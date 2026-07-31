@@ -2,9 +2,11 @@
 
 Work in small vertical slices. Each milestone must be usable on iPhone before moving forward.
 
+**Note (2026-07-31)**: this is the original planning doc; the product direction shifted away from M3's "AI plan generation" (never built, not pursued — see M3 below and `docs/product/next-task.md`) toward manual plan creation instead. M0/M1/M2/M4/M5 below are all done; M6 (field validation) is still open.
+
 ## M0 — Product and technical foundation
 
-Status: in progress. App bootstrap, stack dependencies, initial migrations, Spanish landing page, CI checks, and local verification are complete. Remaining M0 work is real env setup, database migration against Neon, and Vercel deployment wiring.
+Status: done. App bootstrap, stack dependencies, migrations, Spanish landing page, CI checks, Neon + Vercel deployment are all complete and have been in production use throughout this project.
 
 Goal: align scope and bootstrap a clean project.
 
@@ -41,18 +43,22 @@ Acceptance:
 
 Goal: capture enough context to generate useful first plans.
 
+**Update (2026-07-31)**: the baseline working-weight intake ("Pesos base") shipped as planned below, but was later removed entirely (2026-07-31) — it turned out to be read only as a count for an onboarding gate, never consumed by any plan or progression logic, and got fully overwritten on every save (no history). Body measurement tracking below is unaffected and still live.
+
 Deliverables:
-- Baseline working-weight intake for key lifts.
-- Unilateral baseline support for left/right exercises.
-- Body measurement tracking.
-- Asymmetry calculations.
+- ~~Baseline working-weight intake for key lifts.~~ Removed — see update above.
+- ~~Unilateral baseline support for left/right exercises.~~ Removed — see update above.
+- Body measurement tracking. **Done**, still live at `/mediciones`.
+- Asymmetry calculations. **Done** — thigh/calf gaps, plus a `/progreso` trend card and asymmetry-improvement signal added 2026-07-31.
 
 Acceptance:
-- Athlete A can enter right/left thigh and calf measurements.
-- Baseline lifts can include kg, reps, sets, RIR, pain, notes.
-- The UI shows measurement trends and left/right gaps.
+- Athlete A can enter right/left thigh and calf measurements. **Done.**
+- ~~Baseline lifts can include kg, reps, sets, RIR, pain, notes.~~ N/A — feature removed.
+- The UI shows measurement trends and left/right gaps. **Done.**
 
 ## M3 — AI plan generation v1
+
+**Not pursued (2026-07-31).** Plans are created manually instead — a small template catalog (`/plan/templates`) plus a custom day-by-day builder (`/plan/builder`), both validated against the same schema this milestone would have used for AI output (`src/plans/generated-plan-schema.ts`). `src/ai/provider.ts` (an unused stub) and its dependencies were removed. Kept below as the original design record.
 
 Goal: generate a practical 4-week plan.
 
@@ -100,7 +106,7 @@ Acceptance:
 - Repeated exercises show previous kg/reps/RIR/pain. **Done.**
 - The app suggests increases when performance and pain permit. **Done.**
 - The app holds/reduces/replaces when pain or fatigue flags appear. **Done.**
-- A 5% improvement signal can be shown after repeated sessions. **Mostly done** — `/progreso` (`src/app/progreso/`) compares each exercise's two most recent completed instances and flags 4 of the 6 signals in `docs/product/progression-rules.md`'s "5% improvement definition": total volume load, pain improvement at a maintained workload, reps at the same load, and load at the same reps (both RIR-gated). Estimated 1RM and asymmetry improvement are not implemented yet (see `docs/product/next-task.md`).
+- A 5% improvement signal can be shown after repeated sessions. **Done** — `/progreso` (`src/app/progreso/`) compares each exercise's two most recent completed instances and flags all 6 signals in `docs/product/progression-rules.md`'s "5% improvement definition": total volume load, pain improvement at a maintained workload, reps at the same load, load at the same reps (both RIR-gated), estimated 1RM (RIR-adjusted Epley), and asymmetry improvement (both the per-exercise performance gap and the body-measurement gap).
 
 ## M6 — Two-week field validation
 

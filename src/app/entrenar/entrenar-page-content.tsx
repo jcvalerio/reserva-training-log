@@ -25,7 +25,7 @@ export function EntrenarPageContent({
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Entrenar</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Todavía no hay plan activo</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Activa tu plan desde la revisión no-IA antes de registrar entrenamientos.
+              Activa tu plan en la sección Plan antes de registrar entrenamientos.
             </p>
           </div>
         </header>

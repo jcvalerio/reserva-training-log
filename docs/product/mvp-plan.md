@@ -21,7 +21,7 @@ Build a Spanish-first iPhone web app that acts as a practical gym companion for 
 - Progression preference: aggressive, but pain-aware.
 - Language: Spanish default, English supported from the start.
 - Logging granularity: every set plus notes.
-- Effort model: RIR, not RPE, in the initial UI.
+- Effort model: RIR, not RPE, for per-set logging. (2026-07-31: an optional whole-*session* RPE — Borg CR10 scale — was added separately, for a training-load trend; per-set logging stays RIR-only, unchanged from this original decision.)
 - Pain tracking: required for pain-sensitive profiles/exercises.
 - Offline mode: deferred to avoid early complexity.
 
@@ -55,16 +55,17 @@ Build a Spanish-first iPhone web app that acts as a practical gym companion for 
 
 ## MVP loop
 
+**Updated 2026-07-31** to match what actually shipped — see `docs/product/next-task.md` for the full current-state summary.
+
 1. Sign in.
 2. Create athlete profile.
-3. Complete onboarding and baseline working-weight intake.
-4. Generate a 4-week, 5-day hypertrophy plan.
-5. Review and start the plan.
-6. Execute today's workout on iPhone.
-7. Log every set: kg, reps, RIR, pain, notes.
-8. Complete the session.
-9. Next time, see previous performance and progression suggestions.
-10. Track body measurements and trends over time.
+3. Choose a plan: pick a template (hypertrophy or fat-loss circuit) or build one manually, day by day.
+4. Review and activate the plan.
+5. Execute today's workout on iPhone.
+6. Log every set: kg, reps, RIR, pain, notes (or duration, for cardio/mobility-type exercises).
+7. Complete the session — optionally rate it (RPE) and add a note.
+8. Next time, see previous performance and progression suggestions.
+9. Track body measurements and trends over time.
 
 ## Non-goals for MVP
 

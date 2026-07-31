@@ -45,10 +45,10 @@ export function PlanPageContent({
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             {activePlanPreview
-              ? "Este es tu plan real, guardado y activo. Todavía no genera IA ni registra series."
+              ? "Este es tu plan real, guardado y activo. Edítalo o duplícalo cuando quieras."
               : activePlanError
                 ? "Tu plan activo tiene datos inválidos y no se puede mostrar. Corrígelo desde el editor."
-                : "Revisa si las bases mínimas están listas. Esta pantalla no genera IA y no persiste borradores."}
+                : "Revisa si las bases mínimas están listas para elegir tu plan."}
           </p>
         </div>
       </header>
@@ -64,9 +64,8 @@ export function PlanPageContent({
         <h2 className="mt-2 text-2xl font-semibold">{gate.titleEs}</h2>
         <p className="mt-2 text-sm leading-6 text-zinc-300">{gate.descriptionEs}</p>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
           <StatusTile label="Bases" value={`${readiness.completedFoundationSteps}/${readiness.totalFoundationSteps}`} />
-          <StatusTile label="IA" value="Apagada" />
           <StatusTile label="Plan" value={activePlanPreview ? "Activo" : activePlanError ? "Con errores" : "Sin crear"} />
         </div>
 
@@ -244,12 +243,11 @@ function ActivePlanSummary({
       </p>
       <h2 className="mt-2 text-xl font-semibold text-zinc-100">{summary.nameEs}</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Este es tu plan real, guardado y activo. No viene de IA. El registro de series por RIR y dolor llega en la
-        siguiente iteración.
+        Este es tu plan real, guardado y activo. Regístralo en Entrenar y sigue tu progreso en Progreso.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {["Plan activo", "Sin IA", activatedAt ? `Activado ${formatActivatedAt(activatedAt)}` : "Activado"].map(
+        {["Plan activo", activatedAt ? `Activado ${formatActivatedAt(activatedAt)}` : "Activado"].map(
           (label) => (
             <span
               key={label}

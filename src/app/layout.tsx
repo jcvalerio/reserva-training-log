@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Entrenador Personal IA",
-  description: "MVP web para planificar, ejecutar y progresar entrenamientos de hipertrofia.",
+  title: "Entrenador Personal",
+  description: "Crea tu plan, registra cada serie y progresa con RIR.",
 };
 
 export const viewport: Viewport = {

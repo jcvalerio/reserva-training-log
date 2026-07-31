@@ -35,7 +35,7 @@ export function TemplatePreviewContent({
           Vista previa
         </p>
         <p className="mt-2 text-sm leading-6 text-zinc-300">
-          Es solo lectura hasta que la actives: no viene de IA y no se guarda como borrador.
+          Es solo lectura hasta que la actives: no se guarda como borrador.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">

@@ -17,7 +17,6 @@ describe("getNonAiPlanGate", () => {
       ctaHref: "/perfil",
       canGenerateAi: false,
     });
-    expect(gate.descriptionEs).toContain("no genera IA");
     expect(gate.descriptionEs).toContain("no guarda");
   });
 
@@ -28,11 +27,11 @@ describe("getNonAiPlanGate", () => {
 
     expect(gate).toMatchObject({
       status: "manual_review_ready",
-      titleEs: "Base lista para revisión no-IA",
+      titleEs: "Listo para elegir tu plan",
       ctaLabelEs: "Volver al resumen de Inicio",
       ctaHref: "/",
       canGenerateAi: false,
     });
-    expect(gate.descriptionEs).toContain("no se genera, guarda ni activa");
+    expect(gate.descriptionEs).toContain("Elige una plantilla o crea tu propio plan");
   });
 });

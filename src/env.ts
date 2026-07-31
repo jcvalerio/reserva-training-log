@@ -13,8 +13,6 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: optionalNonEmptyString,
   GOOGLE_CLIENT_ID: optionalNonEmptyString,
   GOOGLE_CLIENT_SECRET: optionalNonEmptyString,
-  GOOGLE_GENERATIVE_AI_API_KEY: optionalNonEmptyString,
-  GOOGLE_GENERATIVE_AI_MODEL: optionalNonEmptyString,
   NEXT_ALLOWED_DEV_ORIGINS: optionalNonEmptyString,
 });
 

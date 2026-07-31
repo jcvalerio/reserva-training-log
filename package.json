@@ -16,9 +16,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.8",
     "@neondatabase/serverless": "^1.1.0",
-    "ai": "^7.0.16",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.10",

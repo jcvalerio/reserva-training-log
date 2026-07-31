@@ -1,8 +1,10 @@
 # Generated Plan Contract
 
-Authoritative MVP interface between AI plan generation and app persistence.
+**Status (2026-07-31): AI generation was never built and is not the current direction — see `docs/product/next-task.md`.** The schema below (`generatedWorkoutPlanSchema`) is still the real, actively-used contract, but its only two producers today are the hardcoded template catalog (`src/plans/plan-templates.ts`) and the manual plan builder (`/plan/builder`), not AI. The rest of this doc is kept as the original planning record; read "AI" below as "whichever plan producer" — the schema itself doesn't care who fills it in.
 
-The app must treat AI output as an untrusted draft. Persist only after parsing with `src/plans/generated-plan-schema.ts` and applying deterministic guardrails.
+Authoritative MVP interface between plan producers and app persistence.
+
+Any producer's output should be treated as an untrusted draft. Persist only after parsing with `src/plans/generated-plan-schema.ts` and applying deterministic guardrails.
 
 ## Runtime schema
 

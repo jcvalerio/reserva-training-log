@@ -6,7 +6,8 @@ The one-exercise-at-a-time flow described below is implemented at `/entrenar` (s
 - No rest timer yet.
 - No exercise swap/modify action yet (substitution options are shown as read-only text on the exercise card).
 - "Weight defaults from plan or last set": the plan has no weight target field, so weight only defaults from the exercise's last logged set in the current session, otherwise blank.
-- `docs/architecture/data-model.md`'s `WorkoutSession`/`ExerciseLog`/`SetLog` field lists (e.g. `scheduledDate`, `plannedWeightKg`) are conceptual; the actual shipped schema in `src/db/schema.ts` is leaner — see `src/workouts/workout-repository.ts` for the real shape.
+- `docs/architecture/data-model.md` was rewritten 2026-07-31 against the real schema (it had drifted into describing the old conceptual field lists like `scheduledDate`/`plannedWeightKg`, which never shipped) — it's now accurate, along with `src/workouts/workout-repository.ts` for the real shape.
+- Session-level notes and an RPE (Borg CR10 scale) rating were added 2026-07-31 to the "Completar entrenamiento" flow — not in this doc's original scope, but a natural extension of it.
 
 ## UX principle
 

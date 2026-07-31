@@ -25,7 +25,7 @@ describe("TemplatePreviewContent", () => {
     expect(screen.getByRole("heading", { name: summary.nameEs })).toBeVisible();
     expect(screen.getByText(template.objectiveEs)).toBeVisible();
 
-    for (const boundary of ["Solo lectura", "Sin IA", "No guardado", "No activable"]) {
+    for (const boundary of ["Solo lectura", "Aún no activado"]) {
       expect(screen.getByText(boundary)).toBeVisible();
     }
 

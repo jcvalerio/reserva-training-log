@@ -23,7 +23,7 @@ export function getNonAiPlanGate(readiness: M1Readiness): NonAiPlanGate {
     return {
       status: "blocked",
       titleEs: "Completa bases antes del plan",
-      descriptionEs: `Falta ${readiness.nextStep.labelEs}. Este botón solo abre el paso pendiente; no genera IA, no guarda y no activa ningún plan.`,
+      descriptionEs: `Falta ${readiness.nextStep.labelEs}. Este botón solo abre el paso pendiente; no guarda ni activa ningún plan.`,
       ctaLabelEs: `Ir a ${readiness.nextStep.labelEs}`,
       ctaHref: readiness.primaryAction.href ?? "/",
       canGenerateAi: false,
@@ -32,8 +32,8 @@ export function getNonAiPlanGate(readiness: M1Readiness): NonAiPlanGate {
 
   return {
     status: "manual_review_ready",
-    titleEs: "Base lista para revisión no-IA",
-    descriptionEs: "Tu perfil está listo para una revisión manual. Todavía no se genera, guarda ni activa un plan.",
+    titleEs: "Listo para elegir tu plan",
+    descriptionEs: "Tu perfil está listo. Elige una plantilla o crea tu propio plan para empezar a entrenar.",
     ctaLabelEs: "Volver al resumen de Inicio",
     ctaHref: "/",
     canGenerateAi: false,

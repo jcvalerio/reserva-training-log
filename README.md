@@ -1,6 +1,8 @@
-# AI Personal Trainer MVP
+# Personal Trainer MVP
 
-Spanish-first iPhone Web MVP for personal hypertrophy training: generate a plan, execute every set in the gym, track pain/measurements, and suggest progression between sessions.
+Spanish-first iPhone Web MVP for personal hypertrophy training: build a plan (from a template or a manual builder), execute every set in the gym, track pain/measurements, and get RIR-based progression suggestions between sessions.
+
+No AI generation — plans are created manually, either from a small built-in template catalog or a custom day-by-day builder. The core loop is: build a plan once, then log every set (weight, reps, RIR, pain) each session, and let the app suggest next-session load/rep adjustments from that real history.
 
 ## Product focus
 
@@ -71,7 +73,7 @@ Open `http://192.168.68.69:3000` on the iPhone. For Google login from the phone,
 
 After two weeks of real gym use, each tester should be able to:
 
-1. Generate or receive a 5-day, 60-minute hypertrophy plan.
+1. Set up a 5-day, 60-minute plan — from a template or built manually.
 2. Record every set with weight, reps, RIR, pain score, and notes.
 3. See previous-session baselines.
 4. Receive next-session progression suggestions.

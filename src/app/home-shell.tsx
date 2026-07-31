@@ -38,14 +38,14 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
       <section className="flex flex-1 flex-col justify-center gap-8 py-10">
         <div className="space-y-4">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300">
-            Entrenador Personal IA
+            Entrenador Personal
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-balance">
             Registra cada serie y progresa sin ignorar el dolor.
           </h1>
           <p className="text-lg leading-8 text-zinc-300">
-            App web móvil para planes de hipertrofia de 5 días, sesiones de 60 minutos,
-            historial por ejercicio y progresión agresiva pero segura.
+            App web móvil para armar tu plan de hipertrofia (plantilla o a tu medida), registrar cada serie con
+            RIR y dolor, y recibir sugerencias de progresión basadas en tu historial real.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
               <section aria-labelledby="m1-readiness-title" className="grid gap-4">
                 <div>
                   <p className="text-sm font-semibold text-emerald-300" id="m1-readiness-title">
-                    Preparación M1
+                    Preparación
                   </p>
                   <p className="mt-1 text-sm leading-6 text-zinc-300">
                     {readiness.completedFoundationSteps}/{readiness.totalFoundationSteps} bases listas. Próximo: {" "}
@@ -91,7 +91,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
                 ) : (
                   <div className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
                     <p className="font-semibold text-zinc-200">{readiness.primaryAction.labelEs}</p>
-                    <p className="mt-1">Plan no iniciado; no se dispara generación IA desde esta pantalla.</p>
+                    <p className="mt-1">Plan no iniciado.</p>
                   </div>
                 )}
 
@@ -108,7 +108,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
           <div className="grid gap-3">
             <GoogleSignInButton disabled={!googleSignInEnabled} />
             <p className="text-center text-sm text-zinc-500">
-              Primero tu perfil. Después generación del plan.
+              Primero tu perfil, luego arma tu plan.
             </p>
           </div>
         )}

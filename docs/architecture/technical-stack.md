@@ -46,6 +46,8 @@ MVP requirement:
 
 ## AI
 
+**Not built, not the current direction (2026-07-31).** This section was the original plan; plans are created manually instead (a template catalog plus a custom builder — see `docs/product/next-task.md`). `src/ai/provider.ts` was an unused stub with zero imports and has been removed. Kept below as the original design record in case AI generation is revisited later.
+
 - Vercel AI SDK
 - Google Gemini or other selected provider behind an adapter
 - Structured JSON outputs validated by Zod using `src/plans/generated-plan-schema.ts`

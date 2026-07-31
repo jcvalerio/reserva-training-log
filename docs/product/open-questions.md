@@ -2,6 +2,8 @@
 
 Resolve these before or during early implementation.
 
+**Note (2026-07-31)**: this is an early-planning artifact; most items below are now resolved by what actually shipped (see `docs/product/implementation-log.md`/`next-task.md`) or superseded — notably item 4 under Technical: AI generation was never built and isn't the current direction. Kept as historical record, not a live backlog.
+
 ## Product
 
 1. Should the first generated plan use Push/Pull/Legs/Upper/Lower or a body-part split?

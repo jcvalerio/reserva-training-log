@@ -33,8 +33,6 @@ describe("PlanPageContent", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Revisión pre-plan" })).toBeVisible();
-    expect(screen.getByText("IA")).toBeVisible();
-    expect(screen.getByText("Apagada")).toBeVisible();
     expect(screen.getByText("Sin crear")).toBeVisible();
     expect(screen.getByText("¿Cómo quieres empezar?")).toBeVisible();
 

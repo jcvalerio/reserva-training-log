@@ -1,5 +1,7 @@
 # First Features
 
+**Note (2026-07-31)**: written when AI plan generation was the planned mechanism. That was never built and isn't the current direction — plans are created manually (a template catalog plus a custom builder). Any "AI"/"generated plan" references below describe the original plan, not shipped behavior; see `docs/product/implementation-log.md`/`next-task.md` for what's actually built.
+
 ## Feature 1 — Spanish-first app shell
 
 User story:
