@@ -24,7 +24,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">Perfil</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Contexto de atleta</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Base privada para un plan futuro. Guarda este contexto primero; luego sigue con pesos base o mediciones desde la navegación inferior.
+            Base privada para un plan futuro. Guarda este contexto primero; luego sigue con mediciones desde la navegación inferior.
           </p>
         </div>
       </header>
@@ -32,7 +32,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
       <FormStatusBanner
         saved={params.saved === "1"}
         error={params.error === "validation"}
-        savedMessage="Tu perfil quedó actualizado. Puedes seguir con pesos base o mediciones desde la navegación inferior."
+        savedMessage="Tu perfil quedó actualizado. Puedes seguir con mediciones desde la navegación inferior."
         errorMessage="Hay datos fuera de rango o falta el nombre. Corrige el formulario y vuelve a guardar."
       />
 

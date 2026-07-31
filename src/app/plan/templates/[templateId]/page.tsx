@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getBaselineLiftsForProfile } from "@/baseline/baseline-repository";
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
-import { getM1Readiness } from "@/onboarding/readiness";
 import { getPlanPreviewSummary } from "@/plans/plan-preview";
 import { getActivePlanForProfile } from "@/plans/plan-repository";
 import { getPlanTemplateById } from "@/plans/plan-templates";
@@ -31,19 +28,8 @@ export default async function TemplatePreviewPage({ params }: TemplatePreviewPag
     redirect("/plan/templates");
   }
 
-  const [baselineLifts, bodyMeasurements, activePlan] = await Promise.all([
-    getBaselineLiftsForProfile(profile.id),
-    getRecentBodyMeasurementsForProfile(profile.id, 1),
-    getActivePlanForProfile(profile.id),
-  ]);
-
-  const readiness = getM1Readiness({
-    hasProfile: true,
-    baselineLiftCount: baselineLifts.length,
-    bodyMeasurementCount: bodyMeasurements.length,
-  });
-
-  if (!readiness.foundationReady || activePlan) {
+  const activePlan = await getActivePlanForProfile(profile.id);
+  if (activePlan) {
     redirect("/plan");
   }
 

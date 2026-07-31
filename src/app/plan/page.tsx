@@ -1,6 +1,4 @@
-import { getBaselineLiftsForProfile } from "@/baseline/baseline-repository";
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { getM1Readiness } from "@/onboarding/readiness";
 import { getNonAiPlanGate } from "@/plans/plan-gate";
 import { getPlanPreviewSummary } from "@/plans/plan-preview";
@@ -19,19 +17,9 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
   const profile = await getAthleteProfileForUser(user.id);
   const params = searchParams ? await searchParams : {};
 
-  const [baselineLifts, bodyMeasurements, activePlan] = profile
-    ? await Promise.all([
-        getBaselineLiftsForProfile(profile.id),
-        getRecentBodyMeasurementsForProfile(profile.id, 1),
-        getActivePlanForProfile(profile.id),
-      ])
-    : [[], [], null];
+  const activePlan = profile ? await getActivePlanForProfile(profile.id) : null;
 
-  const readiness = getM1Readiness({
-    hasProfile: Boolean(profile),
-    baselineLiftCount: baselineLifts.length,
-    bodyMeasurementCount: bodyMeasurements.length,
-  });
+  const readiness = getM1Readiness({ hasProfile: Boolean(profile) });
   const gate = getNonAiPlanGate(readiness);
   const showStartFork = !activePlan && readiness.foundationReady;
 

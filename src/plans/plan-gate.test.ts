@@ -5,32 +5,24 @@ import { getM1Readiness } from "@/onboarding/readiness";
 import { getNonAiPlanGate } from "./plan-gate";
 
 describe("getNonAiPlanGate", () => {
-  it("blocks plan review until the next onboarding foundation is complete", () => {
-    const readiness = getM1Readiness({
-      hasProfile: true,
-      baselineLiftCount: 0,
-      bodyMeasurementCount: 0,
-    });
+  it("blocks plan review until a profile exists", () => {
+    const readiness = getM1Readiness({ hasProfile: false });
 
     const gate = getNonAiPlanGate(readiness);
 
     expect(gate).toMatchObject({
       status: "blocked",
       titleEs: "Completa bases antes del plan",
-      ctaLabelEs: "Ir a Pesos base",
-      ctaHref: "/baseline",
+      ctaLabelEs: "Ir a Perfil",
+      ctaHref: "/perfil",
       canGenerateAi: false,
     });
     expect(gate.descriptionEs).toContain("no genera IA");
     expect(gate.descriptionEs).toContain("no guarda");
   });
 
-  it("allows only manual review when foundations are ready", () => {
-    const readiness = getM1Readiness({
-      hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
-    });
+  it("allows only manual review once a profile exists", () => {
+    const readiness = getM1Readiness({ hasProfile: true });
 
     const gate = getNonAiPlanGate(readiness);
 

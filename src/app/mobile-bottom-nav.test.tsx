@@ -6,10 +6,10 @@ import { MobileBottomNav } from "./mobile-bottom-nav";
 
 describe("MobileBottomNav", () => {
   it("keeps implemented routes reachable and marks the active tab", () => {
-    render(<MobileBottomNav items={getHomeNavItems()} activeHref="/baseline" />);
+    render(<MobileBottomNav items={getHomeNavItems()} activeHref="/mediciones" />);
 
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Pesos base" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Mediciones" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
   });
 

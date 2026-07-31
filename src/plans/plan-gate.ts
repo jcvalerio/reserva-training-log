@@ -33,7 +33,7 @@ export function getNonAiPlanGate(readiness: M1Readiness): NonAiPlanGate {
   return {
     status: "manual_review_ready",
     titleEs: "Base lista para revisión no-IA",
-    descriptionEs: "Perfil, pesos base y mediciones están listos para una revisión manual. Todavía no se genera, guarda ni activa un plan.",
+    descriptionEs: "Tu perfil está listo para una revisión manual. Todavía no se genera, guarda ni activa un plan.",
     ctaLabelEs: "Volver al resumen de Inicio",
     ctaHref: "/",
     canGenerateAi: false,

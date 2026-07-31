@@ -15,8 +15,6 @@ describe("PlanPageContent", () => {
   it("offers the start-plan fork (template or custom) once foundations are ready, with neither pre-expanded", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
 
@@ -53,11 +51,7 @@ describe("PlanPageContent", () => {
   });
 
   it("hides the start-plan fork until foundations are complete", () => {
-    const readiness = getM1Readiness({
-      hasProfile: true,
-      baselineLiftCount: 0,
-      bodyMeasurementCount: 0,
-    });
+    const readiness = getM1Readiness({ hasProfile: false });
     const gate = getNonAiPlanGate(readiness);
 
     render(
@@ -76,7 +70,7 @@ describe("PlanPageContent", () => {
 
     expect(screen.getByRole("heading", { name: "Preparación del plan" })).toBeVisible();
     expect(screen.queryByText("¿Cómo quieres empezar?")).toBeNull();
-    expect(screen.getAllByRole("link", { name: "Ir a Pesos base" })[0]).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Ir a Perfil" })[0]).toBeVisible();
     // Not foundation-ready, no active plan: the custom-builder entry point
     // still shows on its own (matches the pre-fork behavior for this case).
     expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toBeVisible();
@@ -85,8 +79,6 @@ describe("PlanPageContent", () => {
   it("renders the active plan instead of the start fork once activated", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -116,8 +108,6 @@ describe("PlanPageContent", () => {
   it("still offers the custom plan builder entry point when a plan is already active", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -143,8 +133,6 @@ describe("PlanPageContent", () => {
   it("offers first-class edit and duplicate actions on the active plan, not just as error recovery", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
     const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
@@ -170,8 +158,6 @@ describe("PlanPageContent", () => {
   it("shows a recoverable error state and no crash when the active plan fails to render", () => {
     const readiness = getM1Readiness({
       hasProfile: true,
-      baselineLiftCount: 6,
-      bodyMeasurementCount: 1,
     });
     const gate = getNonAiPlanGate(readiness);
 

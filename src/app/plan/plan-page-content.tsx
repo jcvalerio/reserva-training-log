@@ -86,9 +86,7 @@ export function PlanPageContent({
           <p id="plan-checklist-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-500">
             Checklist pre-plan
           </p>
-          <p className="mt-1 text-sm leading-6 text-zinc-400">
-            Perfil, pesos base y mediciones son la base mínima antes de cualquier revisión de plan.
-          </p>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">Tu perfil es la base mínima antes de cualquier revisión de plan.</p>
         </div>
 
         {readiness.steps.map((step) => (

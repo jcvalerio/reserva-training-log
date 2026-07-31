@@ -3,10 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBaselineLiftsForProfile } from "@/baseline/baseline-repository";
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
-import { getM1Readiness } from "@/onboarding/readiness";
 import { cloneWorkoutPlanToDraft, revertActivePlanToDraft } from "@/plans/plan-builder-repository";
 import { activateSeededPlanForProfile, getActivePlanForProfile } from "@/plans/plan-repository";
 import { isPlanTemplateId } from "@/plans/plan-templates";
@@ -23,21 +20,6 @@ export async function activatePlanAction(formData: FormData) {
   const templateId = formData.get("templateId");
   if (typeof templateId !== "string" || !isPlanTemplateId(templateId)) {
     redirect("/plan/templates");
-  }
-
-  const [baselineLifts, bodyMeasurements] = await Promise.all([
-    getBaselineLiftsForProfile(profile.id),
-    getRecentBodyMeasurementsForProfile(profile.id, 1),
-  ]);
-
-  const readiness = getM1Readiness({
-    hasProfile: true,
-    baselineLiftCount: baselineLifts.length,
-    bodyMeasurementCount: bodyMeasurements.length,
-  });
-
-  if (!readiness.foundationReady) {
-    redirect("/plan");
   }
 
   await activateSeededPlanForProfile(profile.id, templateId);

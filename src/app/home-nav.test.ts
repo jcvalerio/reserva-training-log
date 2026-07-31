@@ -9,7 +9,6 @@ describe("getHomeNavItems", () => {
     expect(navItems.filter((item) => item.href).map((item) => item.labelEs)).toEqual([
       "Inicio",
       "Perfil",
-      "Pesos base",
       "Mediciones",
       "Plan",
       "Entrenar",

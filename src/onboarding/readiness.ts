@@ -1,10 +1,8 @@
-export type M1ReadinessStepId = "profile" | "baseline" | "measurements" | "plan";
+export type M1ReadinessStepId = "profile" | "plan";
 export type M1ReadinessStatus = "complete" | "incomplete" | "blocked" | "pending";
 
 export type M1ReadinessInput = {
   hasProfile: boolean;
-  baselineLiftCount: number;
-  bodyMeasurementCount: number;
 };
 
 export type M1ReadinessStep = {
@@ -32,9 +30,7 @@ export type M1Readiness = {
 };
 
 export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
-  const hasBaseline = input.baselineLiftCount > 0;
-  const hasMeasurements = input.bodyMeasurementCount > 0;
-  const foundationReady = input.hasProfile && hasBaseline && hasMeasurements;
+  const foundationReady = input.hasProfile;
 
   const steps: M1ReadinessStep[] = [
     input.hasProfile
@@ -51,42 +47,8 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           labelEs: "Perfil",
           status: "incomplete",
           statusLabelEs: "Pendiente",
-          descriptionEs: "Crea tu contexto antes de pesos, mediciones y plan.",
+          descriptionEs: "Crea tu contexto antes de revisar cualquier plan.",
           href: "/perfil",
-        },
-    hasBaseline
-      ? {
-          id: "baseline",
-          labelEs: "Pesos base",
-          status: "complete",
-          statusLabelEs: "Listo",
-          descriptionEs: `${input.baselineLiftCount} entradas de trabajo guardadas.`,
-          href: "/baseline",
-        }
-      : {
-          id: "baseline",
-          labelEs: "Pesos base",
-          status: input.hasProfile ? "incomplete" : "blocked",
-          statusLabelEs: input.hasProfile ? "Pendiente" : "Requiere perfil",
-          descriptionEs: "Registra al menos un ejercicio con kg, reps, series, RIR y dolor.",
-          href: input.hasProfile ? "/baseline" : "/perfil",
-        },
-    hasMeasurements
-      ? {
-          id: "measurements",
-          labelEs: "Mediciones",
-          status: "complete",
-          statusLabelEs: "Listo",
-          descriptionEs: "Punto de partida corporal guardado.",
-          href: "/mediciones",
-        }
-      : {
-          id: "measurements",
-          labelEs: "Mediciones",
-          status: input.hasProfile ? "incomplete" : "blocked",
-          statusLabelEs: input.hasProfile ? "Pendiente" : "Requiere perfil",
-          descriptionEs: "Guarda al menos una medida numérica; cadencia sugerida: cada 2 semanas.",
-          href: input.hasProfile ? "/mediciones" : "/perfil",
         },
     foundationReady
       ? {
@@ -94,20 +56,20 @@ export function getM1Readiness(input: M1ReadinessInput): M1Readiness {
           labelEs: "Plan",
           status: "pending",
           statusLabelEs: "Revisión no-IA",
-          descriptionEs: "Bases listas para revisión manual; generación y activación siguen apagadas.",
+          descriptionEs: "Perfil listo para revisión manual; generación y activación siguen apagadas.",
           href: "/plan",
         }
       : {
           id: "plan",
           labelEs: "Plan",
           status: "blocked",
-          statusLabelEs: "Esperando bases",
-          descriptionEs: "Completa perfil, pesos base y mediciones antes de revisar cualquier plan.",
+          statusLabelEs: "Esperando perfil",
+          descriptionEs: "Completa tu perfil antes de revisar cualquier plan.",
         },
   ];
 
   const foundationSteps = steps.filter((step) => step.id !== "plan");
-  const nextStep = foundationSteps.find((step) => step.status !== "complete") ?? steps[3];
+  const nextStep = foundationSteps.find((step) => step.status !== "complete") ?? steps[1]!;
 
   return {
     steps,
@@ -131,24 +93,8 @@ function getPrimaryAction(nextStep: M1ReadinessStep, foundationReady: boolean): 
   if (nextStep.id === "profile") {
     return {
       labelEs: "Crear o completar perfil",
-      helperEs: "Empieza aquí para desbloquear pesos base y mediciones.",
+      helperEs: "Empieza aquí para desbloquear la revisión del plan.",
       href: "/perfil",
-    };
-  }
-
-  if (nextStep.id === "baseline") {
-    return {
-      labelEs: "Registrar pesos base",
-      helperEs: "Guarda al menos una fila completa con kg, reps, series, RIR y dolor.",
-      href: "/baseline",
-    };
-  }
-
-  if (nextStep.id === "measurements") {
-    return {
-      labelEs: "Guardar primera medición",
-      helperEs: "Una medida numérica basta para crear el punto de partida corporal.",
-      href: "/mediciones",
     };
   }
 

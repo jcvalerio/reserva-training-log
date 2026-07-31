@@ -2,6 +2,24 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-07-31 — Removed "Pesos base" (baseline lifts), simplified the pre-plan gate to profile-only
+
+Status: code complete, `lint`/`typecheck`/`test` (149 passing)/`build` all green. `db:generate` confirms zero schema diff — DB tables (`baseline_lift`, `exercise`) are left in place, unused but intact; nothing destructive, fully reversible via git if needed.
+
+User asked to evaluate every feature for whether it's actually adding value, using "Pesos base" as the example (filled it in, but it didn't seem to do anything). Traced every field's actual usage across the codebase rather than guessing:
+- **Pesos base**: only ever read as `count > 0` for the M1 readiness gate. Gets fully overwritten on every save (not even a history log, unlike Mediciones). Never feeds a weight suggestion, plan, or session anywhere. Zero downstream value — removed entirely.
+- **Mediciones**: same gate-only pattern for its *count*, but the page itself computes real thigh/calf asymmetry gaps and keeps full history — genuine standalone value, especially relevant to the new fat-loss template. Kept the feature, removed it from the gate.
+- **Perfil**: turned out to go much further than the original ask — literally every field except the row's mere existence (sex, birth year, training age/frequency, target days/week, session duration, goals, progression aggressiveness, locale, timezone, gym context, pain areas, muscle priorities, even `name`) is write-only, read nowhere outside the profile form itself. Reads like the intended context payload for AI plan generation, which was never wired in (`src/ai/provider.ts` has zero imports anywhere in the app). Asked the user how far to take this via `AskUserQuestion`: keep the form's fields as-is (possible future AI use) and just stop requiring anything beyond the profile existing — confirmed. No Perfil fields were removed this pass.
+
+Implemented:
+- `src/onboarding/readiness.ts`: `M1ReadinessInput` now just `{ hasProfile: boolean }`; `foundationReady = hasProfile`. Steps array reduced from 4 (profile/baseline/measurements/plan) to 2 (profile/plan). `getPrimaryAction` lost its now-unreachable baseline/measurements branches.
+- `src/plans/plan-gate.ts`, `src/app/home-shell.tsx`, `src/app/perfil/page.tsx`, `src/app/plan/plan-page-content.tsx`: updated copy that referenced "perfil, pesos base y mediciones" as the foundation.
+- Every `getM1Readiness` caller (`/`, `/plan`, `/plan/actions.ts`, `/plan/templates`, `/plan/templates/[templateId]`) simplified — dropped the now-pointless baseline/measurement fetches used only to compute a count for the gate. A couple of these callers' own `foundationReady` checks became unreachable dead code (they run after an earlier `if (!profile) redirect(...)` guard, so `hasProfile` is always true by that point) and were removed too.
+- Deleted `src/baseline/` and `src/app/baseline/` entirely (repository, schema, page, form, actions, tests) and removed "Pesos base" from the bottom nav (`home-nav.ts`).
+
+Next iteration: deploy, then verify `/plan` and the home screen read correctly with just "Perfil" as the foundation step, and that a profile-only user can reach the template picker and builder without ever having filled in baseline weights.
+
+
 ## 2026-07-31 — Two-choice plan start fork + second template (fat-loss A/B circuit)
 
 Status: code complete, `lint`/`typecheck`/`test` (155 passing)/`build` all green. `db:generate` confirms zero schema diff (the `goal` widening is Zod-only — the DB column is plain `text`, not a Postgres enum). Not yet deployed as of this entry.

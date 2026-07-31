@@ -97,8 +97,8 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
 
                 <p className="rounded-2xl bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800">
                   {readiness.foundationReady
-                    ? "Perfil, pesos base y mediciones están listos para una revisión manual antes del plan."
-                    : "Completa perfil, pesos base y mediciones antes de iniciar cualquier plan."}
+                    ? "Tu perfil está listo para una revisión manual antes del plan."
+                    : "Completa tu perfil antes de iniciar cualquier plan."}
                 </p>
               </section>
             ) : null}
@@ -108,7 +108,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
           <div className="grid gap-3">
             <GoogleSignInButton disabled={!googleSignInEnabled} />
             <p className="text-center text-sm text-zinc-500">
-              Primero perfil, pesos base y mediciones. Después generación del plan.
+              Primero tu perfil. Después generación del plan.
             </p>
           </div>
         )}
