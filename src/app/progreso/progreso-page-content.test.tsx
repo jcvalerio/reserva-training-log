@@ -1,10 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
-import type { PlanSessionTemplate } from "@/plans/plan-repository";
+import type { ConsistencySummary } from "@/workouts/consistency";
+import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/improvement";
-import type { CompletedSessionSummary, WorkoutSession } from "@/workouts/workout-repository";
+import type { PlanSessionTemplate } from "@/plans/plan-repository";
+import type { WorkoutSession } from "@/workouts/workout-repository";
 
 import { ProgresoPageContent } from "./progreso-page-content";
 
@@ -60,26 +63,38 @@ function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
   };
 }
 
+type Props = React.ComponentProps<typeof ProgresoPageContent>;
+
+function renderPage(overrides: Partial<Props> = {}) {
+  const defaults: Props = {
+    hasProfile: true,
+    improvements: [],
+    completedSessions: [{ session: buildSession(), template: buildTemplate() }],
+    bodyMeasurementTrend: null,
+    measurementSeries: [],
+    exerciseSeriesGroups: [],
+    defaultExerciseName: null,
+    consistencySummary: null,
+  };
+  return render(<ProgresoPageContent {...defaults} {...overrides} />);
+}
+
 describe("ProgresoPageContent", () => {
   it("shows an empty state pointing to /entrenar when there is no history", () => {
-    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={[]} bodyMeasurementTrend={null} />);
+    renderPage({ completedSessions: [] });
 
     expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Ir a Entrenar" })).toHaveAttribute("href", "/entrenar");
   });
 
   it("shows an empty state when there is no profile yet", () => {
-    render(<ProgresoPageContent hasProfile={false} improvements={[]} completedSessions={[]} bodyMeasurementTrend={null} />);
+    renderPage({ hasProfile: false, completedSessions: [] });
 
     expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
   });
 
   it("lists completed sessions linking to their read-only session view", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
-
-    render(<ProgresoPageContent hasProfile={true} improvements={[]} completedSessions={completedSessions} bodyMeasurementTrend={null} />);
+    renderPage();
 
     expect(screen.getByRole("link", { name: /Pierna — cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
     expect(screen.getByText(/Día 1/)).toBeVisible();
@@ -90,39 +105,42 @@ describe("ProgresoPageContent", () => {
     ).toBeVisible();
   });
 
-  it("shows per-session training load and a recent-average summary when RPE was logged", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession({ sessionRpe: 7 }), template: buildTemplate() }, // 60min * 7 = 420 UA
-    ];
-
-    render(
-      <ProgresoPageContent
-        hasProfile={true}
-        improvements={[]}
-        completedSessions={completedSessions}
-        bodyMeasurementTrend={null}
-      />,
-    );
+  it("shows per-session training load and a Carga KPI tile when RPE was logged", () => {
+    renderPage({ completedSessions: [{ session: buildSession({ sessionRpe: 7 }), template: buildTemplate() }] }); // 60min * 7 = 420 UA
 
     expect(screen.getAllByText(/420 UA/)[0]).toBeVisible();
-    expect(screen.getByText(/Carga promedio \(últimas sesiones\): 420 UA/)).toBeVisible();
+    expect(screen.getByText("420")).toBeVisible(); // Carga KPI tile value
   });
 
-  it("omits the training-load summary entirely when no session has an RPE", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession({ sessionRpe: null }), template: buildTemplate() },
+  it("shows a dash in the Carga KPI tile when no session has an RPE", () => {
+    renderPage({ completedSessions: [{ session: buildSession({ sessionRpe: null }), template: buildTemplate() }] });
+
+    expect(screen.queryByText(/\d+ UA/)).toBeNull(); // no per-session load line either
+    const kpiTiles = screen.getAllByText("—");
+    expect(kpiTiles.length).toBeGreaterThan(0); // Carga KPI tile falls back to a dash
+  });
+
+  it("shows the Mejorando KPI tile as a fraction of improved exercises", () => {
+    const improvements: ExerciseImprovementRow[] = [
+      { exerciseNameEs: "A", latestCompletedAt: null, improvement: buildImprovement({ improved: true }) },
+      { exerciseNameEs: "B", latestCompletedAt: null, improvement: buildImprovement({ improved: false }) },
     ];
 
-    render(
-      <ProgresoPageContent
-        hasProfile={true}
-        improvements={[]}
-        completedSessions={completedSessions}
-        bodyMeasurementTrend={null}
-      />,
-    );
+    renderPage({ improvements });
 
-    expect(screen.queryByText(/UA/)).toBeNull();
+    expect(screen.getByText("1/2")).toBeVisible();
+  });
+
+  it("shows the Esta semana KPI tile from the consistency summary", () => {
+    const consistencySummary: ConsistencySummary = {
+      weeks: [{ weekStartDate: new Date("2026-07-20T00:00:00"), daysTrained: 3 }],
+      targetDaysPerWeek: 5,
+      currentWeekDaysTrained: 3,
+    };
+
+    renderPage({ consistencySummary });
+
+    expect(screen.getByText("3/5")).toBeVisible();
   });
 
   it("shows an improved badge and matching signals for an exercise that improved", () => {
@@ -140,13 +158,8 @@ describe("ProgresoPageContent", () => {
         }),
       },
     ];
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
 
-    render(
-      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} bodyMeasurementTrend={null} />,
-    );
+    renderPage({ improvements });
 
     expect(screen.getByText("Prensa de piernas")).toBeVisible();
     expect(screen.getByText("Mejora ≥5%")).toBeVisible();
@@ -162,22 +175,14 @@ describe("ProgresoPageContent", () => {
         improvement: buildImprovement({ latestVolumeLoadKg: 805, previousVolumeLoadKg: 800 }),
       },
     ];
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
 
-    render(
-      <ProgresoPageContent hasProfile={true} improvements={improvements} completedSessions={completedSessions} bodyMeasurementTrend={null} />,
-    );
+    renderPage({ improvements });
 
     expect(screen.getByText("Sin cambio de 5%")).toBeVisible();
     expect(screen.queryByText("Volumen +5%")).toBeNull();
   });
 
-  it("shows the body measurement trend when there is more than one measurement", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
+  it("shows the body measurement trend and chart when there is more than one measurement", () => {
     const bodyMeasurementTrend: BodyMeasurementTrend = {
       measurementCount: 3,
       firstMeasuredAt: new Date("2026-06-01T12:00:00Z"),
@@ -189,15 +194,12 @@ describe("ProgresoPageContent", () => {
       thighGapImproved: true,
       calfGapImproved: null,
     };
+    const measurementSeries: MeasurementSeriesPoint[] = [
+      { measuredAt: new Date("2026-06-01T12:00:00Z"), bodyWeightKg: 82, waistCm: 90 },
+      { measuredAt: new Date("2026-07-20T12:00:00Z"), bodyWeightKg: 78.5, waistCm: 88 },
+    ];
 
-    render(
-      <ProgresoPageContent
-        hasProfile={true}
-        improvements={[]}
-        completedSessions={completedSessions}
-        bodyMeasurementTrend={bodyMeasurementTrend}
-      />,
-    );
+    renderPage({ bodyMeasurementTrend, measurementSeries });
 
     expect(screen.getByText("Tendencia corporal")).toBeVisible();
     expect(screen.getByText(/Peso: 82\.0kg → 78\.5kg \(-3\.5kg\)/)).toBeVisible();
@@ -207,10 +209,7 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByRole("link", { name: "Ver mediciones" })).toHaveAttribute("href", "/mediciones");
   });
 
-  it("shows a single-measurement message instead of a trend when there's only one entry", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
+  it("shows a single-measurement message instead of a trend or chart when there's only one entry", () => {
     const bodyMeasurementTrend: BodyMeasurementTrend = {
       measurementCount: 1,
       firstMeasuredAt: new Date("2026-07-20T12:00:00Z"),
@@ -223,33 +222,63 @@ describe("ProgresoPageContent", () => {
       calfGapImproved: null,
     };
 
-    render(
-      <ProgresoPageContent
-        hasProfile={true}
-        improvements={[]}
-        completedSessions={completedSessions}
-        bodyMeasurementTrend={bodyMeasurementTrend}
-      />,
-    );
+    renderPage({
+      bodyMeasurementTrend,
+      measurementSeries: [{ measuredAt: new Date("2026-07-20T12:00:00Z"), bodyWeightKg: 82, waistCm: null }],
+    });
 
     expect(screen.getByText(/1 medición registrada/)).toBeVisible();
     expect(screen.queryByText(/Peso: /)).toBeNull();
   });
 
   it("hides the body trend section entirely when there are no measurements", () => {
-    const completedSessions: CompletedSessionSummary[] = [
-      { session: buildSession(), template: buildTemplate() },
-    ];
-
-    render(
-      <ProgresoPageContent
-        hasProfile={true}
-        improvements={[]}
-        completedSessions={completedSessions}
-        bodyMeasurementTrend={null}
-      />,
-    );
+    renderPage();
 
     expect(screen.queryByText("Tendencia corporal")).toBeNull();
+  });
+
+  it("shows the exercise progression chart section when there is at least one exercise series", () => {
+    const exerciseSeriesGroups: ExerciseSeriesGroup[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        isUnilateral: false,
+        points: [
+          {
+            completedAt: new Date("2026-07-20T12:00:00Z"),
+            avgWeightKg: 80,
+            volumeLoadKg: 800,
+            leftAvgWeightKg: null,
+            rightAvgWeightKg: null,
+            leftVolumeLoadKg: null,
+            rightVolumeLoadKg: null,
+            leftAvgRir: null,
+            rightAvgRir: null,
+          },
+        ],
+      },
+    ];
+
+    renderPage({ exerciseSeriesGroups, defaultExerciseName: "Prensa de piernas" });
+
+    expect(screen.getByText("Progresión por ejercicio")).toBeVisible();
+    expect(screen.getByRole("combobox")).toHaveValue("Prensa de piernas");
+  });
+
+  it("hides the exercise progression chart section when there is no exercise series", () => {
+    renderPage();
+
+    expect(screen.queryByText("Progresión por ejercicio")).toBeNull();
+  });
+
+  it("shows the consistency chart section when a consistency summary is provided", () => {
+    const consistencySummary: ConsistencySummary = {
+      weeks: [{ weekStartDate: new Date("2026-07-20T00:00:00"), daysTrained: 3 }],
+      targetDaysPerWeek: 5,
+      currentWeekDaysTrained: 3,
+    };
+
+    renderPage({ consistencySummary });
+
+    expect(screen.getByText("Consistencia semanal")).toBeVisible();
   });
 });

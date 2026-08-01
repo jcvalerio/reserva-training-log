@@ -190,7 +190,9 @@ export function buildExerciseImprovements(instancesByName: Map<string, ExerciseI
   });
 }
 
-function totalVolumeLoadKg(sets: StrengthSetLog[]): number {
+// Exported for reuse by src/workouts/exercise-series.ts (the /progreso
+// per-exercise progression chart needs the same per-instance aggregates).
+export function totalVolumeLoadKg(sets: StrengthSetLog[]): number {
   return sets.reduce((total, set) => total + set.actualReps * Number(set.actualWeightKg), 0);
 }
 
@@ -198,7 +200,7 @@ function maxPain(sets: SetLog[]): number {
   return sets.length ? Math.max(...sets.map((set) => set.painScore)) : 0;
 }
 
-function average(values: number[]): number {
+export function average(values: number[]): number {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0;
 }
 

@@ -1,23 +1,37 @@
 import Link from "next/link";
 
-import { formatKg } from "@/lib/format";
+import { formatKg, formatShortDateEs } from "@/lib/format";
+import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
+import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
+import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
 import { AppShell } from "../app-shell";
+import { BarChart } from "./bar-chart";
+import { ExerciseProgressionChart } from "./exercise-progression-chart";
+import { MeasurementSeriesChart } from "./measurement-series-chart";
 
 export function ProgresoPageContent({
   hasProfile,
   improvements,
   completedSessions,
   bodyMeasurementTrend,
+  measurementSeries,
+  exerciseSeriesGroups,
+  defaultExerciseName,
+  consistencySummary,
 }: {
   hasProfile: boolean;
   improvements: ExerciseImprovementRow[];
   completedSessions: CompletedSessionSummary[];
   bodyMeasurementTrend: BodyMeasurementTrend | null;
+  measurementSeries: MeasurementSeriesPoint[];
+  exerciseSeriesGroups: ExerciseSeriesGroup[];
+  defaultExerciseName: string | null;
+  consistencySummary: ConsistencySummary | null;
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
@@ -43,6 +57,7 @@ export function ProgresoPageContent({
   }
 
   const recentAverageLoad = averageRecentTrainingLoad(completedSessions);
+  const improvedExerciseCount = improvements.filter((row) => row.improvement.improved).length;
 
   return (
     <AppShell activeHref="/progreso">
@@ -51,13 +66,35 @@ export function ProgresoPageContent({
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Progreso</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tu historial</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Comparaciones de volumen y dolor entre tus dos sesiones más recientes por ejercicio, más tu historial de
-            entrenamientos completados.
+            Tendencias, comparaciones por ejercicio y tu historial de entrenamientos completados.
           </p>
         </div>
       </header>
 
-      {bodyMeasurementTrend ? <BodyMeasurementTrendCard trend={bodyMeasurementTrend} /> : null}
+      <section className="mt-6 grid grid-cols-3 gap-2" aria-label="Resumen">
+        <KpiTile
+          label="Esta semana"
+          value={consistencySummary ? `${consistencySummary.currentWeekDaysTrained}/${consistencySummary.targetDaysPerWeek}` : "—"}
+          sublabel="días"
+        />
+        <KpiTile
+          label="Mejorando"
+          value={improvements.length > 0 ? `${improvedExerciseCount}/${improvements.length}` : "—"}
+          sublabel="ejercicios"
+        />
+        <KpiTile label="Carga" value={recentAverageLoad !== null ? `${recentAverageLoad}` : "—"} sublabel="UA reciente" />
+      </section>
+
+      {exerciseSeriesGroups.length > 0 && defaultExerciseName ? (
+        <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="progression-title">
+          <p id="progression-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+            Progresión por ejercicio
+          </p>
+          <div className="mt-3">
+            <ExerciseProgressionChart groups={exerciseSeriesGroups} defaultExerciseName={defaultExerciseName} />
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-7" aria-labelledby="improvements-title">
         <p id="improvements-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
@@ -76,15 +113,30 @@ export function ProgresoPageContent({
         )}
       </section>
 
-      <section className="mt-6 grid gap-3 pb-10" aria-labelledby="history-title">
-        <div className="flex items-center justify-between gap-3">
-          <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
-            Historial de sesiones
+      {consistencySummary ? (
+        <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="consistency-title">
+          <p id="consistency-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+            Consistencia semanal
           </p>
-          {recentAverageLoad !== null ? (
-            <p className="text-xs text-zinc-400">Carga promedio (últimas sesiones): {recentAverageLoad} UA</p>
-          ) : null}
-        </div>
+          <div className="mt-3">
+            <BarChart
+              bars={buildConsistencyBars(consistencySummary)}
+              targetValue={consistencySummary.targetDaysPerWeek}
+              targetLabel={`${consistencySummary.targetDaysPerWeek} días/semana`}
+              ariaLabel="Días entrenados por semana"
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {bodyMeasurementTrend ? (
+        <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
+      ) : null}
+
+      <section className="mt-6 grid gap-3 pb-10" aria-labelledby="history-title">
+        <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+          Historial de sesiones
+        </p>
         <div className="grid gap-2">
           {completedSessions.map(({ session, template }) => (
             <Link
@@ -106,7 +158,23 @@ export function ProgresoPageContent({
   );
 }
 
-function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
+function KpiTile({ label, value, sublabel }: { label: string; value: string; sublabel: string }) {
+  return (
+    <div className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
+      <p className="text-[0.65rem] font-semibold tracking-wide text-zinc-400 uppercase">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-zinc-100">{value}</p>
+      <p className="mt-0.5 text-xs text-zinc-400">{sublabel}</p>
+    </div>
+  );
+}
+
+function BodyMeasurementTrendCard({
+  trend,
+  measurementSeries,
+}: {
+  trend: BodyMeasurementTrend;
+  measurementSeries: MeasurementSeriesPoint[];
+}) {
   return (
     <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="body-trend-title">
       <div className="flex items-center justify-between gap-3">
@@ -123,31 +191,36 @@ function BodyMeasurementTrendCard({ trend }: { trend: BodyMeasurementTrend }) {
           1 medición registrada el {formatDate(trend.latestMeasuredAt)}. Guarda otra para ver una tendencia.
         </p>
       ) : (
-        <div className="mt-2 grid gap-1 text-sm leading-6 text-zinc-300">
-          {trend.bodyWeightKg ? (
-            <p>
-              Peso: {trend.bodyWeightKg.firstValue.toFixed(1)}kg → {trend.bodyWeightKg.latestValue.toFixed(1)}kg (
-              {formatSignedDelta(trend.bodyWeightKg.deltaValue)}kg)
-            </p>
-          ) : null}
-          {trend.waistCm ? (
-            <p>
-              Cintura: {trend.waistCm.firstValue.toFixed(1)}cm → {trend.waistCm.latestValue.toFixed(1)}cm (
-              {formatSignedDelta(trend.waistCm.deltaValue)}cm)
-            </p>
-          ) : null}
-          {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
+        <>
+          <div className="mt-3">
+            <MeasurementSeriesChart points={measurementSeries} />
+          </div>
+          <div className="mt-3 grid gap-1 text-sm leading-6 text-zinc-300">
+            {trend.bodyWeightKg ? (
+              <p>
+                Peso: {trend.bodyWeightKg.firstValue.toFixed(1)}kg → {trend.bodyWeightKg.latestValue.toFixed(1)}kg (
+                {formatSignedDelta(trend.bodyWeightKg.deltaValue)}kg)
+              </p>
+            ) : null}
+            {trend.waistCm ? (
+              <p>
+                Cintura: {trend.waistCm.firstValue.toFixed(1)}cm → {trend.waistCm.latestValue.toFixed(1)}cm (
+                {formatSignedDelta(trend.waistCm.deltaValue)}cm)
+              </p>
+            ) : null}
+            {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
+              <p className="text-xs text-zinc-400">
+                Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)}
+                {trend.thighGapImproved ? " (mejoró vs. la anterior)" : ""} · Pantorrilla:{" "}
+                {formatGap(trend.latestCalfGapCm)}
+                {trend.calfGapImproved ? " (mejoró vs. la anterior)" : ""}
+              </p>
+            ) : null}
             <p className="text-xs text-zinc-400">
-              Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)}
-              {trend.thighGapImproved ? " (mejoró vs. la anterior)" : ""} · Pantorrilla:{" "}
-              {formatGap(trend.latestCalfGapCm)}
-              {trend.calfGapImproved ? " (mejoró vs. la anterior)" : ""}
+              {trend.measurementCount} mediciones desde {formatDate(trend.firstMeasuredAt)}
             </p>
-          ) : null}
-          <p className="text-xs text-zinc-400">
-            {trend.measurementCount} mediciones desde {formatDate(trend.firstMeasuredAt)}
-          </p>
-        </div>
+          </div>
+        </>
       )}
     </section>
   );
@@ -231,7 +304,7 @@ function formatDate(date: Date | null) {
   if (!date) {
     return "";
   }
-  return new Intl.DateTimeFormat("es-CR", { day: "2-digit", month: "short" }).format(date);
+  return formatShortDateEs(date);
 }
 
 function formatSessionDuration(startedAt: Date | null, completedAt: Date | null) {

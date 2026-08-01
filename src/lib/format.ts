@@ -8,3 +8,9 @@ export function formatKg(value: number | string, maxDecimals: number): string {
   const numeric = typeof value === "string" ? Number(value) : value;
   return `${Number(numeric.toFixed(maxDecimals))}kg`;
 }
+
+// Shared by every /progreso chart axis/tooltip and formatDate's non-null
+// branch — one date format across the whole page instead of near-duplicates.
+export function formatShortDateEs(date: Date): string {
+  return new Intl.DateTimeFormat("es-CR", { day: "2-digit", month: "short" }).format(date);
+}
