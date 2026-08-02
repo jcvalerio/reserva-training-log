@@ -84,6 +84,8 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
         <div className="grid grid-cols-2 gap-3">
           <MeasurementInput name="bodyWeightKg" label="Peso kg" placeholder="80.0" />
           <MeasurementInput name="waistCm" label="Cintura cm" placeholder="88.0" />
+          <MeasurementInput name="chestCm" label="Pecho cm" placeholder="100.0" />
+          <MeasurementInput name="hipsCm" label="Caderas cm" placeholder="95.0" />
         </div>
 
         <div className="rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
@@ -154,6 +156,8 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
                   <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
                     <MeasurementValue label="Peso" value={measurement.bodyWeightKg} unit="kg" />
                     <MeasurementValue label="Cintura" value={measurement.waistCm} unit="cm" />
+                    <MeasurementValue label="Pecho" value={measurement.chestCm} unit="cm" />
+                    <MeasurementValue label="Caderas" value={measurement.hipsCm} unit="cm" />
                     <MeasurementValue label="Muslo der" value={measurement.rightThighCm} unit="cm" />
                     <MeasurementValue label="Muslo izq" value={measurement.leftThighCm} unit="cm" />
                     <MeasurementValue label="Pant. der" value={measurement.rightCalfCm} unit="cm" />

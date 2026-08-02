@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Added pecho/caderas (chest/hips) to body measurements
+
+Status: code complete, `lint`/`typecheck`/`test` (275 passing)/`build` all green. Migration `drizzle/0015_moaning_warbird.sql` (two nullable columns, additive, zero backfill needed) generated and applied to the dev DB, verified via `information_schema.columns`. Not yet deployed/committed.
+
+User feedback: mediciones was missing chest and hips. Treated both as single circumference values (not left/right paired) — matching `waistCm`, not the thigh/calf/arm pattern, since chest and hips don't have a meaningful asymmetry-gap use case the way limbs do.
+
+Followed the existing `waistCm` treatment end to end for consistency, touching every layer that field already touches: `bodyMeasurement.chestCm`/`hipsCm` in the schema; `measurementNumericFields`, the Zod schema, and form-data parsing in `measurement-schema.ts`; the insert in `measurement-repository.ts`; a first-vs-latest delta in `measurement-trend.ts` (`BodyMeasurementTrend.chestCm`/`hipsCm`); two new inputs on `/mediciones`'s form (next to Peso/Cintura) and two new fields in the historial card; and two new trend lines on `/progreso`'s "Tendencia corporal" card, styled identically to the existing Peso/Cintura lines. Deliberately did **not** extend `MeasurementSeriesChart`'s Peso/Cintura toggle to include chest/hips — that's a bigger, un-asked-for scope increase (a 4-way toggle) versus the text-delta parity that was actually requested; flagged here in case it's wanted later.
+
+Verified in two layers, neither touching the real account's real measurement history: a throwaway vitest file (written, run against the real dev DB with `DATABASE_URL` exported into the shell, then deleted — same precedent as the reset-feature verification) created a real-but-fake profile, saved a measurement with `chestCm`/`hipsCm` through the actual `createBodyMeasurementForProfile`, and read it back correctly before cleanup; the live `/mediciones` form was screenshotted read-only to confirm the two new fields render with the right Spanish labels/placeholders in the right place.
+
+Files touched: `src/db/schema.ts`, `drizzle/0015_moaning_warbird.sql` (new), `src/measurements/measurement-schema.ts` (+test), `src/measurements/measurement-repository.ts`, `src/measurements/measurement-trend.ts` (+test), `src/measurements/measurement-series.test.ts` (fixture update only), `src/app/mediciones/page.tsx`, `src/app/progreso/progreso-page-content.tsx` (+test fixture updates).
+
+Next iteration: none queued. Deploy and commit when asked.
+
 ## 2026-08-02 — Deployed and committed the "Zona de peligro" reset feature
 
 Status: shipped. Committed as `7de478e` on `main` (`feat: self-serve reset for plans/sessions, keeping body measurements by default`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/perfil/reiniciar` HTTP 307-to-auth confirmed — no schema change, nothing for the automatic migration step to do).

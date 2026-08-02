@@ -15,6 +15,8 @@ export type BodyMeasurementTrend = {
   latestMeasuredAt: Date;
   bodyWeightKg: MeasurementDelta | null;
   waistCm: MeasurementDelta | null;
+  chestCm: MeasurementDelta | null;
+  hipsCm: MeasurementDelta | null;
   latestThighGapCm: number | null;
   latestCalfGapCm: number | null;
   // Per docs/product/progression-rules.md's "5% improvement definition":
@@ -54,6 +56,8 @@ export function buildBodyMeasurementTrend(measurementsDescending: BodyMeasuremen
     latestMeasuredAt: latest.measuredAt,
     bodyWeightKg: buildDelta(oldest.bodyWeightKg, latest.bodyWeightKg),
     waistCm: buildDelta(oldest.waistCm, latest.waistCm),
+    chestCm: buildDelta(oldest.chestCm, latest.chestCm),
+    hipsCm: buildDelta(oldest.hipsCm, latest.hipsCm),
     latestThighGapCm: gaps.thighGapCm,
     latestCalfGapCm: gaps.calfGapCm,
     thighGapImproved: gapImproved(gaps.thighGapCm, previousGaps?.thighGapCm ?? null),

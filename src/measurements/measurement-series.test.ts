@@ -10,6 +10,8 @@ function buildMeasurement(overrides: Partial<BodyMeasurement> = {}): BodyMeasure
     measuredAt: new Date("2026-07-20T12:00:00Z"),
     bodyWeightKg: "80.00",
     waistCm: "88.00",
+    chestCm: "100.00",
+    hipsCm: "95.00",
     rightThighCm: "54.00",
     leftThighCm: "56.00",
     rightCalfCm: "36.00",

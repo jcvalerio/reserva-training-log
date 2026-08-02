@@ -18,6 +18,17 @@ describe("parseBodyMeasurementFormData", () => {
     });
   });
 
+  it("accepts chest and hips as independent single measurements", () => {
+    const formData = new FormData();
+    formData.set("chestCm", "100");
+    formData.set("hipsCm", "95.5");
+
+    expect(parseBodyMeasurementFormData(formData)).toEqual({
+      chestCm: "100.00",
+      hipsCm: "95.50",
+    });
+  });
+
   it("requires at least one numeric measurement", () => {
     const formData = new FormData();
     formData.set("notes", "Solo notas no bastan.");

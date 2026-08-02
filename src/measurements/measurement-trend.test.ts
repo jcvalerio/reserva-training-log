@@ -10,6 +10,8 @@ function buildMeasurement(overrides: Partial<BodyMeasurement> = {}): BodyMeasure
     measuredAt: new Date("2026-07-20T12:00:00Z"),
     bodyWeightKg: "80.00",
     waistCm: "88.00",
+    chestCm: "100.00",
+    hipsCm: "95.00",
     rightThighCm: "54.00",
     leftThighCm: "56.00",
     rightCalfCm: "36.00",
@@ -39,6 +41,18 @@ describe("buildBodyMeasurementTrend", () => {
     expect(trend?.bodyWeightKg).toEqual({ firstValue: 82, latestValue: 78.5, deltaValue: -3.5 });
     expect(trend?.firstMeasuredAt).toEqual(new Date("2026-06-01T12:00:00Z"));
     expect(trend?.latestMeasuredAt).toEqual(new Date("2026-07-20T12:00:00Z"));
+  });
+
+  it("computes chest/hips deltas the same way as weight/waist", () => {
+    const measurements = [
+      buildMeasurement({ measuredAt: new Date("2026-07-20T12:00:00Z"), chestCm: "102.00", hipsCm: "94.00" }),
+      buildMeasurement({ measuredAt: new Date("2026-06-01T12:00:00Z"), chestCm: "100.00", hipsCm: "95.00" }),
+    ];
+
+    const trend = buildBodyMeasurementTrend(measurements);
+
+    expect(trend?.chestCm).toEqual({ firstValue: 100, latestValue: 102, deltaValue: 2 });
+    expect(trend?.hipsCm).toEqual({ firstValue: 95, latestValue: 94, deltaValue: -1 });
   });
 
   it("computes the latest thigh/calf asymmetry gap from the newest entry only", () => {

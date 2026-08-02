@@ -1,6 +1,12 @@
 # Next Task
 
-## Status: a "Zona de peligro" reset feature (/perfil/reiniciar) is deployed and committed (`7de478e`), but NOT yet run for real. No task in progress.
+## Status: pecho/caderas added to body measurements — code complete, not yet deployed/committed. No task in progress.
+
+User feedback: mediciones was missing chest and hips. Added both as single circumference values (like `waistCm`, not left/right-paired like thigh/calf/arm) end to end — form, storage, historial display, and a `/progreso` trend line — following the exact pattern `waistCm` already used. Migration `drizzle/0015_moaning_warbird.sql` applied to dev DB. See the 2026-08-02 implementation-log entry for full detail, including the deliberate choice not to extend the `/progreso` chart's Peso/Cintura toggle to a 4-way toggle (bigger scope than asked).
+
+Next: deploy and commit when asked.
+
+## Prior status: a "Zona de peligro" reset feature (/perfil/reiniciar) is deployed and committed (`7de478e`), but NOT yet run for real.
 
 The user has been testing on their real personal account and wants to wipe accumulated test plans/sessions before switching to a separate test account going forward. Built a self-serve reset (`/perfil/reiniciar`) rather than a one-off script, since family members with their own shared-plan accounts might want the same thing later — see the 2026-08-02 "Zona de peligro" implementation-log entry for full detail, including the FK-ordering risk (`exerciseLog.exercisePrescriptionId` is `onDelete: restrict`) and how it was verified safely against a throwaway fake profile, never the real account.
 

@@ -208,6 +208,18 @@ function BodyMeasurementTrendCard({
                 {formatSignedDelta(trend.waistCm.deltaValue)}cm)
               </p>
             ) : null}
+            {trend.chestCm ? (
+              <p>
+                Pecho: {trend.chestCm.firstValue.toFixed(1)}cm → {trend.chestCm.latestValue.toFixed(1)}cm (
+                {formatSignedDelta(trend.chestCm.deltaValue)}cm)
+              </p>
+            ) : null}
+            {trend.hipsCm ? (
+              <p>
+                Caderas: {trend.hipsCm.firstValue.toFixed(1)}cm → {trend.hipsCm.latestValue.toFixed(1)}cm (
+                {formatSignedDelta(trend.hipsCm.deltaValue)}cm)
+              </p>
+            ) : null}
             {trend.latestThighGapCm !== null || trend.latestCalfGapCm !== null ? (
               <p className="text-xs text-zinc-400">
                 Última asimetría — Muslo: {formatGap(trend.latestThighGapCm)}

@@ -183,6 +183,8 @@ export const bodyMeasurement = pgTable(
     measuredAt: timestamp("measured_at", { withTimezone: true }).notNull().defaultNow(),
     bodyWeightKg: numeric("body_weight_kg", { precision: 6, scale: 2 }),
     waistCm: numeric("waist_cm", { precision: 6, scale: 2 }),
+    chestCm: numeric("chest_cm", { precision: 6, scale: 2 }),
+    hipsCm: numeric("hips_cm", { precision: 6, scale: 2 }),
     rightThighCm: numeric("right_thigh_cm", { precision: 6, scale: 2 }),
     leftThighCm: numeric("left_thigh_cm", { precision: 6, scale: 2 }),
     rightCalfCm: numeric("right_calf_cm", { precision: 6, scale: 2 }),
