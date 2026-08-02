@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed the standardized back-navigation pattern
+
+Status: shipped. Committed as `9c2c550` on `main` (`fix: standardize back-navigation to one AppShell-owned pattern`) — the first commit this session that needed a retry: 1Password's SSH commit-signing agent failed once with "failed to fill whole buffer" (likely locked), succeeded on retry after the user unlocked it. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+
+Next iteration: none queued. See the entry below for the fix's design/verification detail.
+
 ## 2026-08-02 — One standard back-navigation pattern, replacing three inconsistent ones
 
 Status: code complete, `lint`/`typecheck`/`test` (295 passing)/`build` all green. No schema/migration. Not yet deployed/committed. Verified live against the real active account across 4 pages spanning every category of the fix (`/mediciones`, `/plan/builder`, `/entrenar/[sessionId]` — including the real in-progress session the user has going on the leg-priority plan — and `/plan/rutina`), read-only throughout.

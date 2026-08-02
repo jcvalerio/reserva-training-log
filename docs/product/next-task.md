@@ -1,10 +1,8 @@
 # Next Task
 
-## Status: a single standard back-navigation pattern across the whole app — code complete, not yet deployed/committed. No task in progress.
+## Status: a single standard back-navigation pattern across the whole app — shipped, deployed and committed (`9c2c550`). No task in progress.
 
-User feedback with concrete examples (template detail has a back link, but `/plan/templates`, `/plan/historial`, `/plan/builder`, session editor, and `/mediciones` didn't). Audited all 17 routes before touching anything and found three different back-navigation treatments already coexisting (a top text link, a bottom button, and nothing at all) — consolidated onto one: `AppShell` gained a required `backTo: { href, label } | null` prop, rendered once, consistently, at the top of every page. See the 2026-08-02 implementation-log entry for the full route-by-route mapping and why the prop is required rather than optional (TypeScript then forces every one of the 29 call sites to make a real decision). Verified live against the real active account (read-only) across 4 pages spanning every category of the fix.
-
-Next: deploy and commit when asked.
+User feedback with concrete examples (template detail has a back link, but `/plan/templates`, `/plan/historial`, `/plan/builder`, session editor, and `/mediciones` didn't). Audited all 17 routes before touching anything and found three different back-navigation treatments already coexisting (a top text link, a bottom button, and nothing at all) — consolidated onto one: `AppShell` gained a required `backTo: { href, label } | null` prop, rendered once, consistently, at the top of every page. See the 2026-08-02 implementation-log entries for the full route-by-route mapping and why the prop is required rather than optional (TypeScript then forces every one of the 29 call sites to make a real decision). Verified live against the real active account (read-only) across 4 pages spanning every category of the fix.
 
 ## Prior status: "Readaptación" template shipped — deployed and committed (`344237a`).
 
