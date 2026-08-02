@@ -1,6 +1,6 @@
 # Next Task
 
-## Status: competitor UX benchmark done — 6 small improvements to session recording + routine definition built and verified. Not yet deployed/committed. No task in progress.
+## Status: competitor UX benchmark shipped — deployed and committed (`a66474a`) alongside plan sharing + "Tus planes" history. No task in progress.
 
 The most recent completed work: a Principal-Product-Designer competitive UX benchmark (`docs/product/competitor-ux-benchmark-kickoff-prompt.md`) against MyFitCoach/Hevy/Strong, covering only the two flows this app already does — routine definition and session recording, explicitly not a new-feature hunt. Grounded in real screenshots of the current app before researching competitors; presented a prioritized shortlist via `AskUserQuestion`, confirmed item-by-item, then built the 6 confirmed items:
 
@@ -10,7 +10,7 @@ The most recent completed work: a Principal-Product-Designer competitive UX benc
 
 See the 2026-08-02 implementation-log entry for full detail, including a real active-plan → draft state change discovered mid-session (confirmed by the user as their own concurrent edit, not something this work caused or needed to fix).
 
-Next: verify the datalist autocomplete on a real iPhone, then decide on that deferred item. Deploy and commit the 6 built items when asked (neither done yet).
+Next: verify the datalist autocomplete on a real iPhone, then decide on that deferred item.
 
 ## Prior completed work
 
@@ -22,7 +22,7 @@ Three same-day pieces from 2026-08-01:
 
 Migration `drizzle/0014_flowery_stone_men.sql` applied to dev DB (additive only, covers plan sharing's 2 columns + 1 table; neither history feature needed a schema change). `lint`/`typecheck`/`test` (265 passing)/`build` all green; all three verified live via Playwright against the real dev DB. The real account now has exactly 2 plans (1 active, 1 archived) — the stray draft is gone.
 
-Next: deploy and commit when asked (neither done yet, per "only when explicitly asked").
+Shipped alongside the competitor UX benchmark work above — see the 2026-08-02 "Deployed and committed" implementation-log entry.
 
 ## Up next
 

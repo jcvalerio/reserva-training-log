@@ -2,6 +2,14 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed plan sharing, "Tus planes" history, and the competitor UX benchmark work
+
+Status: shipped. Committed as `a66474a` on `main` (`feat: plan sharing, "Tus planes" history, and a competitor UX benchmark pass`), bundling three previously-uncommitted pieces of work in one commit per this project's established pattern for stacked undeployed entries. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan` HTTP 307-to-auth confirmed — migration 0014 had already been applied to the dev DB in a prior session and ran with the deploy as usual, no manual step needed).
+
+Confirmed before deploying that no `/entrenar` session could be actively in progress: the real account's plan was in `draft` status (mid-edit by the user) at deploy time, so there was no active plan to train against regardless.
+
+Next iteration: none queued. The deferred datalist-autocomplete item (see the entry below) still needs a real-iPhone check before deciding whether to replace it.
+
 ## 2026-08-02 — Competitor UX benchmark: 6 small improvements to routine definition + session recording
 
 Status: code complete, `lint`/`typecheck`/`test` (269 passing)/`build` all green. No schema/migration involved. Session-recording changes verified live via Playwright against the real dev DB (a throwaway session/set was created, verified, then deleted directly from the DB — cascade via `exerciseLog.workoutSessionId onDelete: cascade` — confirmed clean via a follow-up query, matching the plan-sharing feature's established throwaway-verification precedent). Builder changes verified against real component tests plus a read-only live view of the user's real in-progress draft (no submissions).
