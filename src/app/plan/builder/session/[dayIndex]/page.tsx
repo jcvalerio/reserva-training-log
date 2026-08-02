@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getDraftPlanForProfile, getKnownExerciseNamesForProfile } from "@/plans/plan-builder-repository";
+import {
+  getDraftPlanForProfile,
+  getExercisePrescriptionDefaultsByName,
+  getKnownExerciseNamesForProfile,
+} from "@/plans/plan-builder-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 import { AppShell } from "../../../../app-shell";
@@ -33,6 +37,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
   }
 
   const knownExerciseNames = await getKnownExerciseNamesForProfile(profile.id);
+  const exerciseDefaultsByName = await getExercisePrescriptionDefaultsByName(profile.id);
 
   const existingSession = draft.sessions.find((session) => session.template.dayIndex === dayIndex);
   const initialExercises: SessionEditorInitialExercise[] = (existingSession?.exercises ?? []).map((exercise) => ({
@@ -81,6 +86,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
         initialFocus={existingSession?.template.focus ?? ""}
         initialExercises={initialExercises}
         knownExerciseNames={knownExerciseNames}
+        exerciseDefaultsByName={exerciseDefaultsByName}
       />
     </AppShell>
   );

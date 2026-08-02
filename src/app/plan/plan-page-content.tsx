@@ -120,6 +120,13 @@ export function PlanPageContent({
           <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />
         )}
 
+        <Link
+          href="/plan/historial"
+          className="block rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Ver todos tus planes
+        </Link>
+
         <div className="rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
           La progresión futura seguirá siendo pain-aware: dolor &gt;2 bloquea aumentos agresivos y dolor &gt;3 exige
           reducir, modificar o cambiar el movimiento.
@@ -294,10 +301,18 @@ function ActivePlanSummary({
             Duplicar como borrador
           </SubmitButton>
         </form>
+        <span className="text-zinc-700">·</span>
+        <Link
+          href="/plan/compartir"
+          className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-emerald-300 underline decoration-emerald-300/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Compartir
+        </Link>
       </div>
       <p className="mt-2 text-xs leading-5 text-zinc-400">
         Editar toma tu plan como borrador hasta que lo reactives; tu historial registrado no se pierde. Duplicar crea
-        un borrador nuevo a partir de este plan sin afectar el que está activo.
+        un borrador nuevo a partir de este plan sin afectar el que está activo. Compartir envía una copia
+        independiente a otra cuenta — cada quien registra sus propios números.
       </p>
     </section>
   );

@@ -47,6 +47,9 @@ describe("PlanPageContent", () => {
     // Only the fork's own single custom-plan link should exist, not a
     // second copy from CustomPlanBuilderEntry rendering underneath it too.
     expect(screen.getAllByRole("link", { name: "Crear mi propio plan" })).toHaveLength(1);
+
+    // Always reachable, even with no active plan yet.
+    expect(screen.getByRole("link", { name: "Ver todos tus planes" })).toHaveAttribute("href", "/plan/historial");
   });
 
   it("hides the start-plan fork until foundations are complete", () => {
@@ -183,6 +186,8 @@ describe("PlanPageContent", () => {
 
     expect(screen.getByRole("button", { name: "Editar mi plan" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Duplicar como borrador" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Compartir" })).toHaveAttribute("href", "/plan/compartir");
+    expect(screen.getByRole("link", { name: "Ver todos tus planes" })).toHaveAttribute("href", "/plan/historial");
   });
 
   it("shows a recoverable error state and no crash when the active plan fails to render", () => {

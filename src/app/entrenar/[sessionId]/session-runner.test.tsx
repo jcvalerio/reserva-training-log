@@ -78,6 +78,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     substitutionOptionsEs: [],
     loadMechanism: "machine",
     isCompound: true,
+    lineageKey: null,
     loggedSets: [],
     previousPerformance: null,
     ...overrides,
@@ -356,8 +357,8 @@ describe("SessionRunner", () => {
       />,
     );
 
-    expect(screen.getByText("Última vez")).toBeVisible();
-    expect(screen.getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(2);
+    expect(screen.getByText(/Última vez/)).toBeVisible();
+    expect(screen.getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(1);
     expect(screen.getByText(/Sube carga/)).toBeVisible();
     expect(screen.getByText(/84kg/)).toBeVisible();
 
@@ -464,7 +465,40 @@ describe("SessionRunner", () => {
     expect(screen.getByText(/82kg/)).toBeVisible();
   });
 
-  it("hides the previous-performance card once a set has been logged this session", () => {
+  it("keeps the previous-performance reference visible after logging a set, matched to the set you're about to log", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00" }),
+          buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "82.50" }),
+        ],
+      },
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[exercise]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+      />,
+    );
+
+    // One set already logged today, so the next set to log is set 2 — the
+    // reference should show set 2's previous value (82.5kg), not set 1's.
+    expect(screen.getByText(/Última vez · Set 2/)).toBeVisible();
+    expect(screen.getAllByText(/82.5kg/).length).toBeGreaterThan(0);
+  });
+
+  it("shows a fallback message once you're past what was recorded last time", () => {
     const exercise = buildExercise({
       targetSets: 3,
       loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
@@ -488,7 +522,8 @@ describe("SessionRunner", () => {
       />,
     );
 
-    expect(screen.queryByText("Última vez")).toBeNull();
+    expect(screen.getByText(/Última vez/)).toBeVisible();
+    expect(screen.getByText("La vez pasada no llegaste a este set.")).toBeVisible();
   });
 
   it("does not show a previous-performance card when there is none", () => {

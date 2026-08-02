@@ -14,6 +14,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[]}
         knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -50,6 +51,7 @@ describe("SessionEditorForm", () => {
           },
         ]}
         knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -69,6 +71,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[]}
         knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -95,6 +98,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[]}
         knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -123,6 +127,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[]}
         knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -147,6 +152,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[]}
         knownExerciseNames={["Prensa de piernas", "Sentadilla"]}
+        exerciseDefaultsByName={{}}
       />,
     );
 
@@ -157,5 +163,128 @@ describe("SessionEditorForm", () => {
     const datalist = document.getElementById(datalistId!);
     const options = datalist ? Array.from(datalist.querySelectorAll("option")).map((option) => option.value) : [];
     expect(options).toEqual(["Prensa de piernas", "Sentadilla"]);
+  });
+
+  it("prefills sets/reps/RIR/rest from a known exercise's most recent prescription when its name is entered", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+        knownExerciseNames={["Sentadilla"]}
+        exerciseDefaultsByName={{
+          Sentadilla: {
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 5,
+            targetRepMin: 5,
+            targetRepMax: 5,
+            targetRir: 1,
+            durationSeconds: null,
+            restSeconds: 180,
+            loadMechanism: "barbell",
+            isCompound: true,
+          },
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Nombre del ejercicio"), { target: { value: "Sentadilla" } });
+    fireEvent.blur(screen.getByLabelText("Nombre del ejercicio"));
+
+    expect(screen.getByLabelText("Series")).toHaveValue(5);
+    expect(screen.getByLabelText("Reps mín.")).toHaveValue(5);
+    expect(screen.getByLabelText("Reps máx.")).toHaveValue(5);
+    expect(screen.getByLabelText("Descanso (s)")).toHaveValue(180);
+    expect(
+      screen.getByText("Series, reps y RIR se llenaron con tu configuración más reciente de este ejercicio — puedes ajustarlos."),
+    ).toBeVisible();
+  });
+
+  it("does not prefill for a name with no history, and does not clobber an unchanged existing row", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[
+          {
+            exerciseNameEs: "Prensa de piernas",
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 4,
+            targetRepMin: 8,
+            targetRepMax: 12,
+            targetRir: 2,
+            durationSeconds: null,
+            restSeconds: 150,
+            notesEs: "Ajusta la carga.",
+            painSensitive: false,
+            substitutionOptionsEs: [],
+            loadMechanism: "machine",
+            isCompound: true,
+          },
+        ]}
+        knownExerciseNames={["Prensa de piernas"]}
+        exerciseDefaultsByName={{
+          "Prensa de piernas": {
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 99,
+            targetRepMin: 99,
+            targetRepMax: 99,
+            targetRir: 0,
+            durationSeconds: null,
+            restSeconds: 999,
+            loadMechanism: "machine",
+            isCompound: true,
+          },
+        }}
+      />,
+    );
+
+    // Blurring without changing the name shouldn't overwrite this row's
+    // already-set values with unrelated history.
+    fireEvent.blur(screen.getByLabelText("Nombre del ejercicio"));
+    expect(screen.getByLabelText("Series")).toHaveValue(4);
+
+    // A genuinely unknown name is a no-op, not a reset to blank defaults.
+    fireEvent.change(screen.getByLabelText("Nombre del ejercicio"), { target: { value: "Ejercicio inventado" } });
+    fireEvent.blur(screen.getByLabelText("Nombre del ejercicio"));
+    expect(screen.getByLabelText("Series")).toHaveValue(4);
+  });
+
+  it("reorders exercise rows with the up/down buttons", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+        knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Nombre del ejercicio"), { target: { value: "Primero" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar ejercicio" }));
+    const nameInputs = screen.getAllByLabelText("Nombre del ejercicio");
+    fireEvent.change(nameInputs[1] as HTMLElement, { target: { value: "Segundo" } });
+
+    const moveDownButtons = screen.getAllByRole("button", { name: "Mover abajo" });
+    fireEvent.click(moveDownButtons[0] as HTMLElement);
+
+    const reorderedNames = screen.getAllByLabelText("Nombre del ejercicio").map((input) => (input as HTMLInputElement).value);
+    expect(reorderedNames).toEqual(["Segundo", "Primero"]);
   });
 });

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 
-import { formatKg } from "@/lib/format";
+import { formatKg, roundKgValue } from "@/lib/format";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
@@ -37,6 +37,13 @@ export function SessionRunner({
     return firstIncomplete === -1 ? Math.max(exercises.length - 1, 0) : firstIncomplete;
   });
   const [saveState, formAction] = useActionState(saveSetAction, initialSaveSetState);
+  const exerciseForTimer = exercises[exerciseIndex];
+  const { remaining: restRemaining, skip: skipRest } = useRestTimer({
+    justSavedThisExercise: saveState.status === "saved" && saveState.exercisePrescriptionId === exerciseForTimer?.id,
+    saveState,
+    restSeconds: exerciseForTimer?.restSeconds ?? 0,
+    exerciseIndex,
+  });
 
   if (session.status === "completed") {
     return <CompletedSessionSummary session={session} template={template} exercises={exercises} />;
@@ -66,9 +73,12 @@ export function SessionRunner({
 
   // Duration-type exercises don't get a progression suggestion in this first
   // cut — no rep range/RIR to compare against, and comparing raw durations
-  // session-over-session is a different, not-yet-built feature.
+  // session-over-session is a different, not-yet-built feature. Unlike the
+  // suggestion below (an exercise-level takeaway), this stays available for
+  // every set, not just the first, so the reference below can track whichever
+  // set you're about to log next.
   const previousPerformance =
-    !isDuration && loggedCount === 0 && currentExercise.previousPerformance?.prescriptionType === "strength"
+    !isDuration && currentExercise.previousPerformance?.prescriptionType === "strength"
       ? currentExercise.previousPerformance
       : null;
   const previousLastSet = previousPerformance?.sets.at(-1) ?? null;
@@ -93,9 +103,20 @@ export function SessionRunner({
         )
       : null;
 
-  const defaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
+  const rawDefaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
+  const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
   const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
   const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
+
+  // The set you're about to log next, matched against the same position (and
+  // side, for unilateral exercises) from the previous session — so the
+  // reference tracks whichever set you're on, not just the first.
+  const upcomingSide = isUnilateral ? defaultSide : "bilateral";
+  const upcomingPositionOnSide = isUnilateral ? (defaultSide === "left" ? leftCount : rightCount) + 1 : nextSetNumber;
+  const matchingPreviousSet =
+    previousPerformance && !isExerciseComplete(currentExercise)
+      ? (previousPerformance.sets.filter((set) => set.side === upcomingSide)[upcomingPositionOnSide - 1] ?? null)
+      : null;
 
   return (
     <AppShell activeHref="/entrenar">
@@ -142,11 +163,22 @@ export function SessionRunner({
 
         {previousPerformance && previousSuggestion ? (
           <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Última vez</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              Última vez
+              {matchingPreviousSet
+                ? ` · Set ${upcomingPositionOnSide}${isUnilateral ? (upcomingSide === "left" ? " · Izq" : " · Der") : ""}`
+                : ""}
+            </p>
             <div className="mt-2 grid gap-1 text-sm text-zinc-300">
-              {previousPerformance.sets.map((set) => (
-                <LoggedSetRow key={set.id} set={set} />
-              ))}
+              {matchingPreviousSet ? (
+                <LoggedSetRow set={matchingPreviousSet} />
+              ) : (
+                <p className="text-xs leading-5 text-zinc-400">
+                  {isExerciseComplete(currentExercise)
+                    ? "Series objetivo completadas."
+                    : "La vez pasada no llegaste a este set."}
+                </p>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
@@ -166,6 +198,22 @@ export function SessionRunner({
                 ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
                 : previousSuggestion.reasonEs}
             </p>
+          </div>
+        ) : null}
+
+        {restRemaining !== null && restRemaining > 0 ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 px-4 py-3 ring-1 ring-emerald-300/30">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Descanso</p>
+              <p className="text-lg font-semibold text-emerald-300">{formatRestTime(restRemaining)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={skipRest}
+              className="min-h-11 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            >
+              Saltar descanso
+            </button>
           </div>
         ) : null}
 
@@ -207,58 +255,11 @@ export function SessionRunner({
             {isDuration ? (
               <DurationSetInput defaultSeconds={defaultDurationSeconds} />
             ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                    <span>Peso (kg)</span>
-                    <input
-                      name="actualWeightKg"
-                      type="number"
-                      inputMode="decimal"
-                      step="0.5"
-                      min={0.5}
-                      max={999}
-                      defaultValue={defaultWeightKg}
-                      required
-                      className="input"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                    <span>Reps</span>
-                    <input
-                      name="actualReps"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={50}
-                      defaultValue={defaultReps}
-                      required
-                      className="input"
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-1 text-sm font-medium text-zinc-300">
-                  <span>Reps en reserva (RIR)</span>
-                  <div className="grid grid-cols-5 gap-2">
-                    {rirValues.map((value) => (
-                      <label
-                        key={value}
-                        className="flex min-h-12 items-center justify-center rounded-xl bg-zinc-950 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300"
-                      >
-                        <input
-                          type="radio"
-                          name="rir"
-                          value={value}
-                          defaultChecked={value === currentExercise.targetRir}
-                          className="sr-only"
-                        />
-                        {toDisplayRir(value)}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </>
+              <StrengthSetFields
+                defaultWeightKg={defaultWeightKg}
+                defaultReps={defaultReps}
+                targetRir={currentExercise.targetRir}
+              />
             )}
 
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
@@ -492,6 +493,204 @@ function DurationSetInput({ defaultSeconds }: { defaultSeconds: number | "" }) {
       />
     </div>
   );
+}
+
+function StrengthSetFields({
+  defaultWeightKg,
+  defaultReps,
+  targetRir,
+}: {
+  defaultWeightKg: number | "";
+  defaultReps: number | "";
+  targetRir: number | null;
+}) {
+  const [weight, setWeight] = useState<number | "">(defaultWeightKg);
+  const [reps, setReps] = useState<number | "">(defaultReps);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <NumericStepperField
+          label="Peso (kg)"
+          name="actualWeightKg"
+          inputMode="decimal"
+          step={0.5}
+          min={0.5}
+          max={999}
+          value={weight}
+          onChange={setWeight}
+        />
+        <NumericStepperField
+          label="Reps"
+          name="actualReps"
+          inputMode="numeric"
+          step={1}
+          min={1}
+          max={50}
+          value={reps}
+          onChange={setReps}
+        />
+      </div>
+
+      <div className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Reps en reserva (RIR)</span>
+        <div className="grid grid-cols-5 gap-2">
+          {rirValues.map((value) => (
+            <label
+              key={value}
+              className="flex min-h-12 items-center justify-center rounded-xl bg-zinc-950 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300"
+            >
+              <input
+                type="radio"
+                name="rir"
+                value={value}
+                defaultChecked={value === targetRir}
+                className="sr-only"
+              />
+              {toDisplayRir(value)}
+            </label>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// A small ± stepper beside the numeric field itself, so weight/reps can be
+// adjusted with one thumb without opening the iOS keyboard for every set —
+// mirrors the plate/rep-increment steppers competitor logging apps use.
+function NumericStepperField({
+  label,
+  name,
+  inputMode,
+  step,
+  min,
+  max,
+  value,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  inputMode: "decimal" | "numeric";
+  step: number;
+  min: number;
+  max: number;
+  value: number | "";
+  onChange: (value: number | "") => void;
+}) {
+  const inputId = useId();
+
+  function adjust(delta: number) {
+    const base = value === "" ? min - delta : value;
+    const next = Math.min(max, Math.max(min, Number((base + delta).toFixed(2))));
+    onChange(next);
+  }
+
+  return (
+    <div className="grid gap-1 text-sm font-medium text-zinc-300">
+      {/* Explicit htmlFor, not a wrapping <label>: a <label> only implicitly
+          associates with the first labelable descendant, which would be the
+          minus button here, not the input. */}
+      <label htmlFor={inputId}>{label}</label>
+      <div className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => adjust(-step)}
+          aria-label={`Restar ${step}`}
+          className="flex h-11 items-center justify-center rounded-xl bg-zinc-950 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          −
+        </button>
+        <input
+          id={inputId}
+          name={name}
+          type="number"
+          inputMode={inputMode}
+          step={step}
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))}
+          required
+          className="input text-center"
+        />
+        <button
+          type="button"
+          onClick={() => adjust(step)}
+          aria-label={`Sumar ${step}`}
+          className="flex h-11 items-center justify-center rounded-xl bg-zinc-950 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Starts a non-blocking rest countdown the moment a new set is saved for the
+// exercise currently on screen. A ref (not just state) tracks which save was
+// already handled so navigating back to an exercise after the timer already
+// ran/was skipped doesn't restart it — only a genuinely new save does.
+function useRestTimer({
+  justSavedThisExercise,
+  saveState,
+  restSeconds,
+  exerciseIndex,
+}: {
+  justSavedThisExercise: boolean;
+  saveState: SaveSetActionState;
+  restSeconds: number;
+  exerciseIndex: number;
+}) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const lastHandledSetRef = useRef<string | null>(null);
+
+  // Resetting on an exerciseIndex change during render (React's documented
+  // "adjusting state when a prop changes" pattern) instead of in an effect —
+  // avoids the extra render an effect-based reset would cause.
+  const [lastExerciseIndex, setLastExerciseIndex] = useState(exerciseIndex);
+  if (exerciseIndex !== lastExerciseIndex) {
+    setLastExerciseIndex(exerciseIndex);
+    if (remaining !== null) {
+      setRemaining(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!justSavedThisExercise || saveState.status !== "saved" || restSeconds <= 0) {
+      return;
+    }
+    const signature = `${saveState.exercisePrescriptionId}:${saveState.setNumber}`;
+    if (lastHandledSetRef.current === signature) {
+      return;
+    }
+    lastHandledSetRef.current = signature;
+    setRemaining(restSeconds);
+  }, [justSavedThisExercise, saveState, restSeconds]);
+
+  useEffect(() => {
+    if (remaining === null || remaining <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRemaining((current) => (current !== null ? current - 1 : current));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [remaining]);
+
+  useEffect(() => {
+    if (remaining === 0 && typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(200);
+    }
+  }, [remaining]);
+
+  return { remaining, skip: () => setRemaining(null) };
+}
+
+function formatRestTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function formatStoredRir(rir: number) {

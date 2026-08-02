@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { exercisePrescription, planSessionTemplate, workoutPlan } from "@/db/schema";
+import { exercisePrescription, planSessionTemplate, workoutPlan, workoutSession } from "@/db/schema";
 
 import { generatedWorkoutPlanSchema, type GeneratedWorkoutPlan } from "./generated-plan-schema";
+import type { PlanHistoryRow } from "./plan-history";
 import { getPlanTemplateById, type PlanTemplateId } from "./plan-templates";
 
 export type WorkoutPlan = typeof workoutPlan.$inferSelect;
@@ -66,6 +67,70 @@ export async function getActivePlanForProfile(athleteProfileId: string): Promise
       exercises: exercisesByTemplateId.get(template.id) ?? [],
     })),
   };
+}
+
+/** Ownership-scoped lookup for the plan-history detail page — any status. */
+export async function getPlanForProfile(athleteProfileId: string, planId: string): Promise<WorkoutPlan | null> {
+  const [plan] = await db
+    .select()
+    .from(workoutPlan)
+    .where(and(eq(workoutPlan.id, planId), eq(workoutPlan.athleteProfileId, athleteProfileId)));
+
+  return plan ?? null;
+}
+
+export type PlanSessionStats = {
+  sessionCount: number;
+  firstSessionAt: Date | null;
+  lastSessionAt: Date | null;
+};
+
+export async function getPlanSessionStats(planId: string): Promise<PlanSessionStats> {
+  const sessions = await db
+    .select({ startedAt: workoutSession.startedAt, completedAt: workoutSession.completedAt })
+    .from(workoutSession)
+    .where(eq(workoutSession.workoutPlanId, planId));
+
+  const dates = sessions
+    .map((session) => session.completedAt ?? session.startedAt)
+    .filter((date): date is Date => date !== null)
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return {
+    sessionCount: sessions.length,
+    firstSessionAt: dates[0] ?? null,
+    lastSessionAt: dates[dates.length - 1] ?? null,
+  };
+}
+
+/**
+ * Every plan a profile has ever had (any status — draft, active, archived,
+ * completed), newest first, with a real session count per plan. Archived
+ * plans are otherwise invisible in the UI once superseded, even though
+ * their logged history stays fully intact — this is the one place that
+ * surfaces them again.
+ */
+export async function getAllPlansForProfile(athleteProfileId: string): Promise<PlanHistoryRow[]> {
+  const plans = await db
+    .select()
+    .from(workoutPlan)
+    .where(eq(workoutPlan.athleteProfileId, athleteProfileId))
+    .orderBy(desc(workoutPlan.createdAt));
+
+  if (plans.length === 0) {
+    return [];
+  }
+
+  const planIds = plans.map((plan) => plan.id);
+  const sessionCounts = await db
+    .select({ workoutPlanId: workoutSession.workoutPlanId, count: sql<number>`count(*)::int` })
+    .from(workoutSession)
+    .where(inArray(workoutSession.workoutPlanId, planIds))
+    .groupBy(workoutSession.workoutPlanId);
+
+  const sessionCountByPlanId = new Map(sessionCounts.map((row) => [row.workoutPlanId, row.count]));
+
+  return plans.map((plan) => ({ plan, sessionCount: sessionCountByPlanId.get(plan.id) ?? 0 }));
 }
 
 export async function activateSeededPlanForProfile(

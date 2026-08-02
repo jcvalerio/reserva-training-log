@@ -19,6 +19,7 @@ function buildPlanRow(plan: GeneratedWorkoutPlan, overrides: Partial<WorkoutPlan
     safetySummaryEs: plan.safetySummaryEs,
     status: "active",
     activatedAt: new Date("2026-07-20T12:00:00Z"),
+    sharePlanGroupId: null,
     createdAt: new Date("2026-07-20T12:00:00Z"),
     updatedAt: new Date("2026-07-20T12:00:00Z"),
     ...overrides,
@@ -63,6 +64,7 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       substitutionOptionsEs: exercise.substitutionOptionsEs,
       loadMechanism: exercise.prescriptionType === "strength" ? (exercise.loadMechanism ?? null) : null,
       isCompound: exercise.prescriptionType === "strength" ? (exercise.isCompound ?? null) : null,
+      lineageKey: null,
     }));
 
     return { template, exercises };

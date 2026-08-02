@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
+import type { ExercisePrescriptionDefaults } from "@/plans/plan-builder-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { rirLabelsEs, rirValues } from "@/training/rir";
@@ -31,7 +32,7 @@ export type SessionEditorInitialExercise = {
   isCompound: boolean | null;
 };
 
-type ExerciseRowValue = SessionEditorInitialExercise & { key: string };
+type ExerciseRowValue = SessionEditorInitialExercise & { key: string; prefilledFromHistory: boolean };
 
 function blankRow(key: string): ExerciseRowValue {
   return {
@@ -51,6 +52,7 @@ function blankRow(key: string): ExerciseRowValue {
     substitutionOptionsEs: [],
     loadMechanism: null,
     isCompound: null,
+    prefilledFromHistory: false,
   };
 }
 
@@ -64,6 +66,7 @@ export function SessionEditorForm({
   initialFocus,
   initialExercises,
   knownExerciseNames,
+  exerciseDefaultsByName,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   draftPlanId: string;
@@ -72,11 +75,12 @@ export function SessionEditorForm({
   initialFocus: string;
   initialExercises: SessionEditorInitialExercise[];
   knownExerciseNames: string[];
+  exerciseDefaultsByName: Record<string, ExercisePrescriptionDefaults>;
 }) {
   const nextKeyRef = useRef(Math.max(initialExercises.length, 1));
   const [rows, setRows] = useState<ExerciseRowValue[]>(() =>
     initialExercises.length > 0
-      ? initialExercises.map((exercise, index) => ({ ...exercise, key: `row-${index}` }))
+      ? initialExercises.map((exercise, index) => ({ ...exercise, key: `row-${index}`, prefilledFromHistory: false }))
       : [blankRow("row-0")],
   );
 
@@ -88,6 +92,42 @@ export function SessionEditorForm({
 
   function removeRow(key: string) {
     setRows((current) => (current.length > 1 ? current.filter((row) => row.key !== key) : current));
+  }
+
+  function moveRow(key: string, direction: -1 | 1) {
+    setRows((current) => {
+      const index = current.findIndex((row) => row.key === key);
+      const targetIndex = index + direction;
+      if (index === -1 || targetIndex < 0 || targetIndex >= current.length) {
+        return current;
+      }
+      const next = [...current];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  }
+
+  // Fields are otherwise uncontrolled (read straight from the DOM on submit),
+  // so prefilling requires forcing a remount: bumping the row's key makes
+  // React re-read fresh defaultValues from the updated row instead of
+  // leaving the already-mounted inputs untouched. Only fires when the name
+  // actually changed, so tabbing through an already-filled row (editing an
+  // existing session) never clobbers values the user already set on purpose.
+  function applyKnownExerciseDefaults(key: string, name: string) {
+    const defaults = exerciseDefaultsByName[name];
+    if (!defaults) {
+      return;
+    }
+    setRows((current) =>
+      current.map((row) => {
+        if (row.key !== key || row.exerciseNameEs === name) {
+          return row;
+        }
+        const nextKey = `row-${nextKeyRef.current}`;
+        nextKeyRef.current += 1;
+        return { ...row, ...defaults, exerciseNameEs: name, key: nextKey, prefilledFromHistory: true };
+      }),
+    );
   }
 
   return (
@@ -142,6 +182,11 @@ export function SessionEditorForm({
             value={row}
             onRemove={() => removeRow(row.key)}
             canRemove={rows.length > 1}
+            onMoveUp={() => moveRow(row.key, -1)}
+            onMoveDown={() => moveRow(row.key, 1)}
+            canMoveUp={index > 0}
+            canMoveDown={index < rows.length - 1}
+            onPrefill={(name) => applyKnownExerciseDefaults(row.key, name)}
           />
         ))}
       </div>
@@ -166,11 +211,21 @@ function ExerciseRowFields({
   value,
   onRemove,
   canRemove,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  onPrefill,
 }: {
   index: number;
   value: ExerciseRowValue;
   onRemove: () => void;
   canRemove: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onPrefill: (name: string) => void;
 }) {
   const prefix = `exercise-${index}`;
   // Controlled locally (unlike every other field in this form) because it
@@ -194,15 +249,35 @@ function ExerciseRowFields({
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Ejercicio {index + 1}</p>
-        {canRemove ? (
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={onRemove}
-            className="shrink-0 rounded-xl bg-zinc-950 px-3 py-2 text-xs font-semibold text-amber-200 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            aria-label="Mover arriba"
+            className="rounded-xl bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
           >
-            Eliminar
+            ↑
           </button>
-        ) : null}
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            aria-label="Mover abajo"
+            className="rounded-xl bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+          >
+            ↓
+          </button>
+          {canRemove ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-xl bg-zinc-950 px-3 py-2 text-xs font-semibold text-amber-200 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+            >
+              Eliminar
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
@@ -212,12 +287,18 @@ function ExerciseRowFields({
           type="text"
           maxLength={200}
           defaultValue={value.exerciseNameEs}
+          onBlur={(event) => onPrefill(event.target.value.trim())}
           className="input"
           placeholder="Prensa de piernas"
           list={KNOWN_EXERCISE_NAMES_DATALIST_ID}
           autoComplete="off"
         />
       </label>
+      {value.prefilledFromHistory ? (
+        <p className="mt-1 text-xs leading-5 text-emerald-300">
+          Series, reps y RIR se llenaron con tu configuración más reciente de este ejercicio — puedes ajustarlos.
+        </p>
+      ) : null}
 
       <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
         <span>Tipo de ejercicio</span>

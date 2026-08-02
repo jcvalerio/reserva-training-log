@@ -140,6 +140,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     safetySummaryEs: "Registra dolor en cada serie.",
     status: "active" as const,
     activatedAt: new Date("2026-07-20T12:00:00Z"),
+    sharePlanGroupId: null,
     createdAt: new Date("2026-07-20T12:00:00Z"),
     updatedAt: new Date("2026-07-20T12:00:00Z"),
   };
@@ -164,6 +165,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     substitutionOptionsEs: [],
     loadMechanism: null,
     isCompound: null,
+    lineageKey: null,
   };
 
   return {

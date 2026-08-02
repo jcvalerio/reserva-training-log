@@ -42,6 +42,79 @@ export async function getKnownExerciseNamesForProfile(athleteProfileId: string):
   return rows.map((row) => row.exerciseNameEs).sort((a, b) => a.localeCompare(b, "es"));
 }
 
+export type ExercisePrescriptionDefaults = Pick<
+  ExercisePrescription,
+  | "phase"
+  | "isUnilateral"
+  | "prescriptionType"
+  | "targetSets"
+  | "targetRepMin"
+  | "targetRepMax"
+  | "targetRir"
+  | "durationSeconds"
+  | "restSeconds"
+  | "loadMechanism"
+  | "isCompound"
+>;
+
+// One most-recent prescription per known exercise name, so the session
+// editor can prefill sets/reps/RIR/rest for a name you've already used
+// elsewhere instead of always starting from hard defaults — "most recent" is
+// picked by the owning plan's createdAt since exercisePrescription rows
+// don't carry their own timestamp. Picked in JS rather than a SQL window
+// function to match this file's existing lightweight-query style.
+export async function getExercisePrescriptionDefaultsByName(
+  athleteProfileId: string,
+): Promise<Record<string, ExercisePrescriptionDefaults>> {
+  const rows = await db
+    .select({
+      exerciseNameEs: exercisePrescription.exerciseNameEs,
+      phase: exercisePrescription.phase,
+      isUnilateral: exercisePrescription.isUnilateral,
+      prescriptionType: exercisePrescription.prescriptionType,
+      targetSets: exercisePrescription.targetSets,
+      targetRepMin: exercisePrescription.targetRepMin,
+      targetRepMax: exercisePrescription.targetRepMax,
+      targetRir: exercisePrescription.targetRir,
+      durationSeconds: exercisePrescription.durationSeconds,
+      restSeconds: exercisePrescription.restSeconds,
+      loadMechanism: exercisePrescription.loadMechanism,
+      isCompound: exercisePrescription.isCompound,
+      planCreatedAt: workoutPlan.createdAt,
+    })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(exercisePrescription.planSessionTemplateId, planSessionTemplate.id))
+    .innerJoin(workoutPlan, eq(planSessionTemplate.workoutPlanId, workoutPlan.id))
+    .where(eq(workoutPlan.athleteProfileId, athleteProfileId));
+
+  const mostRecentByName = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const existing = mostRecentByName.get(row.exerciseNameEs);
+    if (!existing || row.planCreatedAt > existing.planCreatedAt) {
+      mostRecentByName.set(row.exerciseNameEs, row);
+    }
+  }
+
+  return Object.fromEntries(
+    [...mostRecentByName.entries()].map(([name, row]) => [
+      name,
+      {
+        phase: row.phase,
+        isUnilateral: row.isUnilateral,
+        prescriptionType: row.prescriptionType,
+        targetSets: row.targetSets,
+        targetRepMin: row.targetRepMin,
+        targetRepMax: row.targetRepMax,
+        targetRir: row.targetRir,
+        durationSeconds: row.durationSeconds,
+        restSeconds: row.restSeconds,
+        loadMechanism: row.loadMechanism,
+        isCompound: row.isCompound,
+      },
+    ]),
+  );
+}
+
 export async function getDraftPlanForProfile(athleteProfileId: string): Promise<DraftPlanWithSessions | null> {
   const [planRow] = await db
     .select()
@@ -55,7 +128,12 @@ export async function getDraftPlanForProfile(athleteProfileId: string): Promise<
   return getDraftPlanSessions(planRow);
 }
 
-async function getDraftPlanSessions(planRow: WorkoutPlan): Promise<DraftPlanWithSessions> {
+// Not actually draft-specific despite the name (kept for minimal diff — it
+// predates the share feature) — returns the full session/exercise structure
+// for any WorkoutPlan row regardless of status. Exported for
+// plan-share-repository.ts, which needs the same read for both an active
+// and a freshly-cloned draft plan.
+export async function getDraftPlanSessions(planRow: WorkoutPlan): Promise<DraftPlanWithSessions> {
   const templates = await db
     .select()
     .from(planSessionTemplate)
@@ -303,12 +381,29 @@ export async function cloneWorkoutPlanToDraft(
   // handling — a source plan still carrying old 4-week legacy data should
   // clone as one flat routine, not duplicate every week's templates.
   const sourceSessions = source.sessions.filter((session) => session.template.weekNumber === 1);
+  await insertClonedPlanSessions(insertedPlan.id, sourceSessions);
 
+  const cloned = await getDraftPlanForProfile(athleteProfileId);
+  if (!cloned) {
+    throw new Error("Plan duplication failed unexpectedly");
+  }
+  return cloned;
+}
+
+/**
+ * Inserts a copy of each given day (with its exercises) under targetPlanId.
+ * Shared by the self-duplicate flow above and plan-share-repository.ts's
+ * cross-account redemption clone — the row-shaping is identical, only the
+ * ownership/authorization around it differs. lineageKey is always copied
+ * through: null stays null for an ordinary (never-shared) duplicate, and a
+ * real value flows through unchanged for a share-redemption clone.
+ */
+export async function insertClonedPlanSessions(targetPlanId: string, sourceSessions: DraftPlanSession[]): Promise<void> {
   for (const session of sourceSessions) {
     const templateId = randomUUID();
     await db.insert(planSessionTemplate).values({
       id: templateId,
-      workoutPlanId: insertedPlan.id,
+      workoutPlanId: targetPlanId,
       weekNumber: 1,
       dayIndex: session.template.dayIndex,
       nameEs: session.template.nameEs,
@@ -341,16 +436,11 @@ export async function cloneWorkoutPlanToDraft(
           substitutionOptionsEs: exercise.substitutionOptionsEs,
           loadMechanism: exercise.loadMechanism,
           isCompound: exercise.isCompound,
+          lineageKey: exercise.lineageKey,
         })),
       );
     }
   }
-
-  const cloned = await getDraftPlanForProfile(athleteProfileId);
-  if (!cloned) {
-    throw new Error("Plan duplication failed unexpectedly");
-  }
-  return cloned;
 }
 
 export async function deleteDraftSession(draftPlanId: string, dayIndex: number) {

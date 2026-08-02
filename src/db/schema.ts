@@ -41,6 +41,7 @@ export const exerciseLoadMechanismEnum = pgEnum("exercise_load_mechanism", [
   "barbell",
 ]);
 export const exercisePrescriptionTypeEnum = pgEnum("exercise_prescription_type", ["strength", "duration"]);
+export const planShareInviteStatusEnum = pgEnum("plan_share_invite_status", ["pending", "redeemed"]);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -260,6 +261,12 @@ export const workoutPlan = pgTable(
     safetySummaryEs: text("safety_summary_es").notNull(),
     status: workoutPlanStatusEnum("status").notNull().default("draft"),
     activatedAt: timestamp("activated_at", { withTimezone: true }),
+    // Nullable: set the first time this plan (or a plan it was cloned from)
+    // is shared via planShareInvite, then copied verbatim onto every clone
+    // descended from it. Lets a future comparison feature find "every plan
+    // that started from the same share" in one query, without walking a
+    // parent/child graph.
+    sharePlanGroupId: text("share_plan_group_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: updatedAtColumn(),
   },
@@ -269,6 +276,7 @@ export const workoutPlan = pgTable(
     uniqueIndex("workout_plan_active_per_profile_idx")
       .on(table.athleteProfileId)
       .where(sql`${table.status} = 'active'`),
+    index("workout_plan_share_group_idx").on(table.sharePlanGroupId),
   ],
 );
 
@@ -339,10 +347,54 @@ export const exercisePrescription = pgTable(
     // Nullable: unclassified rows fall back to a flat increment.
     loadMechanism: exerciseLoadMechanismEnum("load_mechanism"),
     isCompound: boolean("is_compound"),
+    // Nullable: set alongside workoutPlan.sharePlanGroupId the first time the
+    // plan is shared, then copied verbatim onto the corresponding row in
+    // every clone. A future comparison feature joins on this instead of
+    // exerciseNameEs/orderIndex, so it survives either side later renaming
+    // or reordering their own copy.
+    lineageKey: text("lineage_key"),
   },
   (table) => [
     index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),
     uniqueIndex("exercise_prescription_template_order_unique").on(table.planSessionTemplateId, table.orderIndex),
+  ],
+);
+
+// A single-use, email-bound invite to clone a plan into another account —
+// never a live link. Redeeming inserts an independent workoutPlan (see
+// redeemPlanShare in plan-share-repository.ts); nothing here is ever read or
+// written to once status flips to "redeemed" except by a future comparison
+// feature reading sharePlanGroupId/lineageKey, both on the plan tables
+// above, not on this table.
+export const planShareInvite = pgTable(
+  "plan_share_invite",
+  {
+    id: text("id").primaryKey(),
+    sourceWorkoutPlanId: text("source_workout_plan_id")
+      .notNull()
+      .references(() => workoutPlan.id, { onDelete: "cascade" }),
+    createdByAthleteProfileId: text("created_by_athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    // Lowercased/trimmed at write time — redemption is only ever a
+    // case-insensitive email match against the currently signed-in user.
+    recipientEmail: text("recipient_email").notNull(),
+    code: text("code").notNull(),
+    status: planShareInviteStatusEnum("status").notNull().default("pending"),
+    // set null, not restrict/cascade: an invite is a low-stakes historical
+    // record, not logged training history — it should never block deleting
+    // the profile that redeemed it.
+    redeemedByAthleteProfileId: text("redeemed_by_athlete_profile_id").references(() => athleteProfile.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("plan_share_invite_code_unique").on(table.code),
+    index("plan_share_invite_source_plan_idx").on(table.sourceWorkoutPlanId),
+    index("plan_share_invite_recipient_email_idx").on(table.recipientEmail),
   ],
 );
 
