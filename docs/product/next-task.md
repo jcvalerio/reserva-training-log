@@ -1,16 +1,10 @@
 # Next Task
 
-## Status: unilateral side default now keys off real measurements instead of a hardcoded "left" — code complete, not yet deployed/committed. No task in progress.
+## Status: leg-priority template + measurement-based unilateral side default shipped — deployed and committed (`2469330`). No task in progress.
 
-Reviewing the new leg-priority template against the user's real measurements (right thigh/calf/arm all smaller) surfaced a real bug: the session-runner's side-selector tie-break always defaulted to Izquierda regardless of which side is actually thinner. `determineSmallerSide` (new, `measurement-schema.ts`) now derives this from the profile's latest measurement; the tie-break falls back to "left" when there's no measurement data, so nothing changes for a profile without saved measurements. See the 2026-08-02 implementation-log entry — including why the user's shared measurement data (a raw SQL INSERT, for context) was never actually written to the real DB, so this hasn't been verified end-to-end against a real account yet, just against their exact real numbers in tests.
+Two pieces shipped together: a third plan template ("Hipertrofia con prioridad en piernas," transcribed from a user-supplied PDF — 5-day, all-machine, unilateral-leg-priority protocol) added to `/plan/templates`, and a real bug fix found while reviewing that template against the user's actual measurements — the session-runner's unilateral side-selector always defaulted to Izquierda regardless of which leg is actually thinner. `determineSmallerSide` (`measurement-schema.ts`) now derives the correct default from the profile's latest measurement, falling back to left when there's no measurement data. See the two 2026-08-02 implementation-log entries below the deploy record for full detail, including why the user's shared measurement data (a raw SQL INSERT, for context) was never actually written to the real DB — this was verified against their exact real numbers in tests, not end-to-end against a live account.
 
-Next: deploy and commit when asked.
-
-## Status: a third plan template ("Hipertrofia con prioridad en piernas") built from a user-supplied PDF — code complete, not yet deployed/committed.
-
-Transcribed `/Users/jcvalerio/Downloads/Plan_detallado_entrenamiento_semanal.pdf` (a 5-day, all-machine hypertrophy plan with a unilateral-leg-priority protocol and per-set RIR schemes) into `src/plans/leg-priority-plan.ts`, following the existing `seeded-plan.ts`/`fat-loss-plan.ts` pattern, and added it to the `/plan/templates` catalog. See the 2026-08-02 implementation-log entry for the adaptation calls (per-set RIR scheme collapsed to one `targetRir`, "Core" modeled as rep-based). Verified live (read-only preview, not activated — the account currently has zero plans post-reset, so activating is a real, separate decision for the user).
-
-Next: deploy and commit when asked.
+The account still has zero plans (post-reset) and no saved measurements — activating this new template, and saving a real measurement to actually exercise the new side-default logic live, are both real next steps for the user, not done as part of shipping this.
 
 ## Status: the account's real plans/sessions/measurements were reset for real (the "Zona de peligro" feature from `7de478e` was actually used) — confirmed via a direct DB query showing zero `workout_plan` rows. No further action needed here.
 

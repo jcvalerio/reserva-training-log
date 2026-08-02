@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed the leg-priority template + measurement-based side default
+
+Status: shipped. Committed as `2469330` on `main` (`feat: add leg-priority template; default unilateral side from measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+
+Next iteration: none queued. See the two entries below for what shipped.
+
 ## 2026-08-02 — Unilateral side default now keys off real measurements, not a hardcoded "left"
 
 Status: code complete, `lint`/`typecheck`/`test` (288 passing)/`build` all green. No schema/migration. Not yet deployed/committed.
