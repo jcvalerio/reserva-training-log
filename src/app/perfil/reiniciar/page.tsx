@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
@@ -26,13 +25,10 @@ export default async function ResetProfileDataPage({ searchParams }: ResetPagePr
   const hasAnyData = summary.planCount > 0 || summary.sessionCount > 0 || summary.measurementCount > 0;
 
   return (
-    <AppShell activeHref="/perfil">
+    <AppShell activeHref="/perfil" backTo={{ href: "/perfil", label: "Perfil" }}>
       <header className="space-y-3">
         <div>
-          <Link href="/perfil" className="text-xs font-semibold text-emerald-300">
-            ← Volver a Perfil
-          </Link>
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Perfil · Zona de peligro</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Perfil · Zona de peligro</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Eliminar planes y sesiones</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             Esto borra permanentemente todos tus planes (activos, borradores y archivados) y tus sesiones

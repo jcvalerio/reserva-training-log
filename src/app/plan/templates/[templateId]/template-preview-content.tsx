@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
 
 import { AppShell } from "../../../app-shell";
@@ -19,13 +17,10 @@ export function TemplatePreviewContent({
   activatePlanAction: (formData: FormData) => Promise<void>;
 }) {
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan/templates", label: "plantillas" }}>
       <header className="space-y-3">
         <div>
-          <Link href="/plan/templates" className="text-xs font-semibold text-emerald-300">
-            ← Volver a plantillas
-          </Link>
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan · Plantilla</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan · Plantilla</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{summary.nameEs}</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{objectiveEs}</p>
         </div>

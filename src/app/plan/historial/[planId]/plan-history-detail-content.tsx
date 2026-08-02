@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { formatShortDateEs } from "@/lib/format";
 import { PLAN_STATUS_LABEL_ES, PLAN_STATUS_PILL_CLASS } from "@/plans/plan-history";
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
@@ -20,14 +18,8 @@ export function PlanHistoryDetailContent({
   previewError: boolean;
 }) {
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan/historial", label: "Tus planes" }}>
       <header className="space-y-3">
-        <Link
-          href="/plan/historial"
-          className="text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-        >
-          ← Volver a Tus planes
-        </Link>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>

@@ -35,7 +35,7 @@ export function ProgresoPageContent({
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
-      <AppShell activeHref="/progreso">
+      <AppShell activeHref="/progreso" backTo={null}>
         <header className="space-y-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Progreso</p>
@@ -60,7 +60,7 @@ export function ProgresoPageContent({
   const improvedExerciseCount = improvements.filter((row) => row.improvement.improved).length;
 
   return (
-    <AppShell activeHref="/progreso">
+    <AppShell activeHref="/progreso" backTo={null}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Progreso</p>

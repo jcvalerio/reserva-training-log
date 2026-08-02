@@ -2,6 +2,25 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — One standard back-navigation pattern, replacing three inconsistent ones
+
+Status: code complete, `lint`/`typecheck`/`test` (295 passing)/`build` all green. No schema/migration. Not yet deployed/committed. Verified live against the real active account across 4 pages spanning every category of the fix (`/mediciones`, `/plan/builder`, `/entrenar/[sessionId]` — including the real in-progress session the user has going on the leg-priority plan — and `/plan/rutina`), read-only throughout.
+
+User feedback, with concrete examples: navigating into a template detail page has a "← Volver a plantillas" link, but `/plan/templates` itself, `/plan/historial`, `/plan/builder`, and `/plan/builder/session/[dayIndex]` had no way back except re-tapping the bottom-nav "Plan" tab; `/mediciones` had no way back to Perfil at all. Audited all 17 route files (29 `AppShell` call sites) before touching anything, rather than just patching the pages named — found the real picture was worse than "some pages missing a back link": **three different back-navigation treatments already coexisted**, plus a fourth "nothing" case:
+- A small top-of-page text link, "← Volver a X" (`/plan/rutina`, `/plan/historial/[planId]`, `/plan/templates/[templateId]`, `/perfil/reiniciar`) — itself in two slightly different styles (with vs. without a focus-visible ring).
+- A full-width button at the *bottom* of the page, "Volver a Plan," no arrow (`/plan/historial`, `/plan/compartir`).
+- Nothing at all (`/plan/templates` list, `/plan/builder`, `/plan/builder/session/[dayIndex]`, `/mediciones`, `/entrenar/[sessionId]`, and one more found during the audit that hadn't even been flagged: `/plan/compartir/[code]`, the share-redemption landing page).
+
+**The fix lives in one place**: every page in this app already renders through a single shared `AppShell` component (used for the bottom nav). It gained a new, deliberately *required* prop — `backTo: { href: string; label: string } | null` — required rather than optional so a future new page can't silently ship without a deliberate answer either way; `null` is reserved for the 5 bottom-nav home pages (`/`, `/perfil`, `/plan`, `/entrenar`, `/progreso`), where the nav tabs themselves already are the back-navigation. Every other page now renders one consistent "← Volver a {label}" at the top, in one place, styled once (`text-sm font-semibold text-emerald-300`, `focus-visible` ring, `min-h-11` tap target per this project's existing 44px accessibility convention) — not copy-pasted per page in three different ways.
+
+Migrated the 6 pages that already had *something* onto the new prop (removing their inline `Link`/bottom-button markup entirely) and added `backTo` to the 7 pages that had nothing — 5 originally flagged plus `/plan/compartir/[code]`, found during the audit. Back targets: `/plan/templates`→Plan, `/plan/builder`→Plan, `/plan/builder/session/[dayIndex]`→"tu borrador" (not "el borrador" — bare `a el` isn't valid Spanish, needed the possessive), `/mediciones`→Perfil, `/entrenar/[sessionId]`→Entrenar, `/plan/compartir/[code]`→Plan (a share link is an external entry point, so Plan is the sane default landing target rather than "back" to anywhere specific).
+
+TypeScript caught the whole migration mechanically — every one of the 29 call sites needed a real decision (no way to leave one unmigrated and have it silently compile), which is exactly the point of making the prop required instead of optional.
+
+Files touched: `src/app/app-shell.tsx`, plus all 17 route files that render it — `home-shell.tsx`, `perfil/page.tsx`, `perfil/reiniciar/page.tsx`, `progreso-page-content.tsx`, `plan-page-content.tsx`, `plan/historial/page.tsx`, `plan/historial/[planId]/plan-history-detail-content.tsx`, `plan/compartir/page.tsx`, `plan/compartir/[code]/page.tsx`, `plan/rutina/plan-detail-content.tsx`, `plan/templates/templates-page-content.tsx`, `plan/templates/[templateId]/template-preview-content.tsx`, `plan/builder/builder-page-content.tsx`, `plan/builder/session/[dayIndex]/page.tsx`, `entrenar/entrenar-page-content.tsx`, `entrenar/[sessionId]/session-runner.tsx`, `mediciones/page.tsx`.
+
+Next iteration: none queued. Deploy and commit when asked.
+
 ## 2026-08-02 — Deployed and committed the "Readaptación" template
 
 Status: shipped. Committed as `344237a` on `main` (`feat: add "Readaptación" template from a user-supplied infographic`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).

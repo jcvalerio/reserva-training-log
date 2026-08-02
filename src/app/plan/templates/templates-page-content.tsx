@@ -6,7 +6,7 @@ import { AppShell } from "../../app-shell";
 
 export function TemplatesPageContent({ templates }: { templates: PlanTemplateMeta[] }) {
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>

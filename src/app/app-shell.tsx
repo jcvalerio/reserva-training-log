@@ -1,11 +1,24 @@
+import Link from "next/link";
+
 import { getHomeNavItems } from "./home-nav";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 
+// Required, not optional: every page must make a deliberate choice rather
+// than silently shipping without one. null is reserved for the 5 bottom-nav
+// home pages (/, /perfil, /plan, /entrenar, /progreso), where the nav tabs
+// themselves are the navigation — every other page is one drill-down deep
+// (or more) from one of those and needs an explicit way back up, in one
+// consistent place instead of the three different ad-hoc patterns this
+// replaced (a top text link, a bottom button, or nothing at all).
+export type AppShellBackTo = { href: string; label: string } | null;
+
 export function AppShell({
   activeHref,
+  backTo,
   children,
 }: {
   activeHref: string;
+  backTo: AppShellBackTo;
   children: React.ReactNode;
 }) {
   return (
@@ -17,6 +30,14 @@ export function AppShell({
             ES · EN pronto
           </span>
         </div>
+        {backTo ? (
+          <Link
+            href={backTo.href}
+            className="mb-4 inline-flex min-h-11 w-fit items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            ← Volver a {backTo.label}
+          </Link>
+        ) : null}
         {children}
       </main>
       <MobileBottomNav items={getHomeNavItems()} activeHref={activeHref} />

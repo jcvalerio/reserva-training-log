@@ -22,7 +22,7 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
   const isReturningUser = Boolean(readiness?.foundationReady && readiness.hasActivePlan);
 
   return (
-    <AppShell activeHref="/">
+    <AppShell activeHref="/" backTo={null}>
       <header className="space-y-5">
         <div className="rounded-2xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">

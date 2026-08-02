@@ -20,7 +20,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const params = searchParams ? await searchParams : {};
 
   return (
-    <AppShell activeHref="/perfil">
+    <AppShell activeHref="/perfil" backTo={null}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Perfil</p>

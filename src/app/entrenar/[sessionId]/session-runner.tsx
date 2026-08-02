@@ -55,7 +55,7 @@ export function SessionRunner({
 
   if (!currentExercise) {
     return (
-      <AppShell activeHref="/entrenar">
+      <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
         <p className="text-sm leading-6 text-zinc-300">Esta sesión no tiene ejercicios configurados.</p>
       </AppShell>
     );
@@ -135,7 +135,7 @@ export function SessionRunner({
       : null;
 
   return (
-    <AppShell activeHref="/entrenar">
+    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
@@ -399,7 +399,7 @@ function CompletedSessionSummary({
   exercises: ExerciseWithLoggedSets[];
 }) {
   return (
-    <AppShell activeHref="/entrenar">
+    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>

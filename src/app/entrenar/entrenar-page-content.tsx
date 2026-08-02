@@ -19,7 +19,7 @@ export function EntrenarPageContent({
 }) {
   if (!hasActivePlan) {
     return (
-      <AppShell activeHref="/entrenar">
+      <AppShell activeHref="/entrenar" backTo={null}>
         <header className="space-y-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Entrenar</p>
@@ -43,7 +43,7 @@ export function EntrenarPageContent({
   const suggested = sessions.find((session) => session.isSuggested);
 
   return (
-    <AppShell activeHref="/entrenar">
+    <AppShell activeHref="/entrenar" backTo={null}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Entrenar</p>

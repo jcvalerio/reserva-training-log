@@ -30,7 +30,7 @@ export default async function PlanCompartirPage({ searchParams }: PlanCompartirP
 
   if (!profile) {
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <NoticeCard title="Primero crea tu perfil de atleta." href="/perfil" ctaLabel="Crear perfil primero">
           Compartir un plan requiere un perfil de atleta.
         </NoticeCard>
@@ -41,7 +41,7 @@ export default async function PlanCompartirPage({ searchParams }: PlanCompartirP
   const active = await getActivePlanForProfile(profile.id);
   if (!active) {
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <NoticeCard title="No tienes un plan activo todavía." href="/plan" ctaLabel="Ir a Plan">
           Solo puedes compartir un plan una vez que lo hayas activado.
         </NoticeCard>
@@ -53,7 +53,7 @@ export default async function PlanCompartirPage({ searchParams }: PlanCompartirP
   const shareLink = params.created ? `${baseUrl}/plan/compartir/${params.created}` : null;
 
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
@@ -106,13 +106,6 @@ export default async function PlanCompartirPage({ searchParams }: PlanCompartirP
           Generar enlace
         </SubmitButton>
       </form>
-
-      <Link
-        href="/plan"
-        className="mt-4 block rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-      >
-        Volver a Plan
-      </Link>
     </AppShell>
   );
 }

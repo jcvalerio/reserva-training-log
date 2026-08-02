@@ -32,7 +32,7 @@ export function PlanPageContent({
   const hasActivePlan = Boolean(activePlanPreview) || activePlanError;
 
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={null}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>

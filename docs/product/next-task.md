@@ -1,6 +1,12 @@
 # Next Task
 
-## Status: "Readaptación" template shipped — deployed and committed (`344237a`). No task in progress.
+## Status: a single standard back-navigation pattern across the whole app — code complete, not yet deployed/committed. No task in progress.
+
+User feedback with concrete examples (template detail has a back link, but `/plan/templates`, `/plan/historial`, `/plan/builder`, session editor, and `/mediciones` didn't). Audited all 17 routes before touching anything and found three different back-navigation treatments already coexisting (a top text link, a bottom button, and nothing at all) — consolidated onto one: `AppShell` gained a required `backTo: { href, label } | null` prop, rendered once, consistently, at the top of every page. See the 2026-08-02 implementation-log entry for the full route-by-route mapping and why the prop is required rather than optional (TypeScript then forces every one of the 29 call sites to make a real decision). Verified live against the real active account (read-only) across 4 pages spanning every category of the fix.
+
+Next: deploy and commit when asked.
+
+## Prior status: "Readaptación" template shipped — deployed and committed (`344237a`).
 
 Transcribed a 4-week return-to-training infographic into `src/plans/readaptation-plan.ts`: 5 days (Lun-Vie), one "ejercicio estrella" per day that progresses in load while the rest complement the work, plus a Wednesday active-recovery day (cardio/mobility/core, no lifting). See the 2026-08-02 implementation-log entries for the adaptation calls (no RIR in the source → 2/3 split by star status, the 4-week %-progression folded into ongoing guidance, a probable Viernes/Jueves star-label slip in the source, timed holds modeled as duration-type). Verified live (read-only preview) using the same temporary-bypass-then-revert pattern this project has used before to view template previews while a plan is active — the account's real active plan (leg-priority, from the previous entry) was untouched throughout, confirmed via `git diff` on the bypassed files after reverting.
 

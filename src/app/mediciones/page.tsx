@@ -21,7 +21,7 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
 
   if (!profile) {
     return (
-      <AppShell activeHref="/mediciones">
+      <AppShell activeHref="/mediciones" backTo={{ href: "/perfil", label: "Perfil" }}>
         <div className="mt-20 rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
           <p className="text-sm font-semibold text-emerald-300">Perfil requerido</p>
           <h1 className="mt-2 text-2xl font-semibold">Primero crea tu perfil de atleta.</h1>
@@ -44,7 +44,7 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
   const latestGaps = latestMeasurement ? calculateMeasurementGaps(latestMeasurement) : null;
 
   return (
-    <AppShell activeHref="/mediciones">
+    <AppShell activeHref="/mediciones" backTo={{ href: "/perfil", label: "Perfil" }}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Mediciones</p>

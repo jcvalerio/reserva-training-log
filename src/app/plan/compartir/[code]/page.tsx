@@ -46,7 +46,7 @@ export default async function PlanCompartirCodePage({ params, searchParams }: Pl
 
   if (!profile) {
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <StatusCard title="Primero crea tu perfil de atleta." body="Necesitas un perfil antes de recibir un plan compartido." href="/perfil" ctaLabel="Crear perfil primero" />
       </AppShell>
     );
@@ -76,7 +76,7 @@ export default async function PlanCompartirCodePage({ params, searchParams }: Pl
   if (status !== "ready") {
     const message = STATUS_MESSAGES[status] ?? STATUS_MESSAGES.invalid!;
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <StatusCard title={message.title} body={message.body} href="/plan" ctaLabel="Ir a Plan" />
       </AppShell>
     );
@@ -88,14 +88,14 @@ export default async function PlanCompartirCodePage({ params, searchParams }: Pl
   if (existingDraft) {
     const message = STATUS_MESSAGES.draft_conflict!;
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <StatusCard title={message.title} body={message.body} href="/plan" ctaLabel="Ir a Plan" />
       </AppShell>
     );
   }
 
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan compartido</p>

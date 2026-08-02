@@ -14,7 +14,7 @@ export default async function PlanHistorialPage() {
 
   if (!profile) {
     return (
-      <AppShell activeHref="/plan">
+      <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
         <div className="mt-20 rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
           <p className="text-sm font-semibold text-emerald-300">Perfil requerido</p>
           <h1 className="mt-2 text-2xl font-semibold">Primero crea tu perfil de atleta.</h1>
@@ -32,7 +32,7 @@ export default async function PlanHistorialPage() {
   const rows = sortPlanHistoryRows(await getAllPlansForProfile(profile.id));
 
   return (
-    <AppShell activeHref="/plan">
+    <AppShell activeHref="/plan" backTo={{ href: "/plan", label: "Plan" }}>
       <header className="space-y-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Plan</p>
@@ -53,13 +53,6 @@ export default async function PlanHistorialPage() {
           ))}
         </section>
       )}
-
-      <Link
-        href="/plan"
-        className="mt-4 block rounded-2xl bg-zinc-950 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-      >
-        Volver a Plan
-      </Link>
     </AppShell>
   );
 }
