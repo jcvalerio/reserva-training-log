@@ -1,12 +1,12 @@
 # Next Task
 
-## Status: a "Zona de peligro" reset feature (/perfil/reiniciar) is built and verified but NOT deployed/committed, and NOT yet run for real. No task in progress.
+## Status: a "Zona de peligro" reset feature (/perfil/reiniciar) is deployed and committed (`7de478e`), but NOT yet run for real. No task in progress.
 
 The user has been testing on their real personal account and wants to wipe accumulated test plans/sessions before switching to a separate test account going forward. Built a self-serve reset (`/perfil/reiniciar`) rather than a one-off script, since family members with their own shared-plan accounts might want the same thing later — see the 2026-08-02 "Zona de peligro" implementation-log entry for full detail, including the FK-ordering risk (`exerciseLog.exercisePrescriptionId` is `onDelete: restrict`) and how it was verified safely against a throwaway fake profile, never the real account.
 
 Same-day follow-up: body measurements are now excluded from the wipe by default (a checkbox, checked by default, lets you opt into deleting them too) — plans/sessions are training-experiment data, but weight/measurement history is real physical tracking that shouldn't be forced out just because you're resetting your training setup.
 
-**Two decisions still pending, both the user's to make**: (1) whether to deploy/commit this feature now, (2) whether to actually click through the real confirmation on their real account (it would delete their real 2 plans / 11 sessions — measurements now kept by default unless unchecked — confirmed live, not executed).
+**One decision still pending, the user's to make**: whether to actually click through the real confirmation on their real account (it would delete their real 2 plans / 11 sessions — measurements kept by default unless unchecked — confirmed live, not executed).
 
 ## Status: competitor UX benchmark shipped — deployed and committed (`a66474a`) alongside plan sharing + "Tus planes" history.
 

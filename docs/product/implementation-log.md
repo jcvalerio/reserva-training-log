@@ -2,6 +2,14 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed the "Zona de peligro" reset feature
+
+Status: shipped. Committed as `7de478e` on `main` (`feat: self-serve reset for plans/sessions, keeping body measurements by default`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/perfil/reiniciar` HTTP 307-to-auth confirmed — no schema change, nothing for the automatic migration step to do).
+
+The feature itself is live now, but running it for real against the account's own data is still a separate, unexecuted decision — nothing has been deleted from the real account as part of shipping this.
+
+Next iteration: none queued. See the entry below for the feature's design/verification detail.
+
 ## 2026-08-02 — "Zona de peligro": a self-serve reset for plans/sessions, with measurements kept by default
 
 Status: code complete, `lint`/`typecheck`/`test` (273 passing)/`build` all green. No schema/migration — reuses existing tables only. Not yet deployed/committed. The deletion logic (both the keep- and delete-measurements paths) was verified by actually calling the real `resetAthleteProfileData` function against a real-but-fake throwaway profile — a genuine throwaway vitest file, not reimplemented SQL, run with `DATABASE_URL` exported into the shell since vitest doesn't load `.env.local` the way `next dev`/`next build` do, then deleted (never committed), with a follow-up query confirming zero leftover fake rows. The UI (counts, checkbox, confirm-gating) was verified live against the real account **without ever submitting the real delete** — that action is real and irreversible, so only the user decides to actually pull the trigger on their own account.
