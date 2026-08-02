@@ -2,6 +2,25 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — A fourth template: "Readaptación" (4-week return-to-training) from a user-supplied infographic
+
+Status: code complete, `lint`/`typecheck`/`test` (295 passing)/`build` all green. No schema/migration — templates are pure code. Not yet deployed/committed. Verified live at `/plan/templates/readaptation` (read-only preview only).
+
+User supplied an infographic image ("Plan de entrenamiento — Readaptación (4 semanas)"): a 5-day (Lun-Vie) return-to-training plan built around one "ejercicio estrella" (star exercise) per day that gets real week-over-week progression, while the day's other exercises "complementan el trabajo" without the same progression pressure — plus a Wednesday active-recovery day (cardio + mobility + core, no lifting) instead of a sixth muscle-group split. Followed the same pattern as the other three templates (`seeded-plan.ts`/`fat-loss-plan.ts`/`leg-priority-plan.ts`) — local `strengthEx`/`durationEx` helpers, wired into `plan-templates.ts` as a fourth catalog entry (`id: "readaptation"`).
+
+**Adaptation calls, all flagged in the file's own header comment**:
+- **No RIR given anywhere in the source** (unlike the two prior PDF/infographic sources, which at least had a scheme or an implicit target) — approximated as RIR 2 for each day's star exercise (the one meant to genuinely progress) and RIR 3 for everything else, matching the source's own "complementar el trabajo, sin progresar tan agresivo" framing and the plan's overall conservative "volver con seguridad" theme.
+- **The 4-week %-of-previous-weight progression schedule** (semana 1: ~70%, semana 2: 80-85%, semana 3: pesos habituales, semana 4: +2-5% on the star exercise only) has no week-indexed home in this schema — folded into `safetySummaryEs` as ongoing reference guidance instead of an enforced week counter, the same adaptation `fat-loss-plan.ts` made for its own week-numbered source.
+- **A probable labeling slip in the source**: "Viernes: Sentadilla sumo" is listed as a star exercise, but sentadilla sumo is a Jueves (Thursday) exercise in the same infographic — treated as Thursday's second star rather than transcribed literally, with the reasoning documented in the code comment.
+- **Miércoles's "Movilidad de cadera / Movilidad de hombros / Estiramientos" bullets have no explicit sets/reps/duration** in the source (unlike every other line item, which all have explicit prescriptions) — folded into that day's `mobilityNotesEs` rather than inventing discrete exercises with a made-up duration.
+- **Timed holds modeled as duration-type, not reps**: "Plancha" (3×40s) and "Plancha lateral" (3×30-40s por lado, also unilateral) are isometric holds with an explicit time in the source, so they use `prescriptionType: "duration"` — matching `fat-loss-plan.ts`'s precedent for timed core/carry work.
+
+Verified two ways: `readaptation-plan.test.ts` (new) checks schema validity, day count and exercise-count bounds (including Miércoles's lighter 4-exercise day), the RIR 2/3 star/non-star split, the Thursday-two-stars fix, duration-type modeling for the three timed holds, and every unilateral flag (sentadilla búlgara, bird dog, remo unilateral, plancha lateral) — plus the existing `plan-templates.test.ts` picked it up automatically. Then a live read-only walkthrough of `/plan/templates/readaptation` (Día 1 and Día 3 screenshotted): 28 exercises total across 5 days, star/non-star RIR and copy rendering correctly, Miércoles's duration-type cardio/core block rendering correctly. **The account now has a real active plan** (the leg-priority template from the previous entry, activated by the user between sessions), which gates `/plan/templates` behind an active-plan redirect — used the exact same temporary-bypass-then-revert pattern already established in this project's history (commented out via `&& false`, screenshotted, then reverted immediately; confirmed clean via `git diff` showing zero changes to either `page.tsx`) rather than touching the real active plan to get access.
+
+Files touched: `src/plans/readaptation-plan.ts` (new, +test), `src/plans/plan-templates.ts` (+1 catalog entry, extended `PlanTemplateId`).
+
+Next iteration: none queued. Deploy and commit when asked. Activating this template (replacing the currently-active leg-priority plan) is the user's call, not done as part of this change.
+
 ## 2026-08-02 — Deployed and committed the leg-priority template + measurement-based side default
 
 Status: shipped. Committed as `2469330` on `main` (`feat: add leg-priority template; default unilateral side from measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
