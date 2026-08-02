@@ -9,7 +9,7 @@ import { SubmitButton } from "../submit-button";
 import { saveAthleteProfileAction } from "./actions";
 
 type ProfilePageProps = {
-  searchParams?: Promise<{ saved?: string; error?: string }>;
+  searchParams?: Promise<{ saved?: string; error?: string; reset?: string; keptMeasurements?: string }>;
 };
 
 export default async function ProfilePage({ searchParams }: ProfilePageProps) {
@@ -37,6 +37,17 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         savedMessage="Tu perfil quedó actualizado. Puedes seguir con mediciones aquí abajo."
         errorMessage="Hay datos fuera de rango o falta el nombre. Corrige el formulario y vuelve a guardar."
       />
+
+      {params.reset === "1" ? (
+        <section role="status" className="mt-6 rounded-3xl bg-emerald-300/10 p-4 ring-1 ring-emerald-400/30">
+          <p className="text-sm font-semibold text-emerald-300">Listo</p>
+          <p className="mt-1 text-sm leading-6 text-zinc-300">
+            {params.keptMeasurements === "0"
+              ? "Tus planes, sesiones y mediciones fueron eliminados. Tu perfil se mantiene."
+              : "Tus planes y sesiones fueron eliminados. Tus mediciones y tu perfil se mantienen."}
+          </p>
+        </section>
+      ) : null}
 
       <Link
         href="/mediciones"
@@ -207,6 +218,19 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           Guardar perfil
         </SubmitButton>
       </form>
+
+      <section className="mb-10 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Zona de peligro</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-300">
+          Borra tus planes, sesiones registradas y mediciones para empezar de cero. Tu perfil se mantiene.
+        </p>
+        <Link
+          href="/perfil/reiniciar"
+          className="mt-3 inline-block min-h-11 rounded-2xl px-2 py-2 text-sm font-semibold text-amber-200 underline decoration-amber-200/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        >
+          Eliminar planes y sesiones
+        </Link>
+      </section>
     </AppShell>
   );
 }

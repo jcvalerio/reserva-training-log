@@ -1,0 +1,1 @@
+export const RESET_CONFIRM_TEXT = "REINICIAR";
