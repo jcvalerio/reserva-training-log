@@ -1,10 +1,10 @@
 # Next Task
 
-## Status: a fourth template ("Readaptación") built from a user-supplied infographic — code complete, not yet deployed/committed. No task in progress.
+## Status: "Readaptación" template shipped — deployed and committed (`344237a`). No task in progress.
 
-Transcribed a 4-week return-to-training infographic into `src/plans/readaptation-plan.ts`: 5 days (Lun-Vie), one "ejercicio estrella" per day that progresses in load while the rest complement the work, plus a Wednesday active-recovery day (cardio/mobility/core, no lifting). See the 2026-08-02 implementation-log entry for the adaptation calls (no RIR in the source → 2/3 split by star status, the 4-week %-progression folded into ongoing guidance, a probable Viernes/Jueves star-label slip in the source, timed holds modeled as duration-type). Verified live (read-only preview) using the same temporary-bypass-then-revert pattern this project has used before to view template previews while a plan is active — **the account now has a real active plan** (the leg-priority template from the previous entry, activated by the user for real).
+Transcribed a 4-week return-to-training infographic into `src/plans/readaptation-plan.ts`: 5 days (Lun-Vie), one "ejercicio estrella" per day that progresses in load while the rest complement the work, plus a Wednesday active-recovery day (cardio/mobility/core, no lifting). See the 2026-08-02 implementation-log entries for the adaptation calls (no RIR in the source → 2/3 split by star status, the 4-week %-progression folded into ongoing guidance, a probable Viernes/Jueves star-label slip in the source, timed holds modeled as duration-type). Verified live (read-only preview) using the same temporary-bypass-then-revert pattern this project has used before to view template previews while a plan is active — the account's real active plan (leg-priority, from the previous entry) was untouched throughout, confirmed via `git diff` on the bypassed files after reverting.
 
-Next: deploy and commit when asked.
+The account still has the leg-priority plan active — activating this new template instead (which would replace it) is the user's call, not done as part of shipping this.
 
 ## Prior status: leg-priority template + measurement-based unilateral side default shipped — deployed and committed (`2469330`).
 

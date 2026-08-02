@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed the "Readaptación" template
+
+Status: shipped. Committed as `344237a` on `main` (`feat: add "Readaptación" template from a user-supplied infographic`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+
+Next iteration: none queued. See the entry below for the template's design/verification detail.
+
 ## 2026-08-02 — A fourth template: "Readaptación" (4-week return-to-training) from a user-supplied infographic
 
 Status: code complete, `lint`/`typecheck`/`test` (295 passing)/`build` all green. No schema/migration — templates are pure code. Not yet deployed/committed. Verified live at `/plan/templates/readaptation` (read-only preview only).
