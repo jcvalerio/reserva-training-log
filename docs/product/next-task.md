@@ -1,12 +1,22 @@
 # Next Task
 
-## Status: pecho/caderas shipped — deployed and committed (`0305f98`). No task in progress.
+## Status: unilateral side default now keys off real measurements instead of a hardcoded "left" — code complete, not yet deployed/committed. No task in progress.
+
+Reviewing the new leg-priority template against the user's real measurements (right thigh/calf/arm all smaller) surfaced a real bug: the session-runner's side-selector tie-break always defaulted to Izquierda regardless of which side is actually thinner. `determineSmallerSide` (new, `measurement-schema.ts`) now derives this from the profile's latest measurement; the tie-break falls back to "left" when there's no measurement data, so nothing changes for a profile without saved measurements. See the 2026-08-02 implementation-log entry — including why the user's shared measurement data (a raw SQL INSERT, for context) was never actually written to the real DB, so this hasn't been verified end-to-end against a real account yet, just against their exact real numbers in tests.
+
+Next: deploy and commit when asked.
+
+## Status: a third plan template ("Hipertrofia con prioridad en piernas") built from a user-supplied PDF — code complete, not yet deployed/committed.
+
+Transcribed `/Users/jcvalerio/Downloads/Plan_detallado_entrenamiento_semanal.pdf` (a 5-day, all-machine hypertrophy plan with a unilateral-leg-priority protocol and per-set RIR schemes) into `src/plans/leg-priority-plan.ts`, following the existing `seeded-plan.ts`/`fat-loss-plan.ts` pattern, and added it to the `/plan/templates` catalog. See the 2026-08-02 implementation-log entry for the adaptation calls (per-set RIR scheme collapsed to one `targetRir`, "Core" modeled as rep-based). Verified live (read-only preview, not activated — the account currently has zero plans post-reset, so activating is a real, separate decision for the user).
+
+Next: deploy and commit when asked.
+
+## Status: the account's real plans/sessions/measurements were reset for real (the "Zona de peligro" feature from `7de478e` was actually used) — confirmed via a direct DB query showing zero `workout_plan` rows. No further action needed here.
+
+## Prior status: pecho/caderas shipped — deployed and committed (`0305f98`).
 
 User feedback: mediciones was missing chest and hips. Added both as single circumference values (like `waistCm`, not left/right-paired like thigh/calf/arm) end to end — form, storage, historial display, and a `/progreso` trend line — following the exact pattern `waistCm` already used. Migration `drizzle/0015_moaning_warbird.sql` applied. See the 2026-08-02 implementation-log entries for full detail, including the deliberate choice not to extend the `/progreso` chart's Peso/Cintura toggle to a 4-way toggle (bigger scope than asked).
-
-## Prior status: a "Zona de peligro" reset feature (/perfil/reiniciar) is deployed and committed (`7de478e`), but NOT yet run for real.
-
-The user has been testing on their real personal account and wants to wipe accumulated test plans/sessions before switching to a separate test account going forward. Built a self-serve reset (`/perfil/reiniciar`) rather than a one-off script, since family members with their own shared-plan accounts might want the same thing later — see the 2026-08-02 "Zona de peligro" implementation-log entry for full detail, including the FK-ordering risk (`exerciseLog.exercisePrescriptionId` is `onDelete: restrict`) and how it was verified safely against a throwaway fake profile, never the real account.
 
 Same-day follow-up: body measurements are now excluded from the wipe by default (a checkbox, checked by default, lets you opt into deleting them too) — plans/sessions are training-experiment data, but weight/measurement history is real physical tracking that shouldn't be forced out just because you're resetting your training setup.
 

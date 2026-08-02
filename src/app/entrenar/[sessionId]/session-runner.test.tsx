@@ -107,6 +107,7 @@ describe("SessionRunner", () => {
         exercises={[exerciseA, exerciseB]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -125,6 +126,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -143,6 +145,7 @@ describe("SessionRunner", () => {
         exercises={[exerciseA, exerciseB]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -181,6 +184,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -199,6 +203,7 @@ describe("SessionRunner", () => {
         exercises={[bilateral]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
     expect(screen.queryByRole("radio", { name: "Izquierda" })).toBeNull();
@@ -212,10 +217,71 @@ describe("SessionRunner", () => {
         exercises={[unilateral]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
     expect(screen.getByRole("radio", { name: "Izquierda" })).toBeVisible();
     expect(screen.getByRole("radio", { name: "Derecha" })).toBeVisible();
+  });
+
+  it("defaults to Izquierda when there's no measurement-derived side hint", () => {
+    const unilateral = buildExercise({ isUnilateral: true, loggedSets: [] });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[unilateral]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Izquierda" })).toBeChecked();
+    expect(screen.queryByText(/Según tus mediciones/)).toBeNull();
+  });
+
+  it("defaults to whichever side is smaller per measurements, with a visible note, when the sides are tied", () => {
+    const unilateral = buildExercise({ isUnilateral: true, loggedSets: [] });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[unilateral]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint="right"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Derecha" })).toBeChecked();
+    expect(screen.getByText(/Según tus mediciones, tu lado derecho es más delgado/)).toBeVisible();
+  });
+
+  it("still lets whoever has fewer logged sets go next even with a measurement hint set — the hint only breaks ties", () => {
+    const unilateral = buildExercise({
+      isUnilateral: true,
+      targetSets: 3,
+      loggedSets: [buildSet({ id: "s1", setNumber: 1, side: "right" })],
+    });
+
+    render(
+      <SessionRunner
+        session={buildSession()}
+        template={template}
+        exercises={[unilateral]}
+        saveSetAction={noopSaveSetAction}
+        completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint="right"
+      />,
+    );
+
+    // Right already has 1 set logged and left has 0, so left goes next
+    // regardless of the hint favoring right.
+    expect(screen.getByRole("radio", { name: "Izquierda" })).toBeChecked();
+    expect(screen.queryByText(/Según tus mediciones/)).toBeNull();
   });
 
   it("requires targetSets per side for a unilateral exercise, not a shared total", () => {
@@ -236,6 +302,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -268,6 +335,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -287,6 +355,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -305,6 +374,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -322,6 +392,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -354,6 +425,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -398,6 +470,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -428,6 +501,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -459,6 +533,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -489,6 +564,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -519,6 +595,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -536,6 +613,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 
@@ -561,6 +639,7 @@ describe("SessionRunner", () => {
         exercises={[exercise]}
         saveSetAction={noopSaveSetAction}
         completeSessionAction={noopCompleteSessionAction}
+        smallerSideHint={null}
       />,
     );
 

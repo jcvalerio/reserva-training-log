@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
+import { determineSmallerSide } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { getSessionRunDetails, getWorkoutSessionForProfile } from "@/workouts/workout-repository";
 
@@ -22,6 +24,8 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
   }
 
   const { template, exercises } = await getSessionRunDetails(session);
+  const [latestMeasurement] = await getRecentBodyMeasurementsForProfile(profile.id, 1);
+  const smallerSideHint = latestMeasurement ? determineSmallerSide(latestMeasurement) : null;
 
   return (
     <SessionRunner
@@ -30,6 +34,7 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
       exercises={exercises}
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
+      smallerSideHint={smallerSideHint}
     />
   );
 }

@@ -102,13 +102,40 @@ type MeasurementGapSource = {
   rightThighCm?: string | number | null;
   leftCalfCm?: string | number | null;
   rightCalfCm?: string | number | null;
+  leftArmCm?: string | number | null;
+  rightArmCm?: string | number | null;
 };
 
 export function calculateMeasurementGaps(measurement: MeasurementGapSource) {
   return {
     thighGapCm: calculateGap(measurement.leftThighCm, measurement.rightThighCm),
     calfGapCm: calculateGap(measurement.leftCalfCm, measurement.rightCalfCm),
+    armGapCm: calculateGap(measurement.leftArmCm, measurement.rightArmCm),
   };
+}
+
+// Which side is smaller overall, per the most recent measurement — used to
+// default unilateral-exercise side selection to "start with the thinner
+// side" (docs/product from the leg-priority plan's own protocol) instead of
+// always defaulting to left. Sums whichever limb gaps are actually
+// available (thigh/calf/arm) rather than requiring all three, since most
+// unilateral exercises target legs specifically but this has no per-exercise
+// muscle-group data to be more precise than "smaller on average". Returns
+// null when there's nothing to key off (no measurement data, or a genuine
+// tie), so callers can fall back to their own default.
+export function determineSmallerSide(measurement: MeasurementGapSource): "left" | "right" | null {
+  const gaps = calculateMeasurementGaps(measurement);
+  const totalGapCm = [gaps.thighGapCm, gaps.calfGapCm, gaps.armGapCm]
+    .filter((gap): gap is number => gap !== null)
+    .reduce((sum, gap) => sum + gap, 0);
+
+  if (totalGapCm === 0) {
+    return null;
+  }
+
+  // gap = left - right (see calculateGap): positive means left is bigger,
+  // so the right side is the smaller/thinner one.
+  return totalGapCm > 0 ? "right" : "left";
 }
 
 function calculateGap(leftValue: string | number | null | undefined, rightValue: string | number | null | undefined) {

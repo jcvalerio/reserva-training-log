@@ -25,12 +25,14 @@ export function SessionRunner({
   exercises,
   saveSetAction,
   completeSessionAction,
+  smallerSideHint,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
   saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   completeSessionAction: (formData: FormData) => Promise<void>;
+  smallerSideHint: "left" | "right" | null;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
     const firstIncomplete = exercises.findIndex((exercise) => !isExerciseComplete(exercise));
@@ -68,7 +70,21 @@ export function SessionRunner({
   const rightCount = currentExercise.loggedSets.filter((set) => set.side === "right").length;
   const leftSideComplete = isUnilateral && leftCount >= currentExercise.targetSets;
   const rightSideComplete = isUnilateral && rightCount >= currentExercise.targetSets;
-  const defaultSide = leftSideComplete ? "right" : rightSideComplete ? "left" : leftCount <= rightCount ? "left" : "right";
+  // Whichever side has fewer logged sets goes next, same as before — only
+  // the tie-break (both sides equal, most commonly at the very start) now
+  // prefers the measurement-derived smaller side over always defaulting to
+  // left, when that data exists.
+  const isTiedSide = leftCount === rightCount;
+  const tieBreakUsedHint = isTiedSide && smallerSideHint !== null;
+  const defaultSide = leftSideComplete
+    ? "right"
+    : rightSideComplete
+      ? "left"
+      : !isTiedSide
+        ? leftCount < rightCount
+          ? "left"
+          : "right"
+        : (smallerSideHint ?? "left");
   const justSavedThisExercise = saveState.status === "saved" && saveState.exercisePrescriptionId === currentExercise.id;
 
   // Duration-type exercises don't get a progression suggestion in this first
@@ -248,9 +264,14 @@ export function SessionRunner({
                   Derecha
                 </label>
               </div>
-            ) : (
-              <input type="hidden" name="side" value="bilateral" />
-            )}
+            ) : null}
+            {isUnilateral && tieBreakUsedHint ? (
+              <p className="text-xs leading-5 text-zinc-400">
+                Según tus mediciones, tu lado {smallerSideHint === "left" ? "izquierdo" : "derecho"} es más delgado —
+                se preseleccionó primero.
+              </p>
+            ) : null}
+            {!isUnilateral ? <input type="hidden" name="side" value="bilateral" /> : null}
 
             {isDuration ? (
               <DurationSetInput defaultSeconds={defaultDurationSeconds} />

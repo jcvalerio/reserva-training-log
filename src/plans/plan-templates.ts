@@ -1,8 +1,9 @@
 import { createFatLossPlan } from "./fat-loss-plan";
 import type { GeneratedWorkoutPlan } from "./generated-plan-schema";
+import { createLegPriorityPlan } from "./leg-priority-plan";
 import { createSeededHypertrophyPlan } from "./seeded-plan";
 
-export type PlanTemplateId = "hypertrophy" | "fat_loss";
+export type PlanTemplateId = "hypertrophy" | "fat_loss" | "hypertrophy_legs";
 
 export type PlanTemplateMeta = {
   id: PlanTemplateId;
@@ -26,6 +27,14 @@ export const planTemplates: PlanTemplateMeta[] = [
     objectiveEs: "Reducción de peso y grasa corporal",
     shortDescriptionEs: "5 días por semana alternando Rutina A/B, circuitos de fuerza y acondicionamiento.",
     build: createFatLossPlan,
+  },
+  {
+    id: "hypertrophy_legs",
+    nameEs: "Hipertrofia con prioridad en piernas — 5 días",
+    objectiveEs: "Ganancia muscular, énfasis en piernas",
+    shortDescriptionEs:
+      "5 días, todo en máquinas, progresión unilateral (empieza por la pierna más delgada) y esquema RIR por serie.",
+    build: createLegPriorityPlan,
   },
 ];
 
