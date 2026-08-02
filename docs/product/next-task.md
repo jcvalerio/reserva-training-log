@@ -1,10 +1,8 @@
 # Next Task
 
-## Status: pecho/caderas added to body measurements — code complete, not yet deployed/committed. No task in progress.
+## Status: pecho/caderas shipped — deployed and committed (`0305f98`). No task in progress.
 
-User feedback: mediciones was missing chest and hips. Added both as single circumference values (like `waistCm`, not left/right-paired like thigh/calf/arm) end to end — form, storage, historial display, and a `/progreso` trend line — following the exact pattern `waistCm` already used. Migration `drizzle/0015_moaning_warbird.sql` applied to dev DB. See the 2026-08-02 implementation-log entry for full detail, including the deliberate choice not to extend the `/progreso` chart's Peso/Cintura toggle to a 4-way toggle (bigger scope than asked).
-
-Next: deploy and commit when asked.
+User feedback: mediciones was missing chest and hips. Added both as single circumference values (like `waistCm`, not left/right-paired like thigh/calf/arm) end to end — form, storage, historial display, and a `/progreso` trend line — following the exact pattern `waistCm` already used. Migration `drizzle/0015_moaning_warbird.sql` applied. See the 2026-08-02 implementation-log entries for full detail, including the deliberate choice not to extend the `/progreso` chart's Peso/Cintura toggle to a 4-way toggle (bigger scope than asked).
 
 ## Prior status: a "Zona de peligro" reset feature (/perfil/reiniciar) is deployed and committed (`7de478e`), but NOT yet run for real.
 

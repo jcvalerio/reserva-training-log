@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-02 — Deployed and committed pecho/caderas (chest/hips) measurements
+
+Status: shipped. Committed as `0305f98` on `main` (`feat: add pecho/caderas (chest/hips) to body measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; migration 0015 ran automatically as part of the build, consistent with how every prior schema change in this project has deployed).
+
+Next iteration: none queued. See the entry below for the feature's design/verification detail.
+
 ## 2026-08-02 — Added pecho/caderas (chest/hips) to body measurements
 
 Status: code complete, `lint`/`typecheck`/`test` (275 passing)/`build` all green. Migration `drizzle/0015_moaning_warbird.sql` (two nullable columns, additive, zero backfill needed) generated and applied to the dev DB, verified via `information_schema.columns`. Not yet deployed/committed.
