@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-03 — Deployed and committed bonus-set logging + the `/guia` page
+
+Status: shipped. Committed as `f039f89` on `main` (`feat: let a set exceed the plan, and add a RIR/AMRAP/progression guide`) — bundled both of this session's undeployed pieces into one commit, per this project's established pattern for stacked work. The first commit attempt failed with 1Password's SSH signing agent ("failed to fill whole buffer" — locked), succeeded on retry once unlocked, same failure mode this project has hit before. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query — the account's only recent session was already `completed`.
+
+Next iteration: none queued. See the two entries below for what shipped.
+
 ## 2026-08-03 — `/guia`: explaining RIR, AMRAP-to-failure, and the progression math
 
 Status: code complete, `lint`/`typecheck`/`test` (310 passing)/`build` all green. No schema/migration. Not yet deployed/committed.
