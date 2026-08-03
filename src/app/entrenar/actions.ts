@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getActivePlanForProfile } from "@/plans/plan-repository";
+import { getActivePlanForProfile, updateExercisePrescriptionTargetSets } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { parseSessionCompletionFormData } from "@/workouts/session-completion-schema";
 import { parseSetLogFormData } from "@/workouts/set-log-schema";
@@ -86,6 +86,48 @@ export async function saveSetAction(
   revalidatePath(`/entrenar/${workoutSessionId}`);
 
   return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
+}
+
+export type UpdateTargetSetsActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "updated"; exercisePrescriptionId: string; targetSets: number };
+
+const MAX_TARGET_SETS = 6;
+
+export async function updateTargetSetsAction(
+  _previousState: UpdateTargetSetsActionState,
+  formData: FormData,
+): Promise<UpdateTargetSetsActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const exercisePrescriptionId = formData.get("exercisePrescriptionId");
+  const workoutSessionId = formData.get("workoutSessionId");
+  const targetSets = Number(formData.get("targetSets"));
+
+  if (
+    typeof exercisePrescriptionId !== "string" ||
+    typeof workoutSessionId !== "string" ||
+    !Number.isInteger(targetSets) ||
+    targetSets < 1 ||
+    targetSets > MAX_TARGET_SETS
+  ) {
+    return { status: "error", message: "No se pudo actualizar el objetivo del ejercicio." };
+  }
+
+  const updated = await updateExercisePrescriptionTargetSets(profile.id, exercisePrescriptionId, targetSets);
+  if (!updated) {
+    return { status: "error", message: "No se pudo actualizar el objetivo del ejercicio." };
+  }
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "updated", exercisePrescriptionId, targetSets };
 }
 
 export async function completeSessionAction(formData: FormData) {

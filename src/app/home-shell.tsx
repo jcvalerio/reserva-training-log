@@ -36,6 +36,16 @@ export function HomeShell({ user, googleSignInEnabled, readiness }: HomeShellPro
         </div>
       </header>
 
+      <Link
+        href="/guia"
+        className="mt-4 block rounded-2xl bg-zinc-900 p-4 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        <p className="text-sm font-semibold text-emerald-300">¿Qué significa RIR?</p>
+        <p className="mt-1 text-sm leading-6 text-zinc-400">
+          Entiende cómo calculamos tu progresión, qué es un AMRAP y por qué el dolor manda antes que la carga.
+        </p>
+      </Link>
+
       <section className="flex flex-1 flex-col justify-center gap-8 py-10">
         {isReturningUser ? (
           <div className="space-y-4">

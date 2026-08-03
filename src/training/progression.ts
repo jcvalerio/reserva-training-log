@@ -9,6 +9,13 @@ export type LoggedSetForProgression = {
   rir: Rir;
   painScore: number;
   notes?: string | null;
+  // A set logged beyond the plan's targetSets. Pain still scans every set
+  // regardless (a safety brake shouldn't have blind spots), but the
+  // performance signals below (RIR average, top-of-range completion, rep
+  // drop, notes) are computed from planned sets only — a bonus set's
+  // different character (a lighter backoff, an all-out AMRAP) shouldn't be
+  // able to veto or dilute what the prescribed sets actually earned.
+  isBonus?: boolean;
 };
 
 export type ProgressionInput = {
@@ -53,8 +60,15 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
   }
 
   const maxPain = Math.max(...input.sets.map((set) => set.painScore));
-  const averageRir = average(input.sets.map((set) => set.rir));
-  const reachedTopOfRange = input.sets.every((set) => set.actualReps >= set.plannedRepMax);
+
+  // Fall back to the full set list if every logged set happens to be a
+  // bonus set (shouldn't normally happen — allPlannedSetsCompleted requires
+  // at least targetSets planned sets — but avoids an empty-array average).
+  const plannedSets = input.sets.filter((set) => !set.isBonus);
+  const signalSets = plannedSets.length > 0 ? plannedSets : input.sets;
+
+  const averageRir = average(signalSets.map((set) => set.rir));
+  const reachedTopOfRange = signalSets.every((set) => set.actualReps >= set.plannedRepMax);
 
   if (maxPain > 3) {
     return {
@@ -72,7 +86,7 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
     };
   }
 
-  if (hasSharpRepDrop(input.sets)) {
+  if (hasSharpRepDrop(signalSets)) {
     return {
       action: "hold",
       riskFlag: "fatigue",
@@ -80,7 +94,7 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
     };
   }
 
-  if (hasNegativeNote(input.sets)) {
+  if (hasNegativeNote(signalSets)) {
     return {
       action: "hold",
       riskFlag: "technique",

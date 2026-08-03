@@ -79,6 +79,38 @@ export async function getPlanForProfile(athleteProfileId: string, planId: string
   return plan ?? null;
 }
 
+/**
+ * Ownership-scoped direct update of a single exercise's targetSets — used by
+ * /entrenar's "make this the new target" offer after logging a bonus set.
+ * Doesn't touch the draft/builder clone-and-reactivate flow at all: unlike
+ * removing a row (blocked once exerciseLog references it, onDelete:
+ * "restrict"), updating one column in place is safe regardless of logged
+ * history and needs no new plan version. Returns false if the prescription
+ * doesn't belong to this profile (no active-plan requirement — bumping a
+ * long-idle plan's target is harmless).
+ */
+export async function updateExercisePrescriptionTargetSets(
+  athleteProfileId: string,
+  exercisePrescriptionId: string,
+  targetSets: number,
+): Promise<boolean> {
+  const [owned] = await db
+    .select({ id: exercisePrescription.id })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
+    .innerJoin(workoutPlan, eq(workoutPlan.id, planSessionTemplate.workoutPlanId))
+    .where(
+      and(eq(exercisePrescription.id, exercisePrescriptionId), eq(workoutPlan.athleteProfileId, athleteProfileId)),
+    );
+
+  if (!owned) {
+    return false;
+  }
+
+  await db.update(exercisePrescription).set({ targetSets }).where(eq(exercisePrescription.id, exercisePrescriptionId));
+  return true;
+}
+
 export type PlanSessionStats = {
   sessionCount: number;
   firstSessionAt: Date | null;

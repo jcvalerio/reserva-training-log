@@ -4,11 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
-import type { SaveSetActionState } from "../actions";
+import type { SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
 import { SessionRunner } from "./session-runner";
 
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
 const noopCompleteSessionAction = vi.fn(async () => {});
+const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 
 const template: PlanSessionTemplate = {
   id: "template-1",
@@ -85,6 +86,37 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
   };
 }
 
+function renderRunner({
+  exercises,
+  session = buildSession(),
+  saveSetAction = noopSaveSetAction,
+  completeSessionAction = noopCompleteSessionAction,
+  updateTargetSetsAction = noopUpdateTargetSetsAction,
+  smallerSideHint = null,
+}: {
+  exercises: ExerciseWithLoggedSets[];
+  session?: WorkoutSession;
+  saveSetAction?: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
+  completeSessionAction?: (formData: FormData) => Promise<void>;
+  updateTargetSetsAction?: (
+    prevState: UpdateTargetSetsActionState,
+    formData: FormData,
+  ) => Promise<UpdateTargetSetsActionState>;
+  smallerSideHint?: "left" | "right" | null;
+}) {
+  return render(
+    <SessionRunner
+      session={session}
+      template={template}
+      exercises={exercises}
+      saveSetAction={saveSetAction}
+      completeSessionAction={completeSessionAction}
+      updateTargetSetsAction={updateTargetSetsAction}
+      smallerSideHint={smallerSideHint}
+    />,
+  );
+}
+
 describe("SessionRunner", () => {
   it("opens on the first exercise with incomplete sets, not the first exercise overall", () => {
     const exerciseA = buildExercise({
@@ -100,16 +132,7 @@ describe("SessionRunner", () => {
       loggedSets: [],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exerciseA, exerciseB]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exerciseA, exerciseB] });
 
     expect(screen.getByText("Ejercicio 2 de 2")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Extensión de piernas" })).toBeVisible();
@@ -119,16 +142,7 @@ describe("SessionRunner", () => {
   it("shows the exercise's notes and the session's mobility notes as coaching cues while training", () => {
     const exercise = buildExercise({ notesEs: "Ajusta la carga usando tus pesos base y conserva técnica estricta." });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.")).toBeVisible();
     expect(screen.getByText(template.mobilityNotesEs)).toBeVisible();
@@ -138,16 +152,7 @@ describe("SessionRunner", () => {
     const exerciseA = buildExercise({ id: "exercise-a", exerciseNameEs: "Prensa de piernas", targetSets: 3 });
     const exerciseB = buildExercise({ id: "exercise-b", exerciseNameEs: "Extensión de piernas", targetSets: 3 });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exerciseA, exerciseB]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exerciseA, exerciseB] });
 
     expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
@@ -162,7 +167,7 @@ describe("SessionRunner", () => {
     expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
   });
 
-  it("shows completed sets and hides the logging form once the target is reached", () => {
+  it("shows completed sets and replaces the logging form with a '+ set extra' affordance once the target is reached", () => {
     const exercise = buildExercise({
       targetSets: 1,
       loggedSets: [
@@ -177,49 +182,23 @@ describe("SessionRunner", () => {
       ],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/82\.5kg × 9 · RIR 1 · dolor 2/)).toBeVisible();
     expect(screen.getByText("Hombro un poco inestable en la última rep.")).toBeVisible();
     expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "+ Agregar un set extra" })).toBeVisible();
   });
 
   it("shows a side selector only for unilateral exercises", () => {
     const bilateral = buildExercise({ isUnilateral: false });
-    const { unmount } = render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[bilateral]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    const { unmount } = renderRunner({ exercises: [bilateral] });
     expect(screen.queryByRole("radio", { name: "Izquierda" })).toBeNull();
     unmount();
 
     const unilateral = buildExercise({ isUnilateral: true });
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[unilateral]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [unilateral] });
     expect(screen.getByRole("radio", { name: "Izquierda" })).toBeVisible();
     expect(screen.getByRole("radio", { name: "Derecha" })).toBeVisible();
   });
@@ -227,16 +206,7 @@ describe("SessionRunner", () => {
   it("defaults to Izquierda when there's no measurement-derived side hint", () => {
     const unilateral = buildExercise({ isUnilateral: true, loggedSets: [] });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[unilateral]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [unilateral] });
 
     expect(screen.getByRole("radio", { name: "Izquierda" })).toBeChecked();
     expect(screen.queryByText(/Según tus mediciones/)).toBeNull();
@@ -245,16 +215,7 @@ describe("SessionRunner", () => {
   it("defaults to whichever side is smaller per measurements, with a visible note, when the sides are tied", () => {
     const unilateral = buildExercise({ isUnilateral: true, loggedSets: [] });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[unilateral]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint="right"
-      />,
-    );
+    renderRunner({ exercises: [unilateral], smallerSideHint: "right" });
 
     expect(screen.getByRole("radio", { name: "Derecha" })).toBeChecked();
     expect(screen.getByText(/Según tus mediciones, tu lado derecho es más delgado/)).toBeVisible();
@@ -267,16 +228,7 @@ describe("SessionRunner", () => {
       loggedSets: [buildSet({ id: "s1", setNumber: 1, side: "right" })],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[unilateral]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint="right"
-      />,
-    );
+    renderRunner({ exercises: [unilateral], smallerSideHint: "right" });
 
     // Right already has 1 set logged and left has 0, so left goes next
     // regardless of the hint favoring right.
@@ -295,16 +247,7 @@ describe("SessionRunner", () => {
       ],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     // 3 total sets logged (>= targetSets of 2), but only 1 on the right side
     // — the exercise must not be marked complete, and the left radio (already
@@ -328,16 +271,7 @@ describe("SessionRunner", () => {
       ],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
@@ -348,16 +282,7 @@ describe("SessionRunner", () => {
       loggedSets: [buildSet()],
     });
 
-    render(
-      <SessionRunner
-        session={buildSession({ status: "completed" })}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }) });
 
     expect(screen.getByText("Sesión completada")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
@@ -367,16 +292,10 @@ describe("SessionRunner", () => {
   it("shows the session's RPE label and notes on the completed summary", () => {
     const exercise = buildExercise({ loggedSets: [buildSet()] });
 
-    render(
-      <SessionRunner
-        session={buildSession({ status: "completed", sessionRpe: 8, notes: "Semana pesada, dormí poco." })}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({
+      exercises: [exercise],
+      session: buildSession({ status: "completed", sessionRpe: 8, notes: "Semana pesada, dormí poco." }),
+    });
 
     expect(screen.getByText(/8 — Muy duro/)).toBeVisible();
     expect(screen.getByText("Semana pesada, dormí poco.")).toBeVisible();
@@ -385,16 +304,7 @@ describe("SessionRunner", () => {
   it("offers an optional RPE and notes section on the complete-session form", () => {
     const exercise = buildExercise({ loggedSets: [] });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText("¿Cómo te sentiste? (opcional)")).toBeVisible();
     expect(screen.getByLabelText("Esfuerzo percibido (RPE)")).toBeInTheDocument();
@@ -418,16 +328,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/Última vez/)).toBeVisible();
     expect(screen.getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(1);
@@ -436,6 +337,11 @@ describe("SessionRunner", () => {
 
     expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
     expect(screen.getByLabelText("Reps")).toHaveValue(12);
+
+    expect(screen.getByRole("link", { name: "¿Por qué esta sugerencia?" })).toHaveAttribute(
+      "href",
+      "/guia?open=matematica",
+    );
   });
 
   it("shows a risk-flag badge when the previous set's notes flag technique or discomfort", () => {
@@ -463,16 +369,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/Mantén la carga/)).toBeVisible();
     expect(screen.getByText("Técnica")).toBeVisible();
@@ -494,16 +391,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText("Añade una repetición")).toBeVisible();
     expect(screen.queryByText(/→ 21kg/)).toBeNull();
@@ -526,16 +414,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/82kg/)).toBeVisible();
   });
@@ -557,16 +436,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     // One set already logged today, so the next set to log is set 2 — the
     // reference should show set 2's previous value (82.5kg), not set 1's.
@@ -588,16 +458,7 @@ describe("SessionRunner", () => {
       },
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/Última vez/)).toBeVisible();
     expect(screen.getByText("La vez pasada no llegaste a este set.")).toBeVisible();
@@ -606,18 +467,34 @@ describe("SessionRunner", () => {
   it("does not show a previous-performance card when there is none", () => {
     const exercise = buildExercise({ previousPerformance: null });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.queryByText("Última vez")).toBeNull();
+  });
+
+  it("anchors the suggested next weight on the previous session's last *planned* set, not a bonus set logged after it", () => {
+    const exercise = buildExercise({
+      targetSets: 2,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "80.00", actualReps: 12, rir: 2, painScore: 0 }),
+          // A much lighter bonus 3rd set — must not become the anchor for
+          // this session's suggested weight.
+          buildSet({ id: "prev-3", setNumber: 3, actualWeightKg: "40.00", actualReps: 12, rir: 4, painScore: 0 }),
+        ],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(84);
   });
 
   it("logs a duration-type exercise in minutes and converts it to seconds for submission", () => {
@@ -632,16 +509,7 @@ describe("SessionRunner", () => {
       isCompound: null,
     });
 
-    render(
-      <SessionRunner
-        session={buildSession()}
-        template={template}
-        exercises={[exercise]}
-        saveSetAction={noopSaveSetAction}
-        completeSessionAction={noopCompleteSessionAction}
-        smallerSideHint={null}
-      />,
-    );
+    renderRunner({ exercises: [exercise] });
 
     expect(screen.queryByLabelText("Peso (kg)")).toBeNull();
     expect(screen.queryByText("Reps en reserva (RIR)")).toBeNull();
@@ -655,5 +523,76 @@ describe("SessionRunner", () => {
 
     const hiddenInput = document.querySelector('input[name="actualDurationSeconds"]');
     expect(hiddenInput).toHaveValue("300");
+  });
+
+  describe("bonus sets past targetSets", () => {
+    it("reopens the logging form for exactly one more set when '+ Agregar un set extra' is tapped, bilateral", () => {
+      const exercise = buildExercise({ targetSets: 1, loggedSets: [buildSet({ setNumber: 1 })] });
+
+      renderRunner({ exercises: [exercise] });
+
+      expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
+
+      expect(screen.getByRole("button", { name: "Guardar set 2" })).toBeVisible();
+      expect(screen.queryByText("Series objetivo completadas para este ejercicio.")).toBeNull();
+    });
+
+    it("doesn't disable either side's radio while logging a bonus set on a unilateral exercise", () => {
+      const exercise = buildExercise({
+        isUnilateral: true,
+        targetSets: 1,
+        loggedSets: [
+          buildSet({ id: "l1", side: "left", setNumber: 1 }),
+          buildSet({ id: "r1", side: "right", setNumber: 2 }),
+        ],
+      });
+
+      renderRunner({ exercises: [exercise] });
+      fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
+
+      expect(screen.getByRole("radio", { name: "Izquierda" })).not.toBeDisabled();
+      expect(screen.getByRole("radio", { name: "Derecha" })).not.toBeDisabled();
+    });
+
+    it("cautions against a bonus set on the thinner side, per the measurement-derived hint, once bonus logging opens", () => {
+      const exercise = buildExercise({
+        isUnilateral: true,
+        targetSets: 1,
+        loggedSets: [
+          buildSet({ id: "l1", side: "left", setNumber: 1 }),
+          buildSet({ id: "r1", side: "right", setNumber: 2 }),
+        ],
+      });
+
+      renderRunner({ exercises: [exercise], smallerSideHint: "right" });
+
+      expect(screen.queryByText(/evita series extra ahí sin valoración profesional/)).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
+
+      expect(screen.getByText(/Tu lado derecho es el más delgado según tus mediciones/)).toBeVisible();
+      expect(screen.getByText(/evita series extra ahí sin valoración profesional/)).toBeVisible();
+      // Defaults away from the thinner side once both sides are tied in
+      // bonus territory, not toward it.
+      expect(screen.getByRole("radio", { name: "Izquierda" })).toBeChecked();
+    });
+
+    it("shows no caution for a unilateral bonus set when there's no measurement hint", () => {
+      const exercise = buildExercise({
+        isUnilateral: true,
+        targetSets: 1,
+        loggedSets: [
+          buildSet({ id: "l1", side: "left", setNumber: 1 }),
+          buildSet({ id: "r1", side: "right", setNumber: 2 }),
+        ],
+      });
+
+      renderRunner({ exercises: [exercise] });
+      fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
+
+      expect(screen.queryByText(/evita series extra ahí sin valoración profesional/)).toBeNull();
+    });
   });
 });

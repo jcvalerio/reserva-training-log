@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "./progression-view";
+import { buildProgressionSuggestion, isRepsFirstIncrease, splitPlannedAndBonusSets, suggestNextWeightKg } from "./progression-view";
 import type { SetLog } from "./workout-repository";
 
 function buildSet(overrides: Partial<SetLog> = {}): SetLog {
@@ -135,5 +135,82 @@ describe("buildProgressionSuggestion", () => {
     ];
 
     expect(buildProgressionSuggestion(evenSides, 12, 2, true).action).toBe("increase");
+  });
+
+  it("a bonus set beyond targetSets doesn't block an increase the planned sets earned", () => {
+    const sets = [
+      buildSet({ id: "s1", setNumber: 1, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "s2", setNumber: 2, actualReps: 12, rir: 2, painScore: 0 }),
+      // A bonus 3rd set (target is 2) that's lighter and doesn't reach the
+      // rep ceiling — must not veto the increase the first two earned.
+      buildSet({ id: "s3", setNumber: 3, actualReps: 6, rir: 4, painScore: 0 }),
+    ];
+
+    expect(buildProgressionSuggestion(sets, 12, 2, false).action).toBe("increase");
+  });
+
+  it("pain on a bonus set still flags the exercise, even past targetSets", () => {
+    const sets = [
+      buildSet({ id: "s1", setNumber: 1, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "s2", setNumber: 2, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "s3", setNumber: 3, actualReps: 10, rir: 1, painScore: 4 }),
+    ];
+
+    expect(buildProgressionSuggestion(sets, 12, 2, false)).toMatchObject({
+      action: "reduce_or_modify",
+      riskFlag: "pain",
+    });
+  });
+
+  it("for a unilateral exercise, a bonus set on one side only doesn't contaminate the other side's planned signal", () => {
+    const sets = [
+      buildSet({ id: "l1", side: "left", setNumber: 1, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "l2", side: "left", setNumber: 2, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "r1", side: "right", setNumber: 3, actualReps: 12, rir: 2, painScore: 0 }),
+      buildSet({ id: "r2", side: "right", setNumber: 4, actualReps: 12, rir: 2, painScore: 0 }),
+      // A bonus 3rd set on the left side only, well below the rep ceiling.
+      buildSet({ id: "l3", side: "left", setNumber: 5, actualReps: 5, rir: 4, painScore: 0 }),
+    ];
+
+    expect(buildProgressionSuggestion(sets, 12, 2, true).action).toBe("increase");
+  });
+});
+
+describe("splitPlannedAndBonusSets", () => {
+  it("splits a bilateral exercise's sets at targetSets", () => {
+    const sets = [
+      buildSet({ id: "s1", setNumber: 1 }),
+      buildSet({ id: "s2", setNumber: 2 }),
+      buildSet({ id: "s3", setNumber: 3 }),
+    ];
+
+    const result = splitPlannedAndBonusSets(sets, 2, false);
+
+    expect(result.planned.map((set) => set.id)).toEqual(["s1", "s2"]);
+    expect(result.bonus.map((set) => set.id)).toEqual(["s3"]);
+  });
+
+  it("splits a unilateral exercise's sets per side independently", () => {
+    const sets = [
+      buildSet({ id: "l1", side: "left", setNumber: 1 }),
+      buildSet({ id: "r1", side: "right", setNumber: 2 }),
+      buildSet({ id: "l2", side: "left", setNumber: 3 }),
+      buildSet({ id: "l3", side: "left", setNumber: 4 }),
+      buildSet({ id: "r2", side: "right", setNumber: 5 }),
+    ];
+
+    const result = splitPlannedAndBonusSets(sets, 2, true);
+
+    expect(result.planned.map((set) => set.id)).toEqual(["l1", "r1", "l2", "r2"]);
+    expect(result.bonus.map((set) => set.id)).toEqual(["l3"]);
+  });
+
+  it("returns everything as planned when nothing exceeds targetSets", () => {
+    const sets = [buildSet({ id: "s1", setNumber: 1 })];
+
+    const result = splitPlannedAndBonusSets(sets, 3, false);
+
+    expect(result.planned).toHaveLength(1);
+    expect(result.bonus).toHaveLength(0);
   });
 });

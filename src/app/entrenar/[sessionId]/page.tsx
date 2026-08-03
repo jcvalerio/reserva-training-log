@@ -6,7 +6,7 @@ import { determineSmallerSide } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { getSessionRunDetails, getWorkoutSessionForProfile } from "@/workouts/workout-repository";
 
-import { completeSessionAction, saveSetAction } from "../actions";
+import { completeSessionAction, saveSetAction, updateTargetSetsAction } from "../actions";
 import { SessionRunner } from "./session-runner";
 
 export default async function SessionRunPage({ params }: { params: Promise<{ sessionId: string }> }) {
@@ -34,6 +34,7 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
       exercises={exercises}
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
+      updateTargetSetsAction={updateTargetSetsAction}
       smallerSideHint={smallerSideHint}
     />
   );

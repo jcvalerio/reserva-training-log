@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 
 import { formatKg, roundKgValue } from "@/lib/format";
@@ -10,14 +11,20 @@ import { rirValues, toDisplayRir } from "@/training/rir";
 import { rpeLabelsEs, rpeValues } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
 import type { ProgressionAction, ProgressionRiskFlag } from "@/training/progression";
-import { buildProgressionSuggestion, isRepsFirstIncrease, suggestNextWeightKg } from "@/workouts/progression-view";
+import {
+  buildProgressionSuggestion,
+  isRepsFirstIncrease,
+  splitPlannedAndBonusSets,
+  suggestNextWeightKg,
+} from "@/workouts/progression-view";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import { AppShell } from "../../app-shell";
 import { SubmitButton } from "../../submit-button";
-import type { SaveSetActionState } from "../actions";
+import type { SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
+const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
 
 export function SessionRunner({
   session,
@@ -25,6 +32,7 @@ export function SessionRunner({
   exercises,
   saveSetAction,
   completeSessionAction,
+  updateTargetSetsAction,
   smallerSideHint,
 }: {
   session: WorkoutSession;
@@ -32,6 +40,10 @@ export function SessionRunner({
   exercises: ExerciseWithLoggedSets[];
   saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   completeSessionAction: (formData: FormData) => Promise<void>;
+  updateTargetSetsAction: (
+    prevState: UpdateTargetSetsActionState,
+    formData: FormData,
+  ) => Promise<UpdateTargetSetsActionState>;
   smallerSideHint: "left" | "right" | null;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
@@ -39,6 +51,7 @@ export function SessionRunner({
     return firstIncomplete === -1 ? Math.max(exercises.length - 1, 0) : firstIncomplete;
   });
   const [saveState, formAction] = useActionState(saveSetAction, initialSaveSetState);
+  const [targetSetsState, targetSetsFormAction] = useActionState(updateTargetSetsAction, initialUpdateTargetSetsState);
   const exerciseForTimer = exercises[exerciseIndex];
   const { remaining: restRemaining, skip: skipRest } = useRestTimer({
     justSavedThisExercise: saveState.status === "saved" && saveState.exercisePrescriptionId === exerciseForTimer?.id,
@@ -46,6 +59,30 @@ export function SessionRunner({
     restSeconds: exerciseForTimer?.restSeconds ?? 0,
     exerciseIndex,
   });
+
+  // A bonus set (logged past targetSets) reopens the same logging form for
+  // exactly one more set, then collapses back to the "+ set extra" button —
+  // repeatable, and reset whenever the exercise changes or a save lands.
+  // Both resets adjust state during render (React's documented pattern),
+  // matching the exerciseIndex-reset approach useRestTimer already uses
+  // below, instead of a setState-in-effect.
+  const [showBonusForm, setShowBonusForm] = useState(false);
+  const [lastBonusExerciseIndex, setLastBonusExerciseIndex] = useState(exerciseIndex);
+  if (exerciseIndex !== lastBonusExerciseIndex) {
+    setLastBonusExerciseIndex(exerciseIndex);
+    if (showBonusForm) {
+      setShowBonusForm(false);
+    }
+  }
+  const currentSaveKey =
+    saveState.status === "saved" ? `${saveState.exercisePrescriptionId}:${saveState.setNumber}` : null;
+  const [lastHandledSaveKey, setLastHandledSaveKey] = useState<string | null>(null);
+  if (currentSaveKey !== null && currentSaveKey !== lastHandledSaveKey) {
+    setLastHandledSaveKey(currentSaveKey);
+    if (showBonusForm) {
+      setShowBonusForm(false);
+    }
+  }
 
   if (session.status === "completed") {
     return <CompletedSessionSummary session={session} template={template} exercises={exercises} />;
@@ -75,17 +112,46 @@ export function SessionRunner({
   // prefers the measurement-derived smaller side over always defaulting to
   // left, when that data exists.
   const isTiedSide = leftCount === rightCount;
-  const tieBreakUsedHint = isTiedSide && smallerSideHint !== null;
-  const defaultSide = leftSideComplete
-    ? "right"
-    : rightSideComplete
-      ? "left"
-      : !isTiedSide
-        ? leftCount < rightCount
-          ? "left"
-          : "right"
-        : (smallerSideHint ?? "left");
+  // Bonus mode picks its own default (see bonusDefaultSide below, which
+  // deliberately defaults *away* from the thinner side) — this note assumes
+  // the normal-mode tie-break logic and would misdescribe which side just
+  // got preselected if shown during bonus logging.
+  const tieBreakUsedHint = isTiedSide && smallerSideHint !== null && !showBonusForm;
+  // Once both sides already reached targetSets (the only way into bonus
+  // territory), leftSideComplete/rightSideComplete are both true — the
+  // normal asymmetric fallback below would always land on "right". Bonus
+  // mode instead balances whichever side has fewer bonus sets so far, and on
+  // a tie defaults *away* from the thinner side (opposite of the caution
+  // above), not toward it.
+  const bonusDefaultSide =
+    leftCount === rightCount ? (smallerSideHint === "left" ? "right" : "left") : leftCount < rightCount ? "left" : "right";
+  const defaultSide = showBonusForm
+    ? bonusDefaultSide
+    : leftSideComplete
+      ? "right"
+      : rightSideComplete
+        ? "left"
+        : !isTiedSide
+          ? leftCount < rightCount
+            ? "left"
+            : "right"
+          : (smallerSideHint ?? "left");
   const justSavedThisExercise = saveState.status === "saved" && saveState.exercisePrescriptionId === currentExercise.id;
+
+  const exerciseTargetReached = isExerciseComplete(currentExercise);
+  const isLoggingAllowed = !exerciseTargetReached || showBonusForm;
+  // How many sets the plan would need to cover the bonus work just logged —
+  // per side for unilateral (matching how targetSets is already interpreted
+  // there), the running total otherwise. Offered as a one-tap "make this the
+  // plan" update once it actually exceeds today's target.
+  const bonusCount = isUnilateral ? Math.max(leftCount, rightCount) : loggedCount;
+  const isBonusSetJustSaved = justSavedThisExercise && bonusCount > currentExercise.targetSets;
+  // The plan's own leg-priority template already warns against extra sets on
+  // the thinner leg without professional evaluation — surfacing that caution
+  // generically (from the same measurement-derived hint used for the side
+  // default) whenever bonus logging is open, regardless of which template is
+  // active.
+  const showThinnerSideCaution = isUnilateral && showBonusForm && smallerSideHint !== null;
 
   // Duration-type exercises don't get a progression suggestion in this first
   // cut — no rep range/RIR to compare against, and comparing raw durations
@@ -97,7 +163,13 @@ export function SessionRunner({
     !isDuration && currentExercise.previousPerformance?.prescriptionType === "strength"
       ? currentExercise.previousPerformance
       : null;
-  const previousLastSet = previousPerformance?.sets.at(-1) ?? null;
+  // Anchors on the last *planned* set, not just whatever was logged last —
+  // if the previous session's actual last set was a bonus backoff set, it
+  // shouldn't become the baseline for this session's suggested weight.
+  const previousLastSet = previousPerformance
+    ? (splitPlannedAndBonusSets(previousPerformance.sets, previousPerformance.targetSets, previousPerformance.isUnilateral)
+        .planned.at(-1) ?? null)
+    : null;
   const previousSuggestion = previousPerformance
     ? buildProgressionSuggestion(
         previousPerformance.sets,
@@ -130,7 +202,7 @@ export function SessionRunner({
   const upcomingSide = isUnilateral ? defaultSide : "bilateral";
   const upcomingPositionOnSide = isUnilateral ? (defaultSide === "left" ? leftCount : rightCount) + 1 : nextSetNumber;
   const matchingPreviousSet =
-    previousPerformance && !isExerciseComplete(currentExercise)
+    previousPerformance && isLoggingAllowed
       ? (previousPerformance.sets.filter((set) => set.side === upcomingSide)[upcomingPositionOnSide - 1] ?? null)
       : null;
 
@@ -190,9 +262,7 @@ export function SessionRunner({
                 <LoggedSetRow set={matchingPreviousSet} />
               ) : (
                 <p className="text-xs leading-5 text-zinc-400">
-                  {isExerciseComplete(currentExercise)
-                    ? "Series objetivo completadas."
-                    : "La vez pasada no llegaste a este set."}
+                  {exerciseTargetReached ? "Series objetivo completadas." : "La vez pasada no llegaste a este set."}
                 </p>
               )}
             </div>
@@ -214,6 +284,12 @@ export function SessionRunner({
                 ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
                 : previousSuggestion.reasonEs}
             </p>
+            <Link
+              href="/guia?open=matematica"
+              className="mt-2 inline-block text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+            >
+              ¿Por qué esta sugerencia?
+            </Link>
           </div>
         ) : null}
 
@@ -233,7 +309,7 @@ export function SessionRunner({
           </div>
         ) : null}
 
-        {!isExerciseComplete(currentExercise) ? (
+        {isLoggingAllowed ? (
           <form key={`${currentExercise.id}:${nextSetNumber}`} action={formAction} className="mt-4 grid gap-3">
             <input type="hidden" name="workoutSessionId" value={session.id} />
             <input type="hidden" name="exercisePrescriptionId" value={currentExercise.id} />
@@ -247,7 +323,7 @@ export function SessionRunner({
                     name="side"
                     value="left"
                     defaultChecked={defaultSide === "left"}
-                    disabled={leftSideComplete}
+                    disabled={leftSideComplete && !showBonusForm}
                     className="sr-only"
                   />
                   Izquierda
@@ -258,7 +334,7 @@ export function SessionRunner({
                     name="side"
                     value="right"
                     defaultChecked={defaultSide === "right"}
-                    disabled={rightSideComplete}
+                    disabled={rightSideComplete && !showBonusForm}
                     className="sr-only"
                   />
                   Derecha
@@ -269,6 +345,13 @@ export function SessionRunner({
               <p className="text-xs leading-5 text-zinc-400">
                 Según tus mediciones, tu lado {smallerSideHint === "left" ? "izquierdo" : "derecho"} es más delgado —
                 se preseleccionó primero.
+              </p>
+            ) : null}
+            {showThinnerSideCaution ? (
+              <p className="text-xs leading-5 text-amber-200">
+                Tu lado {smallerSideHint === "left" ? "izquierdo" : "derecho"} es el más delgado según tus mediciones
+                — evita series extra ahí sin valoración profesional; considera hacer la serie extra en el lado más
+                fuerte.
               </p>
             ) : null}
             {!isUnilateral ? <input type="hidden" name="side" value="bilateral" /> : null}
@@ -324,7 +407,40 @@ export function SessionRunner({
             </SubmitButton>
           </form>
         ) : (
-          <p className="mt-4 text-sm leading-6 text-emerald-300">Series objetivo completadas para este ejercicio.</p>
+          <div className="mt-4 grid gap-3">
+            <p className="text-sm leading-6 text-emerald-300">Series objetivo completadas para este ejercicio.</p>
+            {isBonusSetJustSaved ? (
+              targetSetsState.status === "updated" &&
+              targetSetsState.exercisePrescriptionId === currentExercise.id &&
+              targetSetsState.targetSets === bonusCount ? (
+                <p role="status" className="text-sm leading-6 text-emerald-300">
+                  Objetivo actualizado a {targetSetsState.targetSets} series{isUnilateral ? " por lado" : ""}.
+                </p>
+              ) : (
+                <form
+                  action={targetSetsFormAction}
+                  className="flex flex-wrap items-center gap-2 rounded-2xl bg-zinc-900 px-3 py-2 ring-1 ring-zinc-800"
+                >
+                  <input type="hidden" name="workoutSessionId" value={session.id} />
+                  <input type="hidden" name="exercisePrescriptionId" value={currentExercise.id} />
+                  <input type="hidden" name="targetSets" value={bonusCount} />
+                  <p className="flex-1 text-xs leading-5 text-zinc-300">
+                    ¿Hacer esto tu nuevo objetivo? ({bonusCount} series{isUnilateral ? " por lado" : ""})
+                  </p>
+                  <SubmitButton className="min-h-9 rounded-xl bg-zinc-950 px-3 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+                    Actualizar plan
+                  </SubmitButton>
+                </form>
+              )
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowBonusForm(true)}
+              className="min-h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            >
+              + Agregar un set extra
+            </button>
+          </div>
         )}
       </section>
 
