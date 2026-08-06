@@ -2,6 +2,12 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-05 — Deployed and committed the "Ver técnica en YouTube" tap target
+
+Status: shipped. Committed as `8459052` on `main` (`feat: add a minimalistic "Ver técnica en YouTube" tap target`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query (using the corrected `grep '^DATABASE_URL='` pattern, not the earlier flawed one — see below).
+
+Next iteration: none queued. The real-iPhone check of the universal-link handoff to the installed YouTube app is still open — see the entry below. See the entry below for the feature's full design/verification detail.
+
 ## 2026-08-05 — "Ver técnica en YouTube": a minimalistic search-handoff tap target
 
 Status: code complete, `lint`/`typecheck`/`test` (317 passing, +6 new)/`build` all green. No schema/migration. Not yet deployed/committed. Verified live against the real dev DB.

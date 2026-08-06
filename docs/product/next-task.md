@@ -1,8 +1,12 @@
 # Next Task
 
-## Status: "Ver técnica en YouTube" tap target — code complete, not yet deployed/committed.
+## Status: "Ver técnica en YouTube" tap target — shipped, deployed and committed (`8459052`).
 
-A minimalistic YouTube search-handoff icon next to every exercise name (session-runner's live and completed views, all plan-preview pages, the builder) — see the 2026-08-05 implementation-log entry for the full placement/scope/query-content design decisions (all confirmed via `AskUserQuestion`) and verification detail, including a real methodological mistake caught and fixed mid-session (a stale commented-out `DATABASE_URL` line in `.env.local` was silently winning over the active one in every `export $(grep ... | xargs)` DB check used in prior sessions too — worth using `grep '^DATABASE_URL='` instead going forward). `lint`/`typecheck`/`test` (317 passing)/`build` all green. Still needs a real-iPhone check of the actual universal-link handoff to the installed YouTube app before calling this fully done (Playwright can't observe that iOS-level behavior).
+A minimalistic YouTube search-handoff icon next to every exercise name (session-runner's live and completed views, all plan-preview pages, the builder). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). No active workout session at deploy time (confirmed via a direct DB check).
+
+See the 2026-08-05 implementation-log entry for the full placement/scope/query-content design decisions (all confirmed via `AskUserQuestion`) and verification detail, including a real methodological mistake caught and fixed mid-session (a stale commented-out `DATABASE_URL` line in `.env.local` was silently winning over the active one in every `export $(grep ... | xargs)` DB check used in prior sessions too — worth using `grep '^DATABASE_URL='` instead going forward).
+
+Still open: a real-iPhone check of the actual universal-link handoff to the installed YouTube app (Playwright can't observe that iOS-level behavior).
 
 ## Prior status: bonus-set logging + the `/guia` RIR/AMRAP/progression-math page — shipped, deployed and committed (`f039f89`).
 
