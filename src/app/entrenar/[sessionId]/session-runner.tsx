@@ -21,6 +21,7 @@ import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/
 
 import { AppShell } from "../../app-shell";
 import { SubmitButton } from "../../submit-button";
+import { YoutubeTechniqueLink } from "../../youtube-technique-link";
 import type { SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
@@ -219,7 +220,14 @@ export function SessionRunner({
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
           Ejercicio {exerciseIndex + 1} de {exercises.length}
         </p>
-        <h2 className="mt-2 text-xl font-semibold text-zinc-100">{currentExercise.exerciseNameEs}</h2>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <h2 className="text-xl font-semibold text-zinc-100">{currentExercise.exerciseNameEs}</h2>
+          <YoutubeTechniqueLink
+            nameEs={currentExercise.exerciseNameEs}
+            nameEn={currentExercise.exerciseNameEn}
+            isUnilateral={currentExercise.isUnilateral}
+          />
+        </div>
         <p className="mt-1 text-sm leading-6 text-zinc-400">
           {isDuration ? (
             <>
@@ -531,7 +539,14 @@ function CompletedSessionSummary({
       <div className="mt-6 grid gap-3 pb-10">
         {exercises.map((exercise) => (
           <article key={exercise.id} className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
-            <h2 className="font-semibold text-zinc-100">{exercise.exerciseNameEs}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-semibold text-zinc-100">{exercise.exerciseNameEs}</h2>
+              <YoutubeTechniqueLink
+                nameEs={exercise.exerciseNameEs}
+                nameEn={exercise.exerciseNameEn}
+                isUnilateral={exercise.isUnilateral}
+              />
+            </div>
             {exercise.loggedSets.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-400">Sin series registradas.</p>
             ) : (

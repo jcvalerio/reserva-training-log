@@ -7,9 +7,11 @@ import type { ExercisePrescriptionDefaults } from "@/plans/plan-builder-reposito
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { rirLabelsEs, rirValues } from "@/training/rir";
+import { buildYoutubeTechniqueSearchUrl } from "@/training/youtube-technique";
 import type { LoadMechanism } from "@/workouts/progression-view";
 
 import { SubmitButton } from "../../../../submit-button";
+import { YoutubeTechniqueIcon } from "../../../../youtube-technique-link";
 
 type Phase = "warmup" | "main" | "accessory" | "mobility";
 type PrescriptionType = "strength" | "duration";
@@ -238,6 +240,22 @@ function ExerciseRowFields({
   const [durationUnit, setDurationUnit] = useState<DurationUnit>(initialDuration.unit);
   const [durationValue, setDurationValue] = useState<number | "">(initialDuration.value);
 
+  // Name and isUnilateral are uncontrolled (see the form-level comment above)
+  // so the live-typed value only exists in the DOM, not in `value` — read it
+  // straight off the inputs at click time rather than adding controlled state
+  // just for this button.
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const unilateralInputRef = useRef<HTMLInputElement>(null);
+
+  function openYoutubeTechnique() {
+    const nameEs = nameInputRef.current?.value.trim();
+    if (!nameEs) {
+      return;
+    }
+    const isUnilateralNow = unilateralInputRef.current?.checked ?? false;
+    window.open(buildYoutubeTechniqueSearchUrl({ nameEs, isUnilateral: isUnilateralNow }), "_blank", "noopener,noreferrer");
+  }
+
   function handleDurationUnitChange(nextUnit: DurationUnit) {
     setDurationValue((current) => (current === "" ? current : convertDurationValue(current, durationUnit, nextUnit)));
     setDurationUnit(nextUnit);
@@ -280,20 +298,31 @@ function ExerciseRowFields({
         </div>
       </div>
 
-      <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
-        <span>Nombre del ejercicio</span>
-        <input
-          name={`${prefix}:exerciseNameEs`}
-          type="text"
-          maxLength={200}
-          defaultValue={value.exerciseNameEs}
-          onBlur={(event) => onPrefill(event.target.value.trim())}
-          className="input"
-          placeholder="Prensa de piernas"
-          list={KNOWN_EXERCISE_NAMES_DATALIST_ID}
-          autoComplete="off"
-        />
-      </label>
+      <div className="mt-3 flex items-end gap-2">
+        <label className="grid flex-1 gap-1 text-sm font-medium text-zinc-300">
+          <span>Nombre del ejercicio</span>
+          <input
+            ref={nameInputRef}
+            name={`${prefix}:exerciseNameEs`}
+            type="text"
+            maxLength={200}
+            defaultValue={value.exerciseNameEs}
+            onBlur={(event) => onPrefill(event.target.value.trim())}
+            className="input"
+            placeholder="Prensa de piernas"
+            list={KNOWN_EXERCISE_NAMES_DATALIST_ID}
+            autoComplete="off"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={openYoutubeTechnique}
+          aria-label="Ver técnica en YouTube"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 active:text-emerald-300"
+        >
+          <YoutubeTechniqueIcon className="h-5 w-5" />
+        </button>
+      </div>
       {value.prefilledFromHistory ? (
         <p className="mt-1 text-xs leading-5 text-emerald-300">
           Series, reps y RIR se llenaron con tu configuración más reciente de este ejercicio — puedes ajustarlos.
@@ -329,6 +358,7 @@ function ExerciseRowFields({
         </label>
         <label className="flex items-end gap-2 pb-2.5 text-sm font-medium text-zinc-300">
           <input
+            ref={unilateralInputRef}
             name={`${prefix}:isUnilateral`}
             type="checkbox"
             defaultChecked={value.isUnilateral}

@@ -7,6 +7,7 @@ import type { PlanPreviewSummary } from "@/plans/plan-preview";
 import { AppShell } from "../app-shell";
 import { FormStatusBanner } from "../form-status-banner";
 import { SubmitButton } from "../submit-button";
+import { YoutubeTechniqueLink } from "../youtube-technique-link";
 
 export function PlanPageContent({
   readiness,
@@ -326,7 +327,14 @@ export function PlanExerciseCard({ exercise }: { exercise: PlanPreviewSummary["s
           {exercise.orderIndex}
         </span>
         <div className="min-w-0 flex-1">
-          <h4 className="font-semibold text-zinc-100">{exercise.nameEs}</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="font-semibold text-zinc-100">{exercise.nameEs}</h4>
+            <YoutubeTechniqueLink
+              nameEs={exercise.nameEs}
+              nameEn={exercise.nameEn}
+              isUnilateral={exercise.sideLabelEs === "unilateral"}
+            />
+          </div>
           <p className="mt-1 text-xs text-zinc-400">
             {exercise.phaseLabelEs} · {exercise.sideLabelEs}
           </p>

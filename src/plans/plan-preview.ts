@@ -5,6 +5,7 @@ type GeneratedPlanSession = GeneratedWorkoutPlan["sessions"][number];
 export type PlanPreviewExerciseSummary = {
   orderIndex: number;
   nameEs: string;
+  nameEn: string | null;
   phaseLabelEs: string;
   sideLabelEs: string;
   prescriptionType: "strength" | "duration";
@@ -75,6 +76,7 @@ function getSessionPreviewSummary(session: GeneratedPlanSession): PlanPreviewSes
   const exercises = session.exercises.map((exercise, index) => ({
     orderIndex: index + 1,
     nameEs: exercise.exerciseNameEs,
+    nameEn: exercise.exerciseNameEn ?? null,
     phaseLabelEs: phaseLabelsEs[exercise.phase],
     sideLabelEs: exercise.isUnilateral ? "unilateral" : "bilateral",
     prescriptionType: exercise.prescriptionType,
