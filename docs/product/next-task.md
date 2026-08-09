@@ -34,11 +34,15 @@ The plan picker inside the swap panel is a collapsed list of your own exercises,
 
 Not done deliberately: plan previews omit alternatives rather than listing them under their original, and the templates' generic placeholder lists are untouched (rewriting them with real per-exercise alternatives is a content pass you declined for now).
 
-## Up next: the last feedback item
+## Up next: the last feedback item — a better `/progreso` dashboard (item 5)
 
-- **Item 5 — a better `/progreso` dashboard** (its own session, and worth waiting on). Deferred on evidence, not size: **zero exercises currently have 2+ completed instances**, and a progression line needs 2 points, so a grouped/combined dashboard would render essentially empty today and couldn't be verified against real data. Two of the three candidate grouping axes also don't hold up — grouping by day template isn't a partition ("Core" appears in all 5 days, "Extensión de tríceps" in 2, while `toExerciseSeriesGroups` groups by name across all history), and `loadMechanism` is `machine` for all 28 exercises on the real plan, collapsing that axis to compound-vs-isolation. Grouping "by muscle group" as literally asked would reopen the taxonomy decision this project has explicitly declined before — your call, not a quiet schema addition.
+**A full kickoff prompt is ready at `docs/product/progress-dashboard-kickoff-prompt.md` — hand that whole file to a new session to start it.** It contains findings verified against the real dev DB, not just the raw feedback, with the real forks flagged for `AskUserQuestion`.
 
-The full kickoff prompt with all five items is still at `docs/product/user-feedback-kickoff-prompt.md`.
+The headline finding, re-checked on 2026-08-09 after Días 1–3 were logged: **still only one exercise has 2+ completed instances — "Core"**, which is the least meaningful one to chart since that name appears on all five days. Ten other exercises have exactly one instance each. A progression line needs two points, so the literal "all exercises trending in one chart" would render as a field of single dots. The prompt therefore reframes the work around a view that is genuinely useful at one point per exercise and *becomes* a trend view as the rotation repeats — rather than deferring again or building for hypothetical data.
+
+Also captured there: the two ask-halves are separable (kill the dropdown ≠ group by body part) and the cheaper half is the certain win; two of the three zero-schema grouping axes don't survive contact with the real plan; grouping "by muscle group" reopens a taxonomy decision this project has explicitly declined before (your call, never a quiet schema addition); and the newly-shipped substitution feature adds a fresh question, since a substitute is now a real exercise with its own history that `/progreso` will surface independently.
+
+The original five-item kickoff is still at `docs/product/user-feedback-kickoff-prompt.md` for context.
 
 ## Prior status: "Ver técnica en YouTube" tap target — shipped, deployed and committed (`8459052`).
 
