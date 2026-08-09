@@ -1,6 +1,14 @@
 # Next Task
 
-## Status: set correction (edit + delete) and the iOS text-zoom fix — shipped, deployed and committed (`a7c27a9`).
+## Status: exercise substitution + the bigger reading type scale — shipped, deployed and committed (`ffe3197`).
+
+Both live at `https://gym.jcvalerio.com`. Migration `0017` (two nullable columns on `exercise_prescription`) verified applied in production, and the new type scale confirmed in the production CSS with headings untouched. Deployed while your Día 4 session was active — that's normally the stop condition here, but you confirmed you were on `localhost:3000`, which a production deploy can't interrupt, and the migration was additive with no backfill.
+
+**Four of the five feedback items are now done.** Only item 5 (the `/progreso` dashboard) is left, and it's still waiting on data — see below.
+
+Worth doing on-device: check the new default text sizes on your real iPhone, since the original complaint was about on-device readability. The ± stepper values are worth a glance in the same pass.
+
+## Prior status: set correction (edit + delete) and the iOS text-zoom fix — shipped, deployed and committed (`a7c27a9`).
 
 Two of the five user-feedback items: correcting a logged set (feedback items 1 and 2) and the small-font/accessibility fix (item 4). `lint`/`typecheck`/`test` (331 passing)/`build` all green. Migration `drizzle/0016_sharp_screwball.sql` (one additive, nullable `set_log.updated_at` column) is applied — verified present in the DB after deploy, not assumed. Both fixes confirmed live in production: the served HTML emits `width=device-width, initial-scale=1` with no `maximum-scale`, and the production CSS carries the `.input-stepper` fix.
 

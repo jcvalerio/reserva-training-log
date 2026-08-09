@@ -2,6 +2,18 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Deployed and committed exercise substitution + the reading type scale
+
+Status: shipped. Committed as `ffe3197` on `main` (`feat: swap an exercise mid-session, and raise the reading type scale`) — 17 files, bundling both undeployed pieces into one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
+
+Verified in production rather than assumed, since this deploy carried a schema change: both `substituted_for_prescription_id` and `substitution_reason_es` exist and are nullable, `drizzle.__drizzle_migrations` shows 18 applied entries, and the production CSS bundle carries the new scale (`--text-xs:.875rem`, `--text-sm:1rem`) with `--text-xl` still at its stock `1.25rem` — confirming headings were left alone as the user asked — plus `input-stepper{appearance:textfield;padding-left:0;padding-right:0}`.
+
+**Deployed with a workout session genuinely active**, which is normally this project's stop condition. Checked rather than waved through: the session on Día 4 had a set logged ~70 seconds earlier, so it was unambiguously live. Raised it explicitly instead of proceeding, and the user confirmed they were testing on `localhost:3000`, which a Vercel production deploy cannot interrupt. The migration was additive and nullable with no backfill, so the data was safe either way. Worth keeping the check itself — the constraint is about *disruption*, and the answer turned on where the session was running, not on whether one existed.
+
+`next-env.d.ts` was again kept out of the commit (it auto-flips between `./.next/types/` and `./.next/dev/types/` depending on whether `build` or `dev` ran last).
+
+Next iteration: only feedback item 5 (the `/progreso` dashboard) remains, still deferred for lack of chartable history — see `next-task.md`. The real-iPhone check of the new default type scale is worth doing on-device, since the user's original complaint was about on-device readability.
+
 ## 2026-08-09 — Substituting an exercise mid-session (feedback item 3)
 
 Status: code complete, `lint`/`typecheck`/`test` (354 passing, +23 new)/`build` all green. Migration `drizzle/0017_funny_famine.sql` generated **and applied to the dev DB**. Not yet deployed/committed. Verified live against the real dev DB and the real signed-in account.
