@@ -1,17 +1,16 @@
 # Next Task
 
-## Status: set correction (edit + delete) and the iOS text-zoom fix — code complete, verified live, NOT yet deployed or committed.
+## Status: set correction (edit + delete) and the iOS text-zoom fix — shipped, deployed and committed (`a7c27a9`).
 
-Two of the five user-feedback items shipped this session: correcting a logged set (feedback items 1 and 2) and the small-font/accessibility fix (item 4). `lint`/`typecheck`/`test` (331 passing)/`build` all green. **Migration `drizzle/0016_sharp_screwball.sql` is generated and already applied to the dev DB** (it will run automatically on the next Vercel build) — one additive, nullable `set_log.updated_at` column.
+Two of the five user-feedback items: correcting a logged set (feedback items 1 and 2) and the small-font/accessibility fix (item 4). `lint`/`typecheck`/`test` (331 passing)/`build` all green. Migration `drizzle/0016_sharp_screwball.sql` (one additive, nullable `set_log.updated_at` column) is applied — verified present in the DB after deploy, not assumed. Both fixes confirmed live in production: the served HTML emits `width=device-width, initial-scale=1` with no `maximum-scale`, and the production CSS carries the `.input-stepper` fix.
+
+You've already used this for real — the two sets edited on "Press de pecho en máquina" during the Día 2 session are yours, not test data.
 
 You can now tap "Editar" on any logged set — in the live session *and* in the completed-session summary — to correct weight/reps/RIR/pain/notes in place, or delete it behind a confirm step. A corrected set shows a subtle "· editado" marker. "Logged it against the wrong exercise" is fixed by deleting it and re-logging under the right one, using the runner's existing Anterior/Siguiente navigation.
 
 See the 2026-08-09 implementation-log entry for the full reasoning, including: the trainer/physio verdict that the *inability* to edit was itself the safety defect; a real duplicate-`setNumber` bug the delete path would have introduced (caught and fixed with `renumberSets` before any UI existed); and **a genuine pre-existing bug found during live verification** — the ± stepper fields have been clipping their own values since they shipped, so the main logging form was rendering "40" as a sliver of "4", fixed here for both forms.
 
-**Two things still open:**
-
-1. **A real-iPhone check for item 4 — only you can do this.** Turn up Settings → Accessibility → Display & Text Size → Larger Text and confirm the app's text actually enlarges, that pinch-zoom works, and that the fixed bottom nav doesn't break while zoomed. The served HTML now emits `content="width=device-width, initial-scale=1"` with no `maximum-scale`, and Tailwind's utilities are already `rem`-based — but Playwright can't observe iOS's own text-scaling behavior.
-2. **Deploy and commit** whenever you want them (neither done). Confirm no workout session is active first.
+**One thing still open — only you can do it:** a real-iPhone check for item 4. Turn up Settings → Accessibility → Display & Text Size → Larger Text and confirm the app's text actually enlarges, that pinch-zoom works, and that the fixed bottom nav doesn't break while zoomed. The production HTML now emits `content="width=device-width, initial-scale=1"` with no `maximum-scale`, and Tailwind's utilities are already `rem`-based — but Playwright can't observe iOS's own text-scaling behavior. Worth checking the ± stepper fix on-device in the same pass, since the numbers were previously clipped there too.
 
 ## Up next: the remaining three feedback items
 

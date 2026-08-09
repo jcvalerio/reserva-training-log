@@ -2,6 +2,18 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Deployed and committed set correction + the iOS text-zoom fix
+
+Status: shipped. Committed as `a7c27a9` on `main` (`feat: let a logged set be corrected or deleted, and unblock iOS text zoom`) — 22 files, both of this session's pieces in one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try this time (no retry needed, unlike the last two sessions). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
+
+Unlike every prior deploy in this project, this one **did** carry a schema change — verified rather than assumed afterwards: `set_log.updated_at` exists in the DB as `timestamp with time zone`, nullable, and `drizzle.__drizzle_migrations` shows 17 applied entries. Also confirmed the two fixes actually reached production rather than trusting the build: the served HTML now emits `content="width=device-width, initial-scale=1"` with **no** `maximum-scale` (the previous production build had `maximum-scale=1`, so this doubles as proof the alias is serving the new deployment), and the production CSS bundle contains `input-stepper{padding-left:.25rem;padding-right:.25rem}`.
+
+Confirmed no workout session was active at deploy time, and none started during it. `next-env.d.ts` was deliberately left out of the commit — it auto-flips between `./.next/types/` and `./.next/dev/types/` depending on whether `next build` or `next dev` ran last, so committing the dev variant would just churn.
+
+**The real account had been used for real in between**: two new completed sessions appeared (Día 2 "Tren superior completo A" at 17:59 UTC and Día 3 "Femorales, glúteos y pantorrillas" at 18:03 UTC), taking `set_log` from 7 rows to 41 — and **2 of those sets are already marked edited**, both on "Press de pecho en máquina" (set 2 corrected ~14s after logging, set 3 ~2.5 min after). That's the user's own real training and the first real use of this feature, entirely separate from this session's throwaway verification (which used a Día 5 session, `118e42ca…`, deleted with zero residue confirmed before any of this). Left completely untouched.
+
+Next iteration: the real-iPhone text-size check for item 4 is still open and only the user can do it (see the entry below). Items 3 and 5 remain — see `next-task.md`.
+
 ## 2026-08-09 — Correcting a logged set (edit + delete), and unblocking iOS text zoom
 
 Status: code complete, `lint`/`typecheck`/`test` (331 passing, +14 new)/`build` all green. Migration `drizzle/0016_sharp_screwball.sql` generated **and applied to the dev DB**. Not yet deployed/committed. Verified live against the real dev DB and the real signed-in account.
