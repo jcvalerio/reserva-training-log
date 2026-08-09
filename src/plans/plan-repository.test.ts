@@ -65,6 +65,8 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       loadMechanism: exercise.prescriptionType === "strength" ? (exercise.loadMechanism ?? null) : null,
       isCompound: exercise.prescriptionType === "strength" ? (exercise.isCompound ?? null) : null,
       lineageKey: null,
+      substitutedForPrescriptionId: null,
+      substitutionReasonEs: null,
     }));
 
     return { template, exercises };

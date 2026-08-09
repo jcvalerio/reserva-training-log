@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exercisePrescription, planSessionTemplate, workoutPlan, workoutSession } from "@/db/schema";
@@ -42,11 +42,22 @@ export async function getActivePlanForProfile(athleteProfileId: string): Promise
     .orderBy(asc(planSessionTemplate.weekNumber), asc(planSessionTemplate.dayIndex));
 
   const templateIds = templates.map((template) => template.id);
+  // Substitutes are excluded from "the plan": they're real prescriptions, but
+  // they stand in for an exercise rather than adding one, so counting them
+  // here would inflate every day's "N ejercicios" and the /plan preview by one
+  // per swap ever made. The session runner reads prescriptions directly (see
+  // getSessionRunDetails) and pulls the relevant alternative back in for the
+  // session it was chosen in.
   const exercises = templateIds.length
     ? await db
         .select()
         .from(exercisePrescription)
-        .where(inArray(exercisePrescription.planSessionTemplateId, templateIds))
+        .where(
+          and(
+            inArray(exercisePrescription.planSessionTemplateId, templateIds),
+            isNull(exercisePrescription.substitutedForPrescriptionId),
+          ),
+        )
         .orderBy(asc(exercisePrescription.orderIndex))
     : [];
 
@@ -109,6 +120,110 @@ export async function updateExercisePrescriptionTargetSets(
 
   await db.update(exercisePrescription).set({ targetSets }).where(eq(exercisePrescription.id, exercisePrescriptionId));
   return true;
+}
+
+export type CreateSubstituteInput = {
+  originalPrescriptionId: string;
+  exerciseNameEs: string;
+  reasonEs: string | null;
+};
+
+/**
+ * Creates (or reuses) an alternative exercise standing in for one already in
+ * the plan — the broken/busy machine case, or a movement that doesn't feel
+ * right that day.
+ *
+ * The substitute inherits the *original's* whole prescription: sets, reps,
+ * RIR, rest, phase, laterality, load mechanism, compound flag and
+ * pain-sensitivity. That's deliberate on two counts. Coaching-wise, swapping
+ * the machine shouldn't silently change the day's intended stimulus — you
+ * still owe the same work. Data-wise, it means the substitute is a fully
+ * classified exercise from its very first set, so suggestProgression and
+ * suggestNextWeightKg treat it exactly like anything else instead of falling
+ * back to the unclassified flat increment. Only the name differs.
+ *
+ * Reuses an existing alternative of the same name rather than minting a
+ * near-duplicate, so repeatedly swapping to the same machine builds one
+ * continuous progression history.
+ *
+ * Returns null when the prescription isn't this athlete's.
+ */
+export async function createSubstituteExercise(
+  athleteProfileId: string,
+  input: CreateSubstituteInput,
+): Promise<ExercisePrescription | null> {
+  const [original] = await db
+    .select({ prescription: exercisePrescription })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
+    .innerJoin(workoutPlan, eq(workoutPlan.id, planSessionTemplate.workoutPlanId))
+    .where(
+      and(
+        eq(exercisePrescription.id, input.originalPrescriptionId),
+        eq(workoutPlan.athleteProfileId, athleteProfileId),
+      ),
+    );
+
+  if (!original) {
+    return null;
+  }
+
+  const source = original.prescription;
+
+  // A substitute always hangs off a real plan exercise, never off another
+  // substitute — otherwise swapping twice in one session would build a chain
+  // and the day's grouping would need to walk it.
+  const rootId = source.substitutedForPrescriptionId ?? source.id;
+
+  const siblings = await db
+    .select()
+    .from(exercisePrescription)
+    .where(eq(exercisePrescription.planSessionTemplateId, source.planSessionTemplateId));
+
+  const existing = siblings.find(
+    (row) =>
+      row.substitutedForPrescriptionId === rootId &&
+      row.exerciseNameEs.toLocaleLowerCase("es") === input.exerciseNameEs.toLocaleLowerCase("es"),
+  );
+
+  if (existing) {
+    return existing;
+  }
+
+  const nextOrderIndex = Math.max(...siblings.map((row) => row.orderIndex), 0) + 1;
+
+  const [created] = await db
+    .insert(exercisePrescription)
+    .values({
+      id: randomUUID(),
+      planSessionTemplateId: source.planSessionTemplateId,
+      orderIndex: nextOrderIndex,
+      exerciseNameEs: input.exerciseNameEs,
+      // Not inherited: the English name belongs to the original movement, and
+      // carrying it over would mislabel a different exercise.
+      exerciseNameEn: null,
+      phase: source.phase,
+      isUnilateral: source.isUnilateral,
+      prescriptionType: source.prescriptionType,
+      targetSets: source.targetSets,
+      targetRepMin: source.targetRepMin,
+      targetRepMax: source.targetRepMax,
+      targetRir: source.targetRir,
+      durationSeconds: source.durationSeconds,
+      restSeconds: source.restSeconds,
+      notesEs: source.notesEs,
+      notesEn: null,
+      painSensitive: source.painSensitive,
+      substitutionOptionsEs: [],
+      loadMechanism: source.loadMechanism,
+      isCompound: source.isCompound,
+      lineageKey: null,
+      substitutedForPrescriptionId: rootId,
+      substitutionReasonEs: input.reasonEs,
+    })
+    .returning();
+
+  return created ?? null;
 }
 
 export type PlanSessionStats = {

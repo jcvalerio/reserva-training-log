@@ -2,6 +2,71 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Substituting an exercise mid-session (feedback item 3)
+
+Status: code complete, `lint`/`typecheck`/`test` (354 passing, +23 new)/`build` all green. Migration `drizzle/0017_funny_famine.sql` generated **and applied to the dev DB**. Not yet deployed/committed. Verified live against the real dev DB and the real signed-in account.
+
+User feedback: "some days I want to do a different exercise because the machine is broken/too busy or just because I don't feel well to perform that exercise."
+
+**A finding that invalidated the previously-agreed scope, surfaced before building rather than after.** The plan of record was "substitute from `substitutionOptionsEs` *or* any exercise already in your plan." A direct query showed **all 28 exercises on the real active plan carry the identical placeholder pair `["Máquina equivalente", "Cable equivalente"]`** — the template author wrote one generic pair and applied it everywhere. So the curated half was hollow: it names no actual exercise, and worse, `getPreviousExercisePerformance` matches history by `exerciseNameEs` **globally per athlete**, so substituting into a prescription literally named "Máquina equivalente" would have collapsed every swap across all 28 exercises into one shared progression history — a leg-press swap informing a bicep-curl suggestion. Went back to the user rather than quietly shipping the thin version, with the correction that a typed name is *not* the unclassified free-text the original kickoff feared.
+
+**Confirmed via `AskUserQuestion` (both recommended options)**: swap targets are any exercise already in the plan *or* a typed name; and a substitute is stored **linked** to the exercise it replaces rather than merely appended.
+
+**Schema** (`0017`), two nullable columns on `exercise_prescription`:
+- `substituted_for_prescription_id` — self-referential FK, **`on delete set null`** rather than cascade: cascade would fight `exerciseLog`'s `onDelete: "restrict"`, where a substitute with logged history would block deleting the original outright. Set-null degrades gracefully (the alternative just becomes a normal exercise).
+- `substitution_reason_es` — kept because the reasons are **not clinically equivalent**. A busy or broken machine is logistics; "no me sentí bien" is a symptom report, and since the original ends the session with *no logged sets*, nothing else would record that anything was wrong. The UI surfaces a matching physio note ("si aparece dolor... el dolor manda antes que la carga") only for that reason.
+
+**A substitute is a real prescription, not a session-scoped override** — the inverted trade-off flagged in the previous entry held up: an override would have needed a new column plus a coalesce in three core read paths, whereas a real row needs none and every existing feature (progression, previous-performance, `/progreso`) works on it untouched. It **inherits the original's entire prescription** — sets, reps, RIR, rest, phase, laterality, `loadMechanism`, `isCompound`, `painSensitive` — so it's fully classified from its first set (no flat-increment fallback), and coaching-wise the swap doesn't silently change the day's intended stimulus. Only the name differs; `exerciseNameEn`/`notesEn` are deliberately *not* inherited, since they describe a different movement.
+
+**Keeping the day from growing** was the whole point of the link. New pure module `src/workouts/exercise-substitution.ts` (+17 tests): `selectVisibleExercises` shows the plan's own exercises plus only those alternatives chosen *in this session*, sorted immediately after the exercise they stand in for rather than at the end where their `orderIndex` would put them. "Chosen" is keyed on the **`exerciseLog` row, not on sets existing** — a design correction caught mid-build, since a just-created substitute has no sets yet and would otherwise have been filtered out of the very screen you need it on; `markExerciseChosenForSession` writes that row. `getActivePlanForProfile` filters substitutes out entirely, so day counts and `/plan` previews stay honest. `buildSubstituteChoices` dedupes by name precisely because history is name-matched ("Core" really is on all five days). `createSubstituteExercise` reuses an existing alternative of the same name instead of minting a near-duplicate, so a recurring broken machine builds one continuous history.
+
+**UI**: a muted "Cambiar ejercicio" on the exercise card (not behind a menu — the decision happens standing in front of an occupied machine), opening reason chips → "ya usaste antes" one-tap alternatives → a name field → a pick-from-plan select. After a successful swap the runner **lands on the replacement**, via the same render-time state-adjustment pattern the bonus-set reset already uses. The app deliberately does **not** grade the swap: with no muscle-group taxonomy it cannot tell whether an alternative preserves the movement pattern, and a confident-sounding warning it can't back would be worse than staying quiet.
+
+**Verified live** at 390×844 on a throwaway Día 5 session: swapped "Sentadilla búlgara con apoyo" → "Hack squat" with reason "No me sentí bien"; confirmed by direct query that the new row inherited 3×6-10 / RIR 2 / 120s / unilateral / machine / compound / pain-sensitive and stored both the reason and the link. Confirmed it appeared as "Ejercicio 2 de 7" directly after its original, that a second swap **reused** the same prescription (29 rows, not 30) and auto-landed on it, that a set logged against it saved correctly, and — the point of the whole design — that `/entrenar` still reported Día 5 as **"6 ejercicios"** and `/plan/rutina` never rendered "Hack squat" at all.
+
+Cleanup confirmed: throwaway session and substitute deleted, account back to exactly 3 completed sessions / 41 sets / 28 prescriptions / 0 substitutes / 0 orphan `exercise_log` rows.
+
+Not done, deliberately: plan-preview pages don't yet *display* alternatives under their original (they simply omit them, which is the correctness fix); and the templates' generic `substitutionOptionsEs` placeholders are still rendered as inert text where `painSensitive` is true — rewriting those lists with real per-exercise alternatives is a content-authoring pass the user declined for now.
+
+Files touched: `src/db/schema.ts`, `drizzle/0017_funny_famine.sql` (new, applied), `src/workouts/exercise-substitution.ts` (new, +test), `src/workouts/workout-repository.ts`, `src/plans/plan-repository.ts`, `src/app/entrenar/actions.ts`, `src/app/entrenar/[sessionId]/page.tsx`, `src/app/entrenar/[sessionId]/session-runner.tsx` (+test), plus the new fields added to the `ExercisePrescription` fixtures in `plan-repository.test.ts`/`session-progress.test.ts`.
+
+Same-session follow-up after the user tried it locally and asked why the swap panel looked the way it did (screenshot: the plan picker's options rendered as a full-height browser-native list covering the panel). Two separate things, one of them a real defect:
+
+- **The popup's appearance was browser-native and unstyleable** — that's how macOS Chrome renders a `<select>` popup; on the iPhone it would have been a bottom wheel picker instead. Replaced the `<select>` entirely with the same collapsed-`<details>`-plus-tappable-list pattern already used for "ya usaste antes" and the reason chips, so it now looks like the rest of the app, stays collapsed until asked for, and scrolls within `max-h-64` instead of covering the form.
+- **A genuine bug behind it**: the picker was pinned to `value=""`, so it snapped straight back to its placeholder after every choice. The name *had* in fact been filled into the field above, but nothing in the control you just tapped acknowledged it, so the tap read as a no-op. The list now marks the chosen exercise via `aria-pressed` and clears it again as soon as you type something that isn't in the plan — covered by two new regression tests (356 passing).
+
+The user had an **active session on Día 4 and a real substitute of their own** ("Pantorrilla sentada unilateral" standing in for "Press inclinado en máquina", reason "Otra razón") at the time; both were left untouched throughout, and confirmed intact afterwards.
+
+Next iteration: deploy and commit when asked — this would bundle with the still-undeployed type-scale work from the entry below.
+
+## 2026-08-09 — Bigger reading text by default (the other half of item 4)
+
+Status: code complete, `lint`/`typecheck`/`test` (331 passing)/`build` all green. No schema change. Not yet deployed/committed.
+
+Follow-up to the deploy below. The user confirmed pinch-zoom now works on their real iPhone, then made the point that mattered: **they wanted defaults that are easier to read at 47+, not just the ability to zoom**. That's the correct reading of their original words — "harder to read instructions almost all the time" is about the resting state, and having to pinch every session is an escape hatch, not a readable default. Removing `maximumScale` was necessary but not sufficient.
+
+**Audit first**: the app was 215 × `text-sm` (14px) and 104 × `text-xs` (12px), against only 9 × `text-base` (16px). The coaching copy the user named — `notesEs`, `mobilityNotesEs`, the pain and substitution warnings — was all `text-xs`, i.e. **12px**.
+
+**Scoped by the user's own correction**, which changed the design: asked how far to push, they answered that exercise names and page titles "are ok right now, the most affected are coaching notes, lead paragraphs." So this is deliberately **not** a uniform scale bump — only the three reading sizes move, via a `@theme` override in `globals.css` (Tailwind v4), which lifts all 319 call sites from one place with zero churn across 26 files:
+- `--text-xs`: 12px → **14px** (coaching notes, warnings, substitutions)
+- `--text-sm`: 14px → **16px** (body copy and lead paragraphs; the usual mobile body-text floor)
+- `--text-base`: 16px → **17px**
+- `text-lg` and up: **unchanged** — verified in the compiled CSS that `--text-xl`/`--text-2xl`/`--text-3xl` still resolve to their defaults, and live that `h1` is still 30px.
+
+**Why a theme override rather than a root `font-size` bump**: Tailwind's spacing utilities are rem-based, so raising the root would have inflated the fixed grids too — the ± stepper's `[2.75rem 1fr 2.75rem]` columns and the 5-column bottom nav — re-clipping the very fields fixed in the entry below. The `@theme` route grows text only and leaves all geometry alone.
+
+**A real regression this introduced, caught by measuring rather than eyeballing, and fixed**: at 16px the main logging form's weight field began clipping at **"62.5"** — and half-kilo values are precisely what `suggestNextWeightKg` produces via `roundToHalf`, so this would have hit constantly. Measured the cause instead of guessing: the digits only need ~34px of the ~51px available, but the browser reserves ~23px for the **native number spinner**, which is pure dead weight here (these fields have their own ± buttons, and iOS Safari never renders the spinner at all). Hiding it via `appearance: textfield` + the `::-webkit-*-spin-button` reset on `.input-stepper` — deliberately scoped, since the Dolor (0-10) field is also a number input but has no ± buttons and keeps its spinner — plus dropping `.input-stepper`'s side padding to zero (the value is centre-aligned, so the padding bought nothing visually). Both forms now render every value cleanly from "40" through "999.5", the schema max. Notably this fixes the tap targets' cost too: no button was shrunk to buy the space.
+
+Verified live at 390×844 against the real dev DB: coaching notes measured at 14px/20px line-height (were 12px), body at 16px, `h1` unchanged at 30px, no horizontal overflow anywhere, the 5-column nav labels unclipped, the 5-column RIR selector unclipped, and both the main form and the narrower in-card editor clean across `40`/`62.5`/`100`/`127.5`/`999.5`.
+
+Used a throwaway Día 5 session for the live check and deleted it afterward — confirmed the account is back to exactly its real state (3 completed sessions, 41 sets, 2 marked edited, 0 orphan `exercise_log` rows). The user had trained Día 2 and Día 3 for real earlier in the day; none of that was touched.
+
+Not changed, and worth a deliberate decision later: the bottom-nav tabs and a handful of uppercase eyebrow/stat labels use hardcoded arbitrary sizes (`text-[0.68rem]` ≈ 10.9px, `text-[0.65rem]` ≈ 10.4px) which a `@theme` override cannot reach. They're the smallest text left in the app, but they're chrome rather than reading copy, and the nav is the tightest horizontal constraint (5 fixed columns that already abbreviate "Entrenar"→"Entr."), so growing them is a separate call.
+
+Files touched: `src/app/globals.css` only.
+
+Next iteration: deploy and commit when asked.
+
 ## 2026-08-09 — Deployed and committed set correction + the iOS text-zoom fix
 
 Status: shipped. Committed as `a7c27a9` on `main` (`feat: let a logged set be corrected or deleted, and unblock iOS text zoom`) — 22 files, both of this session's pieces in one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try this time (no retry needed, unlike the last two sessions). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).

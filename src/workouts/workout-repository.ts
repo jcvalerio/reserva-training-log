@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
 import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-repository";
 
+import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
 import { renumberSets } from "./set-editing";
 
 export type WorkoutSession = typeof workoutSession.$inferSelect;
@@ -51,9 +52,19 @@ export type ExerciseWithLoggedSets = ExercisePrescription & {
   previousPerformance: PreviousExercisePerformance | null;
 };
 
+export type SubstituteChoice = { exerciseNameEs: string };
+
 export type SessionRunDetails = {
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
+  /**
+   * Alternatives already created for an exercise, keyed by that exercise's id
+   * — offered as one-tap swaps so a recurring broken machine doesn't mean
+   * retyping the replacement every session.
+   */
+  substitutesByExerciseId: Record<string, SubstituteChoice[]>;
+  /** Every distinct exercise in the athlete's plan, as swap targets. */
+  planSubstituteChoices: SubstituteChoice[];
 };
 
 export async function getWorkoutSessionsForProfile(athleteProfileId: string): Promise<WorkoutSession[]> {
@@ -145,8 +156,17 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     }
   }
 
+  // A substitute is a real prescription in this template, so without filtering
+  // the day would visibly grow by one exercise for every swap ever made.
+  // Alternatives join the running order only once chosen in *this* session,
+  // which the exerciseLog row records — choosing one has to put it on screen
+  // before any set exists to log against it.
+  const visibleExercises = selectVisibleExercises(exercises, (exercise) =>
+    logIdByPrescriptionId.has(exercise.id),
+  );
+
   const exercisesWithLoggedSets = await Promise.all(
-    exercises.map(async (exercise) => {
+    visibleExercises.map(async (exercise) => {
       const logId = logIdByPrescriptionId.get(exercise.id);
       const previousPerformance = await getPreviousExercisePerformance(
         session.athleteProfileId,
@@ -161,7 +181,24 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     }),
   );
 
-  return { template, exercises: exercisesWithLoggedSets };
+  const substituteGroups = groupSubstitutes(exercises);
+  const substitutesByExerciseId: Record<string, SubstituteChoice[]> = {};
+  for (const [originalId, substitutes] of substituteGroups) {
+    substitutesByExerciseId[originalId] = substitutes.map((row) => ({ exerciseNameEs: row.exerciseNameEs }));
+  }
+
+  const planExercises = await db
+    .select({ exerciseNameEs: exercisePrescription.exerciseNameEs })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
+    .where(eq(planSessionTemplate.workoutPlanId, session.workoutPlanId));
+
+  return {
+    template,
+    exercises: exercisesWithLoggedSets,
+    substitutesByExerciseId,
+    planSubstituteChoices: buildSubstituteChoices(planExercises, []),
+  };
 }
 
 export async function getPreviousExercisePerformance(
@@ -361,6 +398,19 @@ export async function deleteSetForSession(athleteProfileId: string, setLogId: st
   }
 
   return true;
+}
+
+/**
+ * Records that an exercise is part of this session without logging a set yet
+ * — used when swapping to a substitute, which has to appear in the running
+ * order before you can log the first set against it (see
+ * selectVisibleExercises).
+ */
+export async function markExerciseChosenForSession(
+  workoutSessionId: string,
+  exercisePrescriptionId: string,
+): Promise<void> {
+  await ensureExerciseLog(workoutSessionId, exercisePrescriptionId);
 }
 
 async function ensureExerciseLog(workoutSessionId: string, exercisePrescriptionId: string): Promise<string> {

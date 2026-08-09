@@ -4,14 +4,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getActivePlanForProfile, updateExercisePrescriptionTargetSets } from "@/plans/plan-repository";
+import {
+  createSubstituteExercise,
+  getActivePlanForProfile,
+  updateExercisePrescriptionTargetSets,
+} from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import {
+  normalizeSubstituteName,
+  substitutionReasonLabelsEs,
+  substitutionReasons,
+} from "@/workouts/exercise-substitution";
 import { parseSessionCompletionFormData } from "@/workouts/session-completion-schema";
 import { parseSetLogFormData } from "@/workouts/set-log-schema";
 import {
   completeWorkoutSession,
   deleteSetForSession,
   getWorkoutSessionForProfile,
+  markExerciseChosenForSession,
   saveSetForSession,
   startOrResumeWorkoutSession,
   updateSetForSession,
@@ -187,6 +197,67 @@ export async function deleteSetAction(
   revalidatePath("/progreso");
 
   return { status: "deleted", setLogId };
+}
+
+export type SubstituteExerciseActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "substituted"; originalPrescriptionId: string; exerciseNameEs: string };
+
+/**
+ * Swaps the current exercise for another one — the busy/broken machine case,
+ * or a movement that doesn't feel right today.
+ *
+ * The reason is stored rather than discarded because the reasons aren't
+ * clinically equivalent: equipment problems are logistics, but "no me sentí
+ * bien" is a symptom report, and the original ends the session with no logged
+ * sets, so nothing else would record that anything was wrong.
+ */
+export async function substituteExerciseAction(
+  _previousState: SubstituteExerciseActionState,
+  formData: FormData,
+): Promise<SubstituteExerciseActionState> {
+  const workoutSessionId = formData.get("workoutSessionId");
+  const guard = await requireEditableSession(workoutSessionId);
+  if ("error" in guard) {
+    return { status: "error", message: guard.error };
+  }
+
+  const originalPrescriptionId = formData.get("originalPrescriptionId");
+  if (typeof originalPrescriptionId !== "string" || !originalPrescriptionId) {
+    return { status: "error", message: "No se encontró el ejercicio que querés cambiar." };
+  }
+
+  // Either a name picked from the plan / an existing alternative, or one typed
+  // in — both arrive here as plain text and go through the same normaliser.
+  const rawName = formData.get("exerciseNameEs");
+  const exerciseNameEs = typeof rawName === "string" ? normalizeSubstituteName(rawName) : null;
+  if (!exerciseNameEs) {
+    return { status: "error", message: "Escribe o elige el nombre del ejercicio que vas a hacer." };
+  }
+
+  const rawReason = formData.get("reason");
+  const reason = substitutionReasons.find((value) => value === rawReason) ?? null;
+  const reasonEs = reason ? substitutionReasonLabelsEs[reason] : null;
+
+  const created = await createSubstituteExercise(guard.profileId, {
+    originalPrescriptionId,
+    exerciseNameEs,
+    reasonEs,
+  });
+
+  if (!created) {
+    return { status: "error", message: "No se pudo cambiar el ejercicio." };
+  }
+
+  // Puts the alternative into this session's running order straight away —
+  // it has no sets yet, and it has to be on screen before you can log one.
+  await markExerciseChosenForSession(workoutSessionId as string, created.id);
+
+  revalidatePath(`/entrenar/${workoutSessionId as string}`);
+  revalidatePath("/plan/rutina");
+
+  return { status: "substituted", originalPrescriptionId, exerciseNameEs };
 }
 
 export type UpdateTargetSetsActionState =

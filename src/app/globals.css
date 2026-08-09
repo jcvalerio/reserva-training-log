@@ -12,6 +12,37 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Reading-text sizes, raised from Tailwind's defaults for legibility.
+ *
+ * User feedback (47 years old): "the mobile app shows the text with small
+ * fonts... which made it harder to read instructions almost all the time."
+ * Removing the viewport's maximumScale gave back pinch-zoom, but zoom is an
+ * escape hatch — having to pinch every session isn't a readable default.
+ *
+ * Only the three reading sizes move. text-xs carries the coaching copy that
+ * prompted this (exercise notes, mobility notes, pain and substitution
+ * warnings) and was 12px; text-sm carries body copy and lead paragraphs and
+ * was 14px, now 16px — the usual mobile body-text floor. Everything from
+ * text-lg up is deliberately UNCHANGED: the user confirmed exercise names and
+ * page titles already read fine, and growing them would cost vertical space
+ * without helping the text that actually needed it.
+ *
+ * Sizes only — no padding, gap or min-height changes. Tailwind's spacing
+ * utilities are rem-based off the root font-size, so bumping the root instead
+ * would have inflated the fixed grids too (the ± stepper's
+ * [2.75rem 1fr 2.75rem] columns, the 5-column nav), re-clipping the very
+ * fields fixed in the entry above.
+ */
+@theme {
+  --text-xs: 0.875rem; /* 12px -> 14px */
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 1rem; /* 14px -> 16px */
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1.0625rem; /* 16px -> 17px */
+  --text-base--line-height: 1.625rem;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -64,6 +95,31 @@ body {
  * the element would silently lose.
  */
 .input-stepper {
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
+  /* Zero, not just reduced: the value is centre-aligned, so side padding buys
+     nothing visually and only narrows the usable box. The ± buttons keep
+     their own 44px targets; this is purely the number field. */
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/*
+ * Reclaims the ~23px the browser reserves for the native number spinner,
+ * which is dead weight here: these fields already have their own ± buttons,
+ * and iOS Safari never renders the spinner at all. Without this, a perfectly
+ * ordinary half-kilo weight like "62.5" (exactly what suggestNextWeightKg
+ * produces, via roundToHalf) was clipped even though the digits themselves
+ * only need ~34px of the ~51px available.
+ *
+ * Scoped to .input-stepper on purpose — the Dolor (0-10) field is also a
+ * number input but has no ± buttons of its own, so it keeps its spinner.
+ */
+.input-stepper {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.input-stepper::-webkit-outer-spin-button,
+.input-stepper::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

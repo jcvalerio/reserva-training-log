@@ -166,6 +166,8 @@ function buildActivePlan(): ActivePlanWithSessions {
     loadMechanism: null,
     isCompound: null,
     lineageKey: null,
+    substitutedForPrescriptionId: null,
+    substitutionReasonEs: null,
   };
 
   return {

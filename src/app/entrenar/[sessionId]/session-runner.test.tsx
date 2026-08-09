@@ -5,7 +5,12 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { toDisplayRir } from "@/training/rir";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
-import type { EditSetActionState, SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
+import type {
+  EditSetActionState,
+  SaveSetActionState,
+  SubstituteExerciseActionState,
+  UpdateTargetSetsActionState,
+} from "../actions";
 import { SessionRunner } from "./session-runner";
 
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
@@ -13,6 +18,9 @@ const noopCompleteSessionAction = vi.fn(async () => {});
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
 const noopDeleteSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
+const noopSubstituteExerciseAction = vi.fn(
+  async (): Promise<SubstituteExerciseActionState> => ({ status: "idle" }),
+);
 
 const template: PlanSessionTemplate = {
   id: "template-1",
@@ -84,6 +92,8 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     loadMechanism: "machine",
     isCompound: true,
     lineageKey: null,
+    substitutedForPrescriptionId: null,
+    substitutionReasonEs: null,
     loggedSets: [],
     previousPerformance: null,
     ...overrides,
@@ -98,6 +108,9 @@ function renderRunner({
   updateTargetSetsAction = noopUpdateTargetSetsAction,
   updateSetAction = noopUpdateSetAction,
   deleteSetAction = noopDeleteSetAction,
+  substituteExerciseAction = noopSubstituteExerciseAction,
+  substitutesByExerciseId = {},
+  planSubstituteChoices = [],
   smallerSideHint = null,
 }: {
   exercises: ExerciseWithLoggedSets[];
@@ -110,6 +123,12 @@ function renderRunner({
   ) => Promise<UpdateTargetSetsActionState>;
   updateSetAction?: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction?: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  substituteExerciseAction?: (
+    prevState: SubstituteExerciseActionState,
+    formData: FormData,
+  ) => Promise<SubstituteExerciseActionState>;
+  substitutesByExerciseId?: Record<string, { exerciseNameEs: string }[]>;
+  planSubstituteChoices?: { exerciseNameEs: string }[];
   smallerSideHint?: "left" | "right" | null;
 }) {
   return render(
@@ -122,6 +141,9 @@ function renderRunner({
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
+      substituteExerciseAction={substituteExerciseAction}
+      substitutesByExerciseId={substitutesByExerciseId}
+      planSubstituteChoices={planSubstituteChoices}
       smallerSideHint={smallerSideHint}
     />,
   );
@@ -603,6 +625,139 @@ describe("SessionRunner", () => {
       fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
 
       expect(screen.queryByText(/evita series extra ahí sin valoración profesional/)).toBeNull();
+    });
+  });
+
+  describe("changing the exercise", () => {
+    function openPanel() {
+      fireEvent.click(screen.getByRole("button", { name: "Cambiar ejercicio" }));
+      const form = screen.getByRole("button", { name: "Cambiar" }).closest("form");
+      if (!form) {
+        throw new Error("Expected the substitution panel to be open.");
+      }
+      return form as HTMLFormElement;
+    }
+
+    /** The plan list sits in a collapsed <details>, so expand it first. */
+    function expandPlanChoices(form: HTMLFormElement) {
+      const details = form.querySelector("details");
+      if (!details) {
+        throw new Error("Expected a plan-choices accordion.");
+      }
+      details.open = true;
+      return details;
+    }
+
+    it("submits the chosen replacement against the exercise being replaced", () => {
+      const exercise = buildExercise({ id: "prensa", exerciseNameEs: "Prensa unilateral" });
+
+      renderRunner({ exercises: [exercise] });
+      const form = openPanel();
+      fireEvent.change(within(form).getByPlaceholderText("Escribe la máquina o ejercicio"), {
+        target: { value: "Hack squat" },
+      });
+
+      const data = new FormData(form);
+      expect(data.get("originalPrescriptionId")).toBe("prensa");
+      expect(data.get("exerciseNameEs")).toBe("Hack squat");
+      // Defaults to the most common case rather than forcing a choice.
+      expect(data.get("reason")).toBe("machine_busy");
+    });
+
+    it("records the reason, and flags the one that is a symptom rather than logistics", () => {
+      renderRunner({ exercises: [buildExercise()] });
+      const form = openPanel();
+
+      expect(screen.queryByText(/no se sintió bien/)).toBeNull();
+
+      fireEvent.click(within(form).getByRole("button", { name: "No me sentí bien" }));
+
+      expect(new FormData(form).get("reason")).toBe("felt_wrong");
+      // The original will end the session with no logged sets, so this is the
+      // only record that anything was wrong.
+      expect(screen.getByText(/no se sintió bien/)).toBeVisible();
+      expect(screen.getByText(/el dolor manda antes que la carga/)).toBeVisible();
+    });
+
+    it("offers alternatives already used before, so a recurring bad machine is one tap", () => {
+      const exercise = buildExercise({ id: "prensa", exerciseNameEs: "Prensa unilateral" });
+
+      renderRunner({
+        exercises: [exercise],
+        substitutesByExerciseId: { prensa: [{ exerciseNameEs: "Hack squat" }] },
+      });
+      const form = openPanel();
+      fireEvent.click(within(form).getByRole("button", { name: "Hack squat" }));
+
+      expect(new FormData(form).get("exerciseNameEs")).toBe("Hack squat");
+    });
+
+    it("does not offer the exercise you're currently replacing as its own replacement", () => {
+      const exercise = buildExercise({ exerciseNameEs: "Prensa unilateral" });
+
+      renderRunner({
+        exercises: [exercise],
+        planSubstituteChoices: [{ exerciseNameEs: "Prensa unilateral" }, { exerciseNameEs: "Curl martillo" }],
+      });
+      const form = openPanel();
+      expandPlanChoices(form);
+
+      expect(within(form).getByRole("button", { name: "Curl martillo" })).toBeVisible();
+      expect(within(form).queryByRole("button", { name: "Prensa unilateral" })).toBeNull();
+    });
+
+    it("marks the plan choice you picked as selected, and fills the name field with it", () => {
+      renderRunner({
+        exercises: [buildExercise({ exerciseNameEs: "Press inclinado en máquina" })],
+        planSubstituteChoices: [{ exerciseNameEs: "Prensa bilateral" }, { exerciseNameEs: "Curl martillo" }],
+      });
+      const form = openPanel();
+      expandPlanChoices(form);
+      const choice = within(form).getByRole("button", { name: "Prensa bilateral" });
+
+      fireEvent.click(choice);
+
+      // The tap has to be visibly acknowledged: the old native <select> reset
+      // itself to its placeholder on every pick, so it read as a no-op.
+      expect(choice).toHaveAttribute("aria-pressed", "true");
+      expect(within(form).getByLabelText("¿Qué vas a hacer en su lugar?")).toHaveValue("Prensa bilateral");
+      expect(new FormData(form).get("exerciseNameEs")).toBe("Prensa bilateral");
+    });
+
+    it("deselects the plan choice once you type something that isn't in the plan", () => {
+      renderRunner({
+        exercises: [buildExercise()],
+        planSubstituteChoices: [{ exerciseNameEs: "Prensa bilateral" }],
+      });
+      const form = openPanel();
+      expandPlanChoices(form);
+      const choice = within(form).getByRole("button", { name: "Prensa bilateral" });
+
+      fireEvent.click(choice);
+      fireEvent.change(within(form).getByLabelText("¿Qué vas a hacer en su lugar?"), {
+        target: { value: "Hack squat" },
+      });
+
+      expect(choice).toHaveAttribute("aria-pressed", "false");
+      expect(new FormData(form).get("exerciseNameEs")).toBe("Hack squat");
+    });
+
+    it("tells you the prescription carries over, so the swap doesn't change the day's work", () => {
+      renderRunner({ exercises: [buildExercise({ exerciseNameEs: "Prensa unilateral" })] });
+      openPanel();
+
+      expect(screen.getByText(/Mantendrás las mismas series, reps, RIR y descanso de Prensa unilateral/)).toBeVisible();
+    });
+
+    it("is not offered once the exercise's target sets are already done", () => {
+      const exercise = buildExercise({
+        targetSets: 1,
+        loggedSets: [buildSet()],
+      });
+
+      renderRunner({ exercises: [exercise] });
+
+      expect(screen.queryByRole("button", { name: "Cambiar ejercicio" })).toBeNull();
     });
   });
 

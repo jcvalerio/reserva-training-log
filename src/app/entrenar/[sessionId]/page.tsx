@@ -10,6 +10,7 @@ import {
   completeSessionAction,
   deleteSetAction,
   saveSetAction,
+  substituteExerciseAction,
   updateSetAction,
   updateTargetSetsAction,
 } from "../actions";
@@ -29,7 +30,8 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
     redirect("/entrenar");
   }
 
-  const { template, exercises } = await getSessionRunDetails(session);
+  const { template, exercises, substitutesByExerciseId, planSubstituteChoices } =
+    await getSessionRunDetails(session);
   const [latestMeasurement] = await getRecentBodyMeasurementsForProfile(profile.id, 1);
   const smallerSideHint = latestMeasurement ? determineSmallerSide(latestMeasurement) : null;
 
@@ -43,6 +45,9 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
+      substituteExerciseAction={substituteExerciseAction}
+      substitutesByExerciseId={substitutesByExerciseId}
+      planSubstituteChoices={planSubstituteChoices}
       smallerSideHint={smallerSideHint}
     />
   );

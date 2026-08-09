@@ -1,0 +1,3 @@
+ALTER TABLE "exercise_prescription" ADD COLUMN "substituted_for_prescription_id" text;--> statement-breakpoint
+ALTER TABLE "exercise_prescription" ADD COLUMN "substitution_reason_es" text;--> statement-breakpoint
+ALTER TABLE "exercise_prescription" ADD CONSTRAINT "exercise_prescription_substituted_for_prescription_id_exercise_prescription_id_fk" FOREIGN KEY ("substituted_for_prescription_id") REFERENCES "public"."exercise_prescription"("id") ON DELETE set null ON UPDATE no action;

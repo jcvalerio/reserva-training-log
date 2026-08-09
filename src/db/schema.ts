@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const localeEnum = pgEnum("locale", ["es", "en"]);
@@ -355,6 +356,31 @@ export const exercisePrescription = pgTable(
     // exerciseNameEs/orderIndex, so it survives either side later renaming
     // or reordering their own copy.
     lineageKey: text("lineage_key"),
+    // Non-null only on a substitute: the exercise this one stands in for when
+    // the machine is busy/broken or the movement doesn't feel right that day.
+    //
+    // A substitute is a *real* prescription, not a session-scoped override —
+    // it accrues its own progression history like any other exercise, and
+    // every existing read path works on it untouched. The link exists purely
+    // so the day's main list can stay clean: the session runner and the plan
+    // previews show the original, with its alternatives tucked underneath,
+    // instead of the day visibly growing by one exercise every time you swap.
+    //
+    // set null rather than cascade on delete: if the original is ever removed
+    // the substitute simply becomes a normal exercise in that day. Cascade
+    // would fight exerciseLog's onDelete:"restrict" — a substitute with
+    // logged history would block deleting the original outright.
+    substitutedForPrescriptionId: text("substituted_for_prescription_id").references(
+      (): AnyPgColumn => exercisePrescription.id,
+      { onDelete: "set null" },
+    ),
+    // Why the substitute was created ("Máquina ocupada" / "Máquina dañada" /
+    // "No me sentí bien" / free text). Kept because the reasons are not
+    // clinically equivalent: equipment reasons are logistics, but "no me
+    // sentí bien" is a symptom report, and silently swapping the exercise
+    // without recording it would erase the one signal a physio would care
+    // about. Nullable — substitutes predating this, or reused later, have none.
+    substitutionReasonEs: text("substitution_reason_es"),
   },
   (table) => [
     index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),

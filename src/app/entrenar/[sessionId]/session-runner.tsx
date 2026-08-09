@@ -17,16 +17,28 @@ import {
   splitPlannedAndBonusSets,
   suggestNextWeightKg,
 } from "@/workouts/progression-view";
+import {
+  isSymptomReason,
+  substitutionReasonLabelsEs,
+  substitutionReasons,
+  type SubstitutionReason,
+} from "@/workouts/exercise-substitution";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import { AppShell } from "../../app-shell";
 import { SubmitButton } from "../../submit-button";
 import { YoutubeTechniqueLink } from "../../youtube-technique-link";
-import type { EditSetActionState, SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
+import type {
+  EditSetActionState,
+  SaveSetActionState,
+  SubstituteExerciseActionState,
+  UpdateTargetSetsActionState,
+} from "../actions";
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
 const initialEditSetState: EditSetActionState = { status: "idle" };
+const initialSubstituteState: SubstituteExerciseActionState = { status: "idle" };
 
 export function SessionRunner({
   session,
@@ -37,6 +49,9 @@ export function SessionRunner({
   updateTargetSetsAction,
   updateSetAction,
   deleteSetAction,
+  substituteExerciseAction,
+  substitutesByExerciseId,
+  planSubstituteChoices,
   smallerSideHint,
 }: {
   session: WorkoutSession;
@@ -50,6 +65,12 @@ export function SessionRunner({
   ) => Promise<UpdateTargetSetsActionState>;
   updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  substituteExerciseAction: (
+    prevState: SubstituteExerciseActionState,
+    formData: FormData,
+  ) => Promise<SubstituteExerciseActionState>;
+  substitutesByExerciseId: Record<string, { exerciseNameEs: string }[]>;
+  planSubstituteChoices: { exerciseNameEs: string }[];
   smallerSideHint: "left" | "right" | null;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
@@ -58,6 +79,7 @@ export function SessionRunner({
   });
   const [saveState, formAction] = useActionState(saveSetAction, initialSaveSetState);
   const [targetSetsState, targetSetsFormAction] = useActionState(updateTargetSetsAction, initialUpdateTargetSetsState);
+  const [substituteState, substituteFormAction] = useActionState(substituteExerciseAction, initialSubstituteState);
   const exerciseForTimer = exercises[exerciseIndex];
   const { remaining: restRemaining, skip: skipRest } = useRestTimer({
     justSavedThisExercise: saveState.status === "saved" && saveState.exercisePrescriptionId === exerciseForTimer?.id,
@@ -73,13 +95,42 @@ export function SessionRunner({
   // matching the exerciseIndex-reset approach useRestTimer already uses
   // below, instead of a setState-in-effect.
   const [showBonusForm, setShowBonusForm] = useState(false);
+  // The swap panel follows the same reset rule: moving to another exercise
+  // should never leave a half-filled "cambiar ejercicio" form open against the
+  // wrong exercise.
+  const [showSubstitutePanel, setShowSubstitutePanel] = useState(false);
   const [lastBonusExerciseIndex, setLastBonusExerciseIndex] = useState(exerciseIndex);
   if (exerciseIndex !== lastBonusExerciseIndex) {
     setLastBonusExerciseIndex(exerciseIndex);
     if (showBonusForm) {
       setShowBonusForm(false);
     }
+    if (showSubstitutePanel) {
+      setShowSubstitutePanel(false);
+    }
   }
+  // Swapping is a commitment to do the replacement now, so land on it rather
+  // than leaving the athlete on the exercise they just rejected. Handled once
+  // per swap via the same render-time state adjustment used above.
+  const substituteKey =
+    substituteState.status === "substituted"
+      ? `${substituteState.originalPrescriptionId}:${substituteState.exerciseNameEs}`
+      : null;
+  const [lastHandledSubstituteKey, setLastHandledSubstituteKey] = useState<string | null>(null);
+  if (substituteKey !== null && substituteKey !== lastHandledSubstituteKey) {
+    setLastHandledSubstituteKey(substituteKey);
+    setShowSubstitutePanel(false);
+    const swappedToIndex = exercises.findIndex(
+      (exercise) =>
+        exercise.substitutedForPrescriptionId !== null &&
+        exercise.exerciseNameEs === (substituteState as { exerciseNameEs: string }).exerciseNameEs,
+    );
+    if (swappedToIndex !== -1) {
+      setExerciseIndex(swappedToIndex);
+      setLastBonusExerciseIndex(swappedToIndex);
+    }
+  }
+
   const currentSaveKey =
     saveState.status === "saved" ? `${saveState.exercisePrescriptionId}:${saveState.setNumber}` : null;
   const [lastHandledSaveKey, setLastHandledSaveKey] = useState<string | null>(null);
@@ -260,6 +311,28 @@ export function SessionRunner({
           <p className="mt-2 text-xs leading-5 text-amber-200">
             Vigilar dolor. Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
           </p>
+        ) : null}
+
+        {isLoggingAllowed && !showSubstitutePanel ? (
+          <button
+            type="button"
+            onClick={() => setShowSubstitutePanel(true)}
+            className="mt-3 min-h-11 rounded-xl px-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+          >
+            Cambiar ejercicio
+          </button>
+        ) : null}
+
+        {showSubstitutePanel ? (
+          <SubstituteExercisePanel
+            sessionId={session.id}
+            exercise={currentExercise}
+            existingSubstitutes={substitutesByExerciseId[currentExercise.id] ?? []}
+            planChoices={planSubstituteChoices}
+            state={substituteState}
+            formAction={substituteFormAction}
+            onClose={() => setShowSubstitutePanel(false)}
+          />
         ) : null}
 
         {currentExercise.loggedSets.length > 0 ? (
@@ -609,6 +682,178 @@ function CompletedSessionSummary({
         ))}
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * "Cambiar ejercicio" — the busy/broken machine case, and the "no me siento
+ * bien para este movimiento" case.
+ *
+ * Placed on the exercise card itself rather than behind a menu, because the
+ * decision happens standing in front of an occupied machine. Reason first,
+ * then what you're doing instead: the reason isn't bookkeeping, it's the only
+ * record that anything was wrong when the answer is "no me sentí bien" — the
+ * original ends the session with no logged sets, so nothing else captures it.
+ *
+ * The app deliberately doesn't grade the swap. With no muscle-group taxonomy
+ * in this schema it cannot tell whether an alternative preserves the movement
+ * pattern, and inventing a confident-sounding warning it can't back would be
+ * worse than staying quiet.
+ */
+function SubstituteExercisePanel({
+  sessionId,
+  exercise,
+  existingSubstitutes,
+  planChoices,
+  state,
+  formAction,
+  onClose,
+}: {
+  sessionId: string;
+  exercise: ExerciseWithLoggedSets;
+  existingSubstitutes: { exerciseNameEs: string }[];
+  planChoices: { exerciseNameEs: string }[];
+  state: SubstituteExerciseActionState;
+  formAction: (formData: FormData) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState<SubstitutionReason>("machine_busy");
+  const [name, setName] = useState("");
+  const choices = planChoices.filter(
+    (choice) => choice.exerciseNameEs.toLocaleLowerCase("es") !== exercise.exerciseNameEs.toLocaleLowerCase("es"),
+  );
+  // Empty whenever the name was typed rather than picked, so the picker shows
+  // its placeholder instead of a stale unrelated selection.
+  const selectedFromPlan = choices.some((choice) => choice.exerciseNameEs === name) ? name : "";
+
+  return (
+    <form action={formAction} className="mt-4 grid gap-3 rounded-2xl bg-zinc-950 px-3 py-4 ring-1 ring-sky-300/30">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="originalPrescriptionId" value={exercise.id} />
+      <input type="hidden" name="reason" value={reason} />
+      <input type="hidden" name="exerciseNameEs" value={name} />
+
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Cambiar ejercicio</p>
+      <p className="leading-6 text-zinc-400">
+        Mantendrás las mismas series, reps, RIR y descanso de {exercise.exerciseNameEs}.
+      </p>
+
+      <div className="grid gap-1">
+        <span className="font-medium text-zinc-300">¿Por qué lo cambias?</span>
+        <div className="grid grid-cols-2 gap-2">
+          {substitutionReasons.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setReason(value)}
+              aria-pressed={reason === value}
+              className={`min-h-12 rounded-xl px-2 font-semibold ring-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+                reason === value
+                  ? "bg-sky-300 text-zinc-950 ring-sky-300"
+                  : "bg-zinc-900 text-zinc-300 ring-zinc-800"
+              }`}
+            >
+              {substitutionReasonLabelsEs[value]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isSymptomReason(reason) ? (
+        <p className="leading-6 text-amber-200">
+          Queda registrado que este movimiento no se sintió bien. Si aparece dolor en el ejercicio que hagas en su
+          lugar, anótalo en la serie — el dolor manda antes que la carga.
+        </p>
+      ) : null}
+
+      {existingSubstitutes.length > 0 ? (
+        <div className="grid gap-1">
+          <span className="font-medium text-zinc-300">Ya usaste antes</span>
+          <div className="grid gap-2">
+            {existingSubstitutes.map((choice) => (
+              <button
+                key={choice.exerciseNameEs}
+                type="button"
+                onClick={() => setName(choice.exerciseNameEs)}
+                aria-pressed={name === choice.exerciseNameEs}
+                className={`min-h-12 rounded-xl px-3 text-left font-semibold ring-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+                  name === choice.exerciseNameEs
+                    ? "bg-sky-300 text-zinc-950 ring-sky-300"
+                    : "bg-zinc-900 text-zinc-300 ring-zinc-800"
+                }`}
+              >
+                {choice.exerciseNameEs}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* One question, two ways to answer it — the text field and the picker
+          drive the same value, so the picker is controlled off `name` rather
+          than pinned to "". Pinned to "" it snapped straight back to the
+          placeholder after every choice, which read as though the tap hadn't
+          registered even though the name had in fact been filled in above. */}
+      <div className="grid gap-2">
+        <span className="font-medium text-zinc-300">¿Qué vas a hacer en su lugar?</span>
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Escribe la máquina o ejercicio"
+          aria-label="¿Qué vas a hacer en su lugar?"
+          className="input"
+        />
+        {/* A native <select> here rendered its options in the browser's own
+            popup — unstyleable, visually unrelated to the rest of the app, and
+            on desktop a full-height list that covered the panel. This is the
+            same collapsed-accordion-plus-tappable-list pattern used for "ya
+            usaste antes" above, so it looks like the app and stays out of the
+            way until asked for. */}
+        {choices.length > 0 ? (
+          <details className="rounded-xl bg-zinc-900 ring-1 ring-zinc-800">
+            <summary className="flex min-h-11 cursor-pointer items-center px-3 font-semibold text-zinc-300">
+              O elígelo de tu plan
+            </summary>
+            <div className="grid max-h-64 gap-2 overflow-y-auto px-3 pb-3">
+              {choices.map((choice) => (
+                <button
+                  key={choice.exerciseNameEs}
+                  type="button"
+                  onClick={() => setName(choice.exerciseNameEs)}
+                  aria-pressed={selectedFromPlan === choice.exerciseNameEs}
+                  className={`min-h-12 rounded-xl px-3 text-left font-semibold ring-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+                    selectedFromPlan === choice.exerciseNameEs
+                      ? "bg-sky-300 text-zinc-950 ring-sky-300"
+                      : "bg-zinc-950 text-zinc-300 ring-zinc-800"
+                  }`}
+                >
+                  {choice.exerciseNameEs}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </div>
+
+      {state.status === "error" ? (
+        <p role="alert" className="leading-6 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-12 rounded-2xl bg-zinc-900 font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        >
+          Cancelar
+        </button>
+        <SubmitButton className="min-h-12 rounded-2xl bg-sky-300 font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-100">
+          Cambiar
+        </SubmitButton>
+      </div>
+    </form>
   );
 }
 
