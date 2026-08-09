@@ -1,15 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
+import { toDisplayRir } from "@/training/rir";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
-import type { SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
+import type { EditSetActionState, SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
 import { SessionRunner } from "./session-runner";
 
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
 const noopCompleteSessionAction = vi.fn(async () => {});
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
+const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
+const noopDeleteSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
 
 const template: PlanSessionTemplate = {
   id: "template-1",
@@ -53,6 +56,7 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
     painScore: 0,
     notes: null,
     completedAt: new Date("2026-07-20T12:00:00Z"),
+    updatedAt: null,
     ...overrides,
   };
 }
@@ -92,6 +96,8 @@ function renderRunner({
   saveSetAction = noopSaveSetAction,
   completeSessionAction = noopCompleteSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
+  updateSetAction = noopUpdateSetAction,
+  deleteSetAction = noopDeleteSetAction,
   smallerSideHint = null,
 }: {
   exercises: ExerciseWithLoggedSets[];
@@ -102,6 +108,8 @@ function renderRunner({
     prevState: UpdateTargetSetsActionState,
     formData: FormData,
   ) => Promise<UpdateTargetSetsActionState>;
+  updateSetAction?: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  deleteSetAction?: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   smallerSideHint?: "left" | "right" | null;
 }) {
   return render(
@@ -112,6 +120,8 @@ function renderRunner({
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
+      updateSetAction={updateSetAction}
+      deleteSetAction={deleteSetAction}
       smallerSideHint={smallerSideHint}
     />,
   );
@@ -593,6 +603,104 @@ describe("SessionRunner", () => {
       fireEvent.click(screen.getByRole("button", { name: "+ Agregar un set extra" }));
 
       expect(screen.queryByText(/evita series extra ahí sin valoración profesional/)).toBeNull();
+    });
+  });
+
+  describe("correcting a logged set", () => {
+    /** The open correction form — the one owning the "Guardar cambios" button. */
+    function openEditor(): HTMLFormElement {
+      const form = screen.getByRole("button", { name: "Guardar cambios" }).closest("form");
+      if (!form) {
+        throw new Error("Expected the set editor to be open.");
+      }
+      return form as HTMLFormElement;
+    }
+
+    it("opens an editor prefilled with what was actually logged, not the plan's targets", () => {
+      const exercise = buildExercise({
+        targetRir: 2,
+        loggedSets: [buildSet({ actualWeightKg: "62.50", actualReps: 9, rir: 0, painScore: 4 })],
+      });
+
+      renderRunner({ exercises: [exercise] });
+      fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+
+      // Scoped to the editor: the normal logging form is on screen too, with
+      // its own identically-labelled fields defaulted from the prescription.
+      const editor = within(openEditor());
+
+      expect(editor.getByLabelText("Peso (kg)")).toHaveValue(62.5);
+      expect(editor.getByLabelText("Reps")).toHaveValue(9);
+      expect(editor.getByLabelText("Dolor (0-10)")).toHaveValue(4);
+      // The set's real RIR of 0 must win over the prescription's target of 2 —
+      // and 0 is falsy, so this also guards the `?? targetRir` choice.
+      expect(editor.getByRole("radio", { name: toDisplayRir(0) })).toBeChecked();
+      expect(editor.getByRole("radio", { name: toDisplayRir(2) })).not.toBeChecked();
+    });
+
+    it("submits the correction with the set's id, so the server updates in place", () => {
+      const exercise = buildExercise({ loggedSets: [buildSet({ id: "set-to-fix" })] });
+
+      renderRunner({ exercises: [exercise] });
+      fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+
+      const form = screen.getByRole("button", { name: "Guardar cambios" }).closest("form");
+      expect(form).not.toBeNull();
+      expect(new FormData(form!).get("setLogId")).toBe("set-to-fix");
+    });
+
+    it("requires a confirmation step before deleting, and points at the wrong-exercise fix", () => {
+      const exercise = buildExercise({ loggedSets: [buildSet()] });
+
+      renderRunner({ exercises: [exercise] });
+      fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+
+      expect(screen.queryByRole("button", { name: "Sí, borrar" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Borrar este set" }));
+
+      expect(screen.getByRole("button", { name: "Sí, borrar" })).toBeVisible();
+      expect(screen.getByText(/vuelve a registrarlo en el correcto/)).toBeVisible();
+    });
+
+    it("marks a corrected set as edited, and leaves an untouched one unmarked", () => {
+      const exercise = buildExercise({
+        loggedSets: [
+          buildSet({ id: "untouched", setNumber: 1 }),
+          buildSet({ id: "corrected", setNumber: 2, updatedAt: new Date("2026-08-09T10:00:00Z") }),
+        ],
+      });
+
+      renderRunner({ exercises: [exercise] });
+
+      expect(screen.getAllByText(/editado/)).toHaveLength(1);
+    });
+
+    it("lets a set be corrected from the completed-session summary too", () => {
+      const exercise = buildExercise({ loggedSets: [buildSet()] });
+
+      renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }) });
+      fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+
+      expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
+    });
+
+    it("does not offer to edit the previous session's reference set", () => {
+      const exercise = buildExercise({
+        loggedSets: [],
+        previousPerformance: {
+          sessionId: "previous-session",
+          prescriptionType: "strength",
+          targetRepMax: 12,
+          targetSets: 3,
+          isUnilateral: false,
+          sets: [buildSet({ id: "previous-set" })],
+        },
+      });
+
+      renderRunner({ exercises: [exercise] });
+
+      expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
     });
   });
 });

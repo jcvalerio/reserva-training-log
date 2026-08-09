@@ -1,0 +1,1 @@
+ALTER TABLE "set_log" ADD COLUMN "updated_at" timestamp with time zone;

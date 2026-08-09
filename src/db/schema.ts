@@ -480,6 +480,19 @@ export const setLog = pgTable(
     painScore: integer("pain_score").notNull(),
     notes: text("notes"),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+    // Deliberately NOT the shared updatedAtColumn() helper used by
+    // exerciseLog/workoutSession: nullable, no default, no $onUpdateFn.
+    // A `notNull().defaultNow()` column would stamp every pre-existing set as
+    // "just updated", making the distinction meaningless. Nullable means
+    // `updatedAt !== null` reads as exactly one thing — this set was corrected
+    // after it was first logged — which is what the UI's "editado" marker
+    // shows. Written explicitly by updateSetForSession, nowhere else.
+    //
+    // This matters beyond cosmetics: painScore is a safety brake (>2 blocks
+    // aggressive progression, >=7 flags professional guidance), so a silently
+    // revised pain score would quietly disable the app's pain-aware framing.
+    // Editing stays unrestricted — this only makes it visible.
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
   },
   (table) => [index("set_log_exercise_log_id_idx").on(table.exerciseLogId)],
 );

@@ -10,9 +10,11 @@ import { parseSessionCompletionFormData } from "@/workouts/session-completion-sc
 import { parseSetLogFormData } from "@/workouts/set-log-schema";
 import {
   completeWorkoutSession,
+  deleteSetForSession,
   getWorkoutSessionForProfile,
   saveSetForSession,
   startOrResumeWorkoutSession,
+  updateSetForSession,
 } from "@/workouts/workout-repository";
 
 export async function startOrResumeSessionAction(formData: FormData) {
@@ -86,6 +88,105 @@ export async function saveSetAction(
   revalidatePath(`/entrenar/${workoutSessionId}`);
 
   return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
+}
+
+export type EditSetActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "updated"; setLogId: string }
+  | { status: "deleted"; setLogId: string };
+
+/**
+ * Unlike saveSetAction, correcting or removing a set is allowed on a
+ * *completed* session too, not just an active one: a mislogged weight or a
+ * set logged against the wrong exercise is usually noticed after finishing,
+ * and every progression read (suggestProgression, the /progreso series)
+ * derives from set_log live rather than from a snapshot taken at completion
+ * — so a later correction simply makes the next suggestion right.
+ */
+async function requireEditableSession(workoutSessionId: unknown): Promise<{ profileId: string } | { error: string }> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { error: "No se encontró tu perfil." };
+  }
+
+  if (typeof workoutSessionId !== "string" || !workoutSessionId) {
+    return { error: "Falta información de la sesión." };
+  }
+
+  const session = await getWorkoutSessionForProfile(workoutSessionId, profile.id);
+  if (!session) {
+    return { error: "Esta sesión no está disponible." };
+  }
+
+  return { profileId: profile.id };
+}
+
+export async function updateSetAction(
+  _previousState: EditSetActionState,
+  formData: FormData,
+): Promise<EditSetActionState> {
+  const workoutSessionId = formData.get("workoutSessionId");
+  const guard = await requireEditableSession(workoutSessionId);
+  if ("error" in guard) {
+    return { status: "error", message: guard.error };
+  }
+
+  const setLogId = formData.get("setLogId");
+  if (typeof setLogId !== "string" || !setLogId) {
+    return { status: "error", message: "No se encontró la serie que querés corregir." };
+  }
+
+  let input;
+  try {
+    // Same parser the create path uses — an edit must not accept a value a
+    // fresh log couldn't.
+    input = parseSetLogFormData(formData);
+  } catch {
+    return { status: "error", message: "Revisa los datos del set: hay valores fuera de rango." };
+  }
+
+  const updated = await updateSetForSession(guard.profileId, setLogId, {
+    ...input,
+    notes: input.notes ?? null,
+  });
+
+  if (!updated) {
+    return { status: "error", message: "No se pudo actualizar la serie." };
+  }
+
+  revalidatePath(`/entrenar/${workoutSessionId as string}`);
+  revalidatePath("/progreso");
+
+  return { status: "updated", setLogId };
+}
+
+export async function deleteSetAction(
+  _previousState: EditSetActionState,
+  formData: FormData,
+): Promise<EditSetActionState> {
+  const workoutSessionId = formData.get("workoutSessionId");
+  const guard = await requireEditableSession(workoutSessionId);
+  if ("error" in guard) {
+    return { status: "error", message: guard.error };
+  }
+
+  const setLogId = formData.get("setLogId");
+  if (typeof setLogId !== "string" || !setLogId) {
+    return { status: "error", message: "No se encontró la serie que querés borrar." };
+  }
+
+  const deleted = await deleteSetForSession(guard.profileId, setLogId);
+  if (!deleted) {
+    return { status: "error", message: "No se pudo borrar la serie." };
+  }
+
+  revalidatePath(`/entrenar/${workoutSessionId as string}`);
+  revalidatePath("/progreso");
+
+  return { status: "deleted", setLogId };
 }
 
 export type UpdateTargetSetsActionState =

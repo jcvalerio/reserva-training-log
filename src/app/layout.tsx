@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { defaultLocale } from "@/i18n/locales";
 
+import { viewport as appViewport } from "./viewport-config";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,11 +22,9 @@ export const metadata: Metadata = {
   description: "Crea tu plan, registra cada serie y progresa con RIR.",
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-};
+// Defined in its own module so it stays unit-testable — see viewport-config.ts
+// for why zoom must not be constrained here.
+export const viewport: Viewport = appViewport;
 
 export default function RootLayout({
   children,

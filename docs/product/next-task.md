@@ -1,12 +1,36 @@
 # Next Task
 
-## Status: "Ver técnica en YouTube" tap target — shipped, deployed and committed (`8459052`).
+## Status: set correction (edit + delete) and the iOS text-zoom fix — code complete, verified live, NOT yet deployed or committed.
+
+Two of the five user-feedback items shipped this session: correcting a logged set (feedback items 1 and 2) and the small-font/accessibility fix (item 4). `lint`/`typecheck`/`test` (331 passing)/`build` all green. **Migration `drizzle/0016_sharp_screwball.sql` is generated and already applied to the dev DB** (it will run automatically on the next Vercel build) — one additive, nullable `set_log.updated_at` column.
+
+You can now tap "Editar" on any logged set — in the live session *and* in the completed-session summary — to correct weight/reps/RIR/pain/notes in place, or delete it behind a confirm step. A corrected set shows a subtle "· editado" marker. "Logged it against the wrong exercise" is fixed by deleting it and re-logging under the right one, using the runner's existing Anterior/Siguiente navigation.
+
+See the 2026-08-09 implementation-log entry for the full reasoning, including: the trainer/physio verdict that the *inability* to edit was itself the safety defect; a real duplicate-`setNumber` bug the delete path would have introduced (caught and fixed with `renumberSets` before any UI existed); and **a genuine pre-existing bug found during live verification** — the ± stepper fields have been clipping their own values since they shipped, so the main logging form was rendering "40" as a sliver of "4", fixed here for both forms.
+
+**Two things still open:**
+
+1. **A real-iPhone check for item 4 — only you can do this.** Turn up Settings → Accessibility → Display & Text Size → Larger Text and confirm the app's text actually enlarges, that pinch-zoom works, and that the fixed bottom nav doesn't break while zoomed. The served HTML now emits `content="width=device-width, initial-scale=1"` with no `maximum-scale`, and Tailwind's utilities are already `rem`-based — but Playwright can't observe iOS's own text-scaling behavior.
+2. **Deploy and commit** whenever you want them (neither done). Confirm no workout session is active first.
+
+## Up next: the remaining three feedback items
+
+- **Item 3 — substitute/swap an exercise** (its own session). Direction already confirmed: choose from `substitutionOptionsEs` *or* any exercise already in your plan, creating a **real tracked `exercisePrescription`** so it accrues progression history like anything else, plus a short reason prompt so "no me sentí bien" gets captured instead of silently absorbed. Note the kickoff prompt's trade-off is **inverted** — the "lighter session-scoped override" is the *expensive* option (it needs a new column plus a coalesce in three core read paths, since `exerciseLog.exercisePrescriptionId` is NOT NULL); a real prescription row needs zero schema change. One question genuinely open: whether a substitute *appends to* or *replaces* the exercise in the active plan's day template.
+- **Item 5 — a better `/progreso` dashboard** (its own session, and worth waiting on). Deferred on evidence, not size: **zero exercises currently have 2+ completed instances**, and a progression line needs 2 points, so a grouped/combined dashboard would render essentially empty today and couldn't be verified against real data. Two of the three candidate grouping axes also don't hold up — grouping by day template isn't a partition ("Core" appears in all 5 days, "Extensión de tríceps" in 2, while `toExerciseSeriesGroups` groups by name across all history), and `loadMechanism` is `machine` for all 28 exercises on the real plan, collapsing that axis to compound-vs-isolation. Grouping "by muscle group" as literally asked would reopen the taxonomy decision this project has explicitly declined before — your call, not a quiet schema addition.
+
+The full kickoff prompt with all five items is still at `docs/product/user-feedback-kickoff-prompt.md`.
+
+## Prior status: "Ver técnica en YouTube" tap target — shipped, deployed and committed (`8459052`).
 
 A minimalistic YouTube search-handoff icon next to every exercise name (session-runner's live and completed views, all plan-preview pages, the builder). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). No active workout session at deploy time (confirmed via a direct DB check).
 
 See the 2026-08-05 implementation-log entry for the full placement/scope/query-content design decisions (all confirmed via `AskUserQuestion`) and verification detail, including a real methodological mistake caught and fixed mid-session (a stale commented-out `DATABASE_URL` line in `.env.local` was silently winning over the active one in every `export $(grep ... | xargs)` DB check used in prior sessions too — worth using `grep '^DATABASE_URL='` instead going forward).
 
-Still open: a real-iPhone check of the actual universal-link handoff to the installed YouTube app (Playwright can't observe that iOS-level behavior).
+User confirmed on a real iPhone that the universal-link handoff to the installed YouTube app works as expected — nothing left open on this feature.
+
+## How the user-feedback batch was originally framed (items 1, 2 and 4 are now done — see Status at the top; 3 and 5 remain)
+
+Five separate pieces of feedback from real training sessions: no way to correct a logged set's weight/reps after saving it, no way to fix a set logged against the wrong exercise, no way to swap to a different exercise mid-session (broken/busy machine, not feeling it) or add an ad-hoc one, small fonts that don't respect the phone's accessibility text-size settings, and a `/progreso` dashboard that only shows one exercise's chart at a time via a dropdown instead of a combined or grouped view. A full kickoff prompt is saved at `docs/product/user-feedback-kickoff-prompt.md` — hand that whole file to a new session to start it. It already contains real grounded findings from a codebase investigation (not just the raw feedback): logging is genuinely insert-only today (no update/delete path exists anywhere), `substitutionOptionsEs` already exists in the schema but is barely used, the small-font complaint traces to a concrete one-line cause (`maximumScale: 1` in `layout.tsx` blocking pinch-zoom and Safari's per-site text-size control), and the "group by muscle group" dashboard ask directly reopens a muscle-group-taxonomy decision this project has explicitly declined before — with real zero-new-schema alternatives already identified. Structured as four reconciled role passes (personal-trainer/physiotherapist judgment first, then mobile UX, then principal engineering) with real forks flagged for `AskUserQuestion`, and explicitly scoped to ship incrementally rather than all five in one sitting.
 
 ## Prior status: bonus-set logging + the `/guia` RIR/AMRAP/progression-math page — shipped, deployed and committed (`f039f89`).
 

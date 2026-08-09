@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
 import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-repository";
 
+import { renumberSets } from "./set-editing";
+
 export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
 export type SetLog = typeof setLog.$inferSelect;
@@ -229,9 +231,14 @@ export async function getPreviousExercisePerformance(
   };
 }
 
-export type SaveSetInput = {
-  workoutSessionId: string;
-  exercisePrescriptionId: string;
+/**
+ * The per-set values themselves, without any pointer to where the set lives.
+ * Shared by the create and the correct-in-place paths so both accept exactly
+ * the same shape — an edit is never allowed to set a value a fresh log
+ * couldn't. Kept as the base type rather than an Omit<SaveSetInput, ...>,
+ * which would collapse the strength/duration discriminated union.
+ */
+export type UpdateSetInput = {
   side: "bilateral" | "left" | "right";
   painScore: number;
   notes: string | null;
@@ -239,6 +246,11 @@ export type SaveSetInput = {
   | { prescriptionType: "strength"; actualWeightKg: string; actualReps: number; rir: number }
   | { prescriptionType: "duration"; actualDurationSeconds: number }
 );
+
+export type SaveSetInput = {
+  workoutSessionId: string;
+  exercisePrescriptionId: string;
+} & UpdateSetInput;
 
 export async function saveSetForSession(input: SaveSetInput): Promise<{ setNumber: number }> {
   const exerciseLogId = await ensureExerciseLog(input.workoutSessionId, input.exercisePrescriptionId);
@@ -260,6 +272,95 @@ export async function saveSetForSession(input: SaveSetInput): Promise<{ setNumbe
   });
 
   return { setNumber };
+}
+
+/**
+ * Resolves a set to its owning exercise log, but only if the whole chain
+ * (setLog -> exerciseLog -> workoutSession) belongs to this athlete — the
+ * same ownership-scoping shape updateExercisePrescriptionTargetSets uses,
+ * so a set id from another account can't be edited or deleted by guessing.
+ */
+async function findOwnedSet(
+  athleteProfileId: string,
+  setLogId: string,
+): Promise<{ exerciseLogId: string } | null> {
+  const [owned] = await db
+    .select({ exerciseLogId: setLog.exerciseLogId })
+    .from(setLog)
+    .innerJoin(exerciseLog, eq(exerciseLog.id, setLog.exerciseLogId))
+    .innerJoin(workoutSession, eq(workoutSession.id, exerciseLog.workoutSessionId))
+    .where(and(eq(setLog.id, setLogId), eq(workoutSession.athleteProfileId, athleteProfileId)));
+
+  return owned ?? null;
+}
+
+/**
+ * Corrects an already-logged set in place. Deliberately keeps setNumber and
+ * exerciseLogId untouched — this fixes wrong *values*, never which exercise a
+ * set belongs to (that's a delete-and-relog, see deleteSetForSession).
+ *
+ * Stamps updatedAt so the UI can mark the set as corrected; every other write
+ * path leaves it null. See the schema comment on setLog.updatedAt for why
+ * that visibility matters for painScore specifically.
+ *
+ * Returns false when the set isn't this athlete's.
+ */
+export async function updateSetForSession(
+  athleteProfileId: string,
+  setLogId: string,
+  input: UpdateSetInput,
+): Promise<boolean> {
+  const owned = await findOwnedSet(athleteProfileId, setLogId);
+  if (!owned) {
+    return false;
+  }
+
+  await db
+    .update(setLog)
+    .set({
+      side: input.side,
+      actualWeightKg: input.prescriptionType === "strength" ? input.actualWeightKg : null,
+      actualReps: input.prescriptionType === "strength" ? input.actualReps : null,
+      rir: input.prescriptionType === "strength" ? input.rir : null,
+      actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
+      painScore: input.painScore,
+      notes: input.notes,
+      updatedAt: new Date(),
+    })
+    .where(eq(setLog.id, setLogId));
+
+  return true;
+}
+
+/**
+ * Deletes a logged set, then closes the numbering gap it leaves behind.
+ *
+ * The renumbering isn't cosmetic: saveSetForSession derives the next set
+ * number from `existingSets.length + 1`, so leaving a gap would make the next
+ * saved set collide with an existing one (nothing constrains
+ * (exerciseLogId, setNumber)). See renumberSets for the full reasoning.
+ *
+ * Returns false when the set isn't this athlete's.
+ */
+export async function deleteSetForSession(athleteProfileId: string, setLogId: string): Promise<boolean> {
+  const owned = await findOwnedSet(athleteProfileId, setLogId);
+  if (!owned) {
+    return false;
+  }
+
+  await db.delete(setLog).where(eq(setLog.id, setLogId));
+
+  const remaining = await db
+    .select({ id: setLog.id, setNumber: setLog.setNumber })
+    .from(setLog)
+    .where(eq(setLog.exerciseLogId, owned.exerciseLogId))
+    .orderBy(asc(setLog.setNumber));
+
+  for (const change of renumberSets(remaining)) {
+    await db.update(setLog).set({ setNumber: change.setNumber }).where(eq(setLog.id, change.id));
+  }
+
+  return true;
 }
 
 async function ensureExerciseLog(workoutSessionId: string, exercisePrescriptionId: string): Promise<string> {

@@ -51,3 +51,19 @@ body {
 .input::placeholder {
   color: rgb(113 113 122);
 }
+
+/*
+ * The ± stepper fields sit in a narrow [2.75rem 1fr 2.75rem] grid, where
+ * .input's 1rem of side padding eats almost the entire content box — at an
+ * iPhone width that clipped "40" down to a bare sliver and "18" to "1", i.e.
+ * you couldn't read the weight you were about to save. Keeps the 44px tap
+ * targets on the buttons themselves; only the number field slims down.
+ *
+ * Declared here rather than as a Tailwind utility because .input is unlayered
+ * CSS, which outranks anything in Tailwind's utilities layer — a px-1 class on
+ * the element would silently lose.
+ */
+.input-stepper {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}

@@ -22,10 +22,11 @@ import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/
 import { AppShell } from "../../app-shell";
 import { SubmitButton } from "../../submit-button";
 import { YoutubeTechniqueLink } from "../../youtube-technique-link";
-import type { SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
+import type { EditSetActionState, SaveSetActionState, UpdateTargetSetsActionState } from "../actions";
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
+const initialEditSetState: EditSetActionState = { status: "idle" };
 
 export function SessionRunner({
   session,
@@ -34,6 +35,8 @@ export function SessionRunner({
   saveSetAction,
   completeSessionAction,
   updateTargetSetsAction,
+  updateSetAction,
+  deleteSetAction,
   smallerSideHint,
 }: {
   session: WorkoutSession;
@@ -45,6 +48,8 @@ export function SessionRunner({
     prevState: UpdateTargetSetsActionState,
     formData: FormData,
   ) => Promise<UpdateTargetSetsActionState>;
+  updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   smallerSideHint: "left" | "right" | null;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
@@ -86,7 +91,15 @@ export function SessionRunner({
   }
 
   if (session.status === "completed") {
-    return <CompletedSessionSummary session={session} template={template} exercises={exercises} />;
+    return (
+      <CompletedSessionSummary
+        session={session}
+        template={template}
+        exercises={exercises}
+        updateSetAction={updateSetAction}
+        deleteSetAction={deleteSetAction}
+      />
+    );
   }
 
   const currentExercise = exercises[exerciseIndex];
@@ -252,7 +265,21 @@ export function SessionRunner({
         {currentExercise.loggedSets.length > 0 ? (
           <div className="mt-4 grid gap-2">
             {currentExercise.loggedSets.map((set) => (
-              <LoggedSetRow key={set.id} set={set} />
+              // Keyed on updatedAt so a saved correction remounts the row
+              // closed with fresh values, while a rejected one stays open
+              // showing its error.
+              <EditableSetRow
+                key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
+                set={set}
+                edit={{
+                  sessionId: session.id,
+                  isUnilateral,
+                  prescriptionType: currentExercise.prescriptionType,
+                  targetRir: currentExercise.targetRir,
+                  updateSetAction,
+                  deleteSetAction,
+                }}
+              />
             ))}
           </div>
         ) : null}
@@ -513,14 +540,25 @@ export function SessionRunner({
   );
 }
 
+/**
+ * Editing stays available here, not just mid-session: a mislogged weight or a
+ * set recorded against the wrong exercise is most often noticed after
+ * finishing, and every progression read derives from set_log live rather than
+ * from a snapshot taken at completion — so a later correction simply makes
+ * the next session's suggestion right.
+ */
 function CompletedSessionSummary({
   session,
   template,
   exercises,
+  updateSetAction,
+  deleteSetAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
+  updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
 }) {
   return (
     <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
@@ -550,9 +588,20 @@ function CompletedSessionSummary({
             {exercise.loggedSets.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-400">Sin series registradas.</p>
             ) : (
-              <div className="mt-2 grid gap-1 text-sm text-zinc-300">
+              <div className="mt-2 grid gap-2 text-sm text-zinc-300">
                 {exercise.loggedSets.map((set) => (
-                  <LoggedSetRow key={set.id} set={set} />
+                  <EditableSetRow
+                    key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
+                    set={set}
+                    edit={{
+                      sessionId: session.id,
+                      isUnilateral: exercise.isUnilateral,
+                      prescriptionType: exercise.prescriptionType,
+                      targetRir: exercise.targetRir,
+                      updateSetAction,
+                      deleteSetAction,
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -563,7 +612,190 @@ function CompletedSessionSummary({
   );
 }
 
-function LoggedSetRow({ set }: { set: SetLog }) {
+type EditSetProps = {
+  sessionId: string;
+  isUnilateral: boolean;
+  prescriptionType: "strength" | "duration";
+  targetRir: number | null;
+  updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+};
+
+/**
+ * A logged set with an inline correction editor.
+ *
+ * Correcting a set matters beyond convenience: an un-editable log means a
+ * mistyped rep count keeps driving progression (a 8-logged-as-18 makes
+ * reachedTopOfRange fire and prefills a heavier weight next session), and a
+ * mistyped pain score silently disables the pain brake. So the editor accepts
+ * exactly the same values a fresh log does — it reuses the same form fields
+ * and the same server-side parser — and never touches setNumber or which
+ * exercise the set belongs to.
+ *
+ * Logging a set against the *wrong exercise* is fixed by deleting it here and
+ * re-logging under the right one (the runner's Anterior/Siguiente navigation
+ * already gets you there), rather than by a move: re-inserting into another
+ * exercise's sequence could silently flip a set between planned and bonus on
+ * both exercises, since splitPlannedAndBonusSets classifies by position.
+ *
+ * Callers key this on `set.updatedAt` so a successful save remounts the row
+ * closed with fresh values, while a validation error keeps it open with the
+ * message — no extra open/closed state machine needed.
+ */
+function EditableSetRow({ set, edit }: { set: SetLog; edit: EditSetProps }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [updateState, updateFormAction] = useActionState(edit.updateSetAction, initialEditSetState);
+  const [deleteState, deleteFormAction] = useActionState(edit.deleteSetAction, initialEditSetState);
+
+  if (!isOpen) {
+    return (
+      <LoggedSetRow
+        set={set}
+        action={
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            className="min-h-11 shrink-0 rounded-xl px-2 text-xs font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            Editar
+          </button>
+        }
+      />
+    );
+  }
+
+  const errorMessage =
+    updateState.status === "error"
+      ? updateState.message
+      : deleteState.status === "error"
+        ? deleteState.message
+        : null;
+
+  return (
+    // px-2 rather than a uniform p-3: this editor is nested one level deeper
+    // than the main logging form, and the extra side padding is enough to
+    // clip the ± stepper's own value (see .input-stepper in globals.css).
+    <form action={updateFormAction} className="grid gap-3 rounded-xl bg-zinc-950 px-2 py-3 ring-1 ring-emerald-300/30">
+      <input type="hidden" name="workoutSessionId" value={edit.sessionId} />
+      <input type="hidden" name="setLogId" value={set.id} />
+      <input type="hidden" name="prescriptionType" value={edit.prescriptionType} />
+
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Corregir set {set.setNumber}</p>
+
+      {edit.isUnilateral ? (
+        <div className="grid grid-cols-2 gap-2">
+          {(["left", "right"] as const).map((side) => (
+            <label
+              key={side}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-3 py-3 text-sm font-semibold ring-1 ring-zinc-800 has-[:checked]:bg-emerald-300 has-[:checked]:text-zinc-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-300"
+            >
+              {/* No disabled state here, unlike the logging form: this set
+                  already exists, so either side is a legitimate correction. */}
+              <input
+                type="radio"
+                name="side"
+                value={side}
+                defaultChecked={set.side === side}
+                className="sr-only"
+              />
+              {side === "left" ? "Izquierda" : "Derecha"}
+            </label>
+          ))}
+        </div>
+      ) : (
+        <input type="hidden" name="side" value={set.side} />
+      )}
+
+      {edit.prescriptionType === "duration" ? (
+        <DurationSetInput defaultSeconds={set.actualDurationSeconds ?? ""} />
+      ) : (
+        <StrengthSetFields
+          defaultWeightKg={set.actualWeightKg === null ? "" : roundKgValue(set.actualWeightKg, 2)}
+          defaultReps={set.actualReps ?? ""}
+          targetRir={edit.targetRir}
+          selectedRir={set.rir}
+        />
+      )}
+
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Dolor (0-10)</span>
+        <input
+          name="painScore"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={10}
+          defaultValue={set.painScore}
+          required
+          className="input"
+        />
+      </label>
+
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Notas (opcional)</span>
+        <textarea name="notes" rows={2} defaultValue={set.notes ?? ""} className="input resize-none" />
+      </label>
+
+      {errorMessage ? (
+        <p role="alert" className="text-sm leading-6 text-amber-200">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen(false)}
+          className="min-h-12 rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Cancelar
+        </button>
+        <SubmitButton className="min-h-12 rounded-2xl bg-emerald-300 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
+          Guardar cambios
+        </SubmitButton>
+      </div>
+
+      {isConfirmingDelete ? (
+        <div className="grid gap-2 rounded-xl bg-zinc-900 p-3 ring-1 ring-amber-200/30">
+          <p className="text-xs leading-5 text-amber-200">
+            ¿Borrar el set {set.setNumber}? Las series siguientes se renumeran. Si lo registraste en el ejercicio
+            equivocado, bórralo aquí y vuelve a registrarlo en el correcto.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDelete(false)}
+              className="min-h-11 rounded-xl bg-zinc-950 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            >
+              Cancelar
+            </button>
+            {/* formNoValidate: deleting must work even if the edit fields
+                above are momentarily invalid — otherwise the browser blocks
+                the submit on a field the user is about to discard anyway. */}
+            <SubmitButton
+              formAction={deleteFormAction}
+              formNoValidate
+              className="min-h-11 rounded-xl bg-amber-200 text-xs font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100"
+            >
+              Sí, borrar
+            </SubmitButton>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsConfirmingDelete(true)}
+          className="min-h-11 rounded-xl text-xs font-semibold text-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+        >
+          Borrar este set
+        </button>
+      )}
+    </form>
+  );
+}
+
+function LoggedSetRow({ set, action }: { set: SetLog; action?: React.ReactNode }) {
   const sideLabel = set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : "";
 
   return (
@@ -572,18 +804,22 @@ function LoggedSetRow({ set }: { set: SetLog }) {
         <span className="text-zinc-300">
           Set {set.setNumber}
           {sideLabel}
+          {set.updatedAt !== null ? <span className="ml-1 text-xs text-zinc-500">· editado</span> : null}
         </span>
-        <span className="font-semibold text-zinc-100">
-          {set.actualDurationSeconds !== null ? (
-            <>
-              {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
-            </>
-          ) : (
-            <>
-              {formatKg(set.actualWeightKg!, 2)} × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor{" "}
-              {set.painScore}
-            </>
-          )}
+        <span className="flex items-center gap-1">
+          <span className="font-semibold text-zinc-100">
+            {set.actualDurationSeconds !== null ? (
+              <>
+                {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
+              </>
+            ) : (
+              <>
+                {formatKg(set.actualWeightKg!, 2)} × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor{" "}
+                {set.painScore}
+              </>
+            )}
+          </span>
+          {action}
         </span>
       </div>
       {set.notes ? <p className="mt-1 text-xs leading-5 text-zinc-400">{set.notes}</p> : null}
@@ -651,11 +887,18 @@ function StrengthSetFields({
   defaultWeightKg,
   defaultReps,
   targetRir,
+  selectedRir,
 }: {
   defaultWeightKg: number | "";
   defaultReps: number | "";
   targetRir: number | null;
+  // When correcting an already-logged set, the checked RIR is whatever was
+  // actually recorded — not the plan's target, which is only a sensible
+  // default for a set that hasn't happened yet. `?? targetRir` (not `||`)
+  // so a genuine RIR of 0 stays selected.
+  selectedRir?: number | null;
 }) {
+  const checkedRir = selectedRir ?? targetRir;
   const [weight, setWeight] = useState<number | "">(defaultWeightKg);
   const [reps, setReps] = useState<number | "">(defaultReps);
 
@@ -696,7 +939,7 @@ function StrengthSetFields({
                 type="radio"
                 name="rir"
                 value={value}
-                defaultChecked={value === targetRir}
+                defaultChecked={value === checkedRir}
                 className="sr-only"
               />
               {toDisplayRir(value)}
@@ -764,7 +1007,7 @@ function NumericStepperField({
           value={value}
           onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))}
           required
-          className="input text-center"
+          className="input input-stepper text-center"
         />
         <button
           type="button"
