@@ -1,8 +1,8 @@
 import { AppShell } from "../app-shell";
 
-type GuiaSection = "rir" | "amrap" | "matematica";
+type GuiaSection = "rir" | "amrap" | "matematica" | "volumen";
 
-const validSections: GuiaSection[] = ["rir", "amrap", "matematica"];
+const validSections: GuiaSection[] = ["rir", "amrap", "matematica", "volumen"];
 
 export default async function GuiaPage({
   searchParams,
@@ -18,7 +18,7 @@ export default async function GuiaPage({
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Guía</p>
         <h1 className="text-2xl font-semibold tracking-tight">Cómo entrenamos y cómo calculamos tu progresión</h1>
         <p className="text-sm leading-6 text-zinc-400">
-          Tres conceptos que usa la app en cada serie que registras — explicados como lo haría tu entrenador junto a
+          Cuatro conceptos que usa la app en cada serie que registras — explicados como lo haría tu entrenador junto a
           un fisioterapeuta, no como un manual técnico.
         </p>
       </header>
@@ -141,6 +141,49 @@ export default async function GuiaPage({
               Dolor &gt;2 bloquea aumentos agresivos, dolor &gt;3 exige reducir, modificar o cambiar el movimiento,
               dolor ≥7 significa detener y buscar orientación profesional si persiste — la misma regla en cada
               pantalla de la app.
+            </p>
+          </div>
+        </details>
+        <details open={openSection === "volumen"} className="rounded-2xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+          <summary className="cursor-pointer text-base font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            ¿Qué son las series por grupo muscular?
+          </summary>
+          <div className="mt-3 grid gap-3 text-sm leading-6 text-zinc-300">
+            <p>
+              Para ganar músculo, lo que más manda no es cuánto pesa una serie suelta sino cuántas series de calidad
+              recibe cada músculo en la semana. Por eso Progreso empieza por ahí y no por una curva de peso.
+            </p>
+            <ul className="grid gap-2">
+              <li className="rounded-xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+                <span className="font-semibold text-zinc-100">Grupo principal: 1 serie.</span> El músculo que limita la
+                serie — el que te hace parar.
+              </li>
+              <li className="rounded-xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+                <span className="font-semibold text-zinc-100">Grupos secundarios: media serie.</span> Un remo también
+                entrena bíceps. Ignorarlo haría parecer que te falta brazo cuando no es así.
+              </li>
+              <li className="rounded-xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+                <span className="font-semibold text-zinc-100">Unilaterales: 3 izquierda + 3 derecha = 3 series.</span>{" "}
+                Cada pierna recibió tres rondas de estímulo. Sumarlas daría 6 y haría ver la pierna como si estuviera
+                al doble de trabajo que un ejercicio bilateral.
+              </li>
+              <li className="rounded-xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+                <span className="font-semibold text-zinc-100">No cuentan</span> el calentamiento ni el trabajo por
+                tiempo (planchas, cardio). Sí cuenta el trabajo de fuerza aunque esté marcado como movilidad — un face
+                pull entrena hombro posterior de verdad.
+              </li>
+            </ul>
+            <p className="rounded-xl bg-zinc-950 p-3 text-xs leading-5 text-zinc-400 ring-1 ring-zinc-800">
+              La banda gris de cada barra es un <span className="font-semibold">rango de referencia</span>, no una
+              meta que debas cumplir cada semana. Una rutina de 5 días con 2 series por accesorio queda por debajo de
+              casi todas las bandas, y eso está bien: la constancia importa más que llegar al rango, y subir series
+              sólo para llenar la barra es trabajo desperdiciado. Por eso una barra baja no se pinta de rojo — el
+              color en esta app está reservado para el dolor.
+            </p>
+            <p className="rounded-xl bg-zinc-950 p-3 text-xs leading-5 text-zinc-400 ring-1 ring-zinc-800">
+              <span className="font-semibold text-zinc-100">Sobre las articulaciones:</span> la app registra un valor
+              de dolor por serie, pero no dónde te duele. Lo que ves agrupado por articulación es el dolor que
+              anotaste en ejercicios que cargan esa articulación — una pista para revisar, no un diagnóstico.
             </p>
           </div>
         </details>

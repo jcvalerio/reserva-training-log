@@ -6,13 +6,17 @@ import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
+import { jointLoadLabelsEs } from "@/training/muscle-taxonomy";
+import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
 import { AppShell } from "../app-shell";
 import { BarChart } from "./bar-chart";
-import { ExerciseProgressionChart } from "./exercise-progression-chart";
+import { BodyMap } from "./body-map";
+import { ExerciseGroupList } from "./exercise-group-list";
 import { MeasurementSeriesChart } from "./measurement-series-chart";
+import { MuscleVolumeChart } from "./muscle-volume-chart";
 
 export function ProgresoPageContent({
   hasProfile,
@@ -23,6 +27,7 @@ export function ProgresoPageContent({
   exerciseSeriesGroups,
   defaultExerciseName,
   consistencySummary,
+  muscleVolumeSummary,
 }: {
   hasProfile: boolean;
   improvements: ExerciseImprovementRow[];
@@ -32,6 +37,7 @@ export function ProgresoPageContent({
   exerciseSeriesGroups: ExerciseSeriesGroup[];
   defaultExerciseName: string | null;
   consistencySummary: ConsistencySummary | null;
+  muscleVolumeSummary: MuscleVolumeSummary | null;
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
@@ -85,13 +91,110 @@ export function ProgresoPageContent({
         <KpiTile label="Carga" value={recentAverageLoad !== null ? `${recentAverageLoad}` : "—"} sublabel="UA reciente" />
       </section>
 
-      {exerciseSeriesGroups.length > 0 && defaultExerciseName ? (
+      {muscleVolumeSummary ? (
+        <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="muscle-volume-title">
+          <p id="muscle-volume-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+            Series por grupo muscular
+          </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">Semana en curso</p>
+          <div className="mt-3">
+            <BodyMap week={muscleVolumeSummary.currentWeek} />
+          </div>
+          <div className="mt-3 border-t border-zinc-800 pt-3">
+            <MuscleVolumeChart
+              week={muscleVolumeSummary.currentWeek}
+              previousWeek={muscleVolumeSummary.previousWeek}
+            />
+          </div>
+
+          {muscleVolumeSummary.pushPullRatio !== null || muscleVolumeSummary.quadHamstringRatio !== null ? (
+            <div className="mt-3 border-t border-zinc-800 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Equilibrio</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                {muscleVolumeSummary.pushPullRatio !== null
+                  ? `Empuje : Tirón — ${formatRatio(muscleVolumeSummary.pushPullRatio)}`
+                  : null}
+                {muscleVolumeSummary.pushPullRatio !== null && muscleVolumeSummary.quadHamstringRatio !== null
+                  ? " · "
+                  : null}
+                {muscleVolumeSummary.quadHamstringRatio !== null
+                  ? `Cuádriceps : Femorales — ${formatRatio(muscleVolumeSummary.quadHamstringRatio)}`
+                  : null}
+              </p>
+            </div>
+          ) : null}
+
+          {muscleVolumeSummary.painByJoint.length > 0 ? (
+            <div className="mt-3 border-t border-zinc-800 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                Articulaciones cargadas cuando reportaste dolor
+              </p>
+              {/* Deliberately not titled "dolor de hombro": setLog records a
+                  pain score but no location, so this attributes a set's pain to
+                  every joint its exercise loads. That is an inference, and the
+                  wording has to say so. */}
+              <ul className="mt-2 grid gap-1">
+                {muscleVolumeSummary.painByJoint.map((row) => (
+                  <li key={row.jointLoad} className="text-sm leading-6 text-zinc-300">
+                    {jointLoadLabelsEs[row.jointLoad]} — dolor máx. {row.maxPainScore}
+                    {row.setsAboveThreshold > 0 ? (
+                      <span className="text-zinc-400">
+                        {" "}
+                        · {row.setsAboveThreshold} {row.setsAboveThreshold === 1 ? "serie" : "series"} sobre 2 (
+                        {row.exerciseNamesEs.join(", ")})
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs leading-5 text-zinc-400">
+                Es el dolor que registraste en ejercicios que cargan esa articulación, no un diagnóstico. Con dolor
+                sobre 2 no conviene progresar; sobre 3, reduce o modifica el ejercicio.
+              </p>
+            </div>
+          ) : null}
+
+          <Link
+            href="/guia?open=volumen"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            Cómo se cuentan estas series
+          </Link>
+
+          {muscleVolumeSummary.unclassifiedExerciseNames.length > 0 ? (
+            <details className="mt-3 border-t border-zinc-800 pt-3">
+              <summary className="min-h-11 text-sm leading-6 text-zinc-300">
+                Sin clasificar ({muscleVolumeSummary.unclassifiedExerciseNames.length})
+              </summary>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
+                Estas series no se cuentan en ningún grupo muscular. Asigna su grupo al editar el plan.
+              </p>
+              <ul className="mt-2 grid gap-1">
+                {muscleVolumeSummary.unclassifiedExerciseNames.map((name) => (
+                  <li key={name} className="text-sm leading-6 text-zinc-300">
+                    {name}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/plan/builder"
+                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Editar plan
+              </Link>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+
+      {exerciseSeriesGroups.length > 0 ? (
         <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="progression-title">
           <p id="progression-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
-            Progresión por ejercicio
+            Ejercicios por grupo muscular
           </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">Toca un ejercicio para ver su progresión.</p>
           <div className="mt-3">
-            <ExerciseProgressionChart groups={exerciseSeriesGroups} defaultExerciseName={defaultExerciseName} />
+            <ExerciseGroupList groups={exerciseSeriesGroups} defaultExerciseName={defaultExerciseName} />
           </div>
         </section>
       ) : null}
@@ -310,6 +413,20 @@ function signalLabelEs(signal: ImprovementSignal) {
     estimated_1rm: "1RM estimado +5%",
     asymmetry_performance: "Asimetría -5%",
   }[signal];
+}
+
+/**
+ * Renders a ratio the way a coach says it, with the smaller side normalised to 1.
+ *
+ * `value` is always left÷right for the label it accompanies — e.g.
+ * quadHamstringRatio is cuádriceps÷femorales, so 4 and 6 give 0.667 and must
+ * read "1 : 1.5" (there is MORE femoral work), not "1.5 : 1".
+ *
+ * Both branches were inverted when this shipped, which made the real dashboard
+ * claim the opposite of the data. Exported solely so the test can pin it.
+ */
+export function formatRatio(value: number): string {
+  return value >= 1 ? `${value.toFixed(1)} : 1` : `1 : ${(1 / value).toFixed(1)}`;
 }
 
 function formatDate(date: Date | null) {

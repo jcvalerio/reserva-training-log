@@ -1,13 +1,21 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
+import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
+import { findCatalogEntryByName, type JointLoad, type MuscleGroup } from "@/training/muscle-taxonomy";
 import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-repository";
 
 import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
 import { renumberSets } from "./set-editing";
+
+// Self-join so a substitute can show the exercise it stands in for. A
+// substitute keeps its own entry and its own muscle group on /progreso — the
+// real data has a calf raise replacing an incline press, so rolling it up
+// under the original would file calf work under pecho.
+const originalPrescription = alias(exercisePrescription, "original_prescription");
 
 export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
@@ -482,11 +490,114 @@ export async function getCompletedWorkoutSessionsForProfile(
     .orderBy(desc(workoutSession.completedAt));
 }
 
+export type LoggedVolumeInstance = {
+  exerciseNameEs: string;
+  completedAt: Date | null;
+  phase: "warmup" | "main" | "accessory" | "mobility";
+  prescriptionType: "strength" | "duration";
+  isUnilateral: boolean;
+  primaryMuscleGroup: MuscleGroup | null;
+  secondaryMuscleGroups: MuscleGroup[];
+  jointLoads: JointLoad[];
+  isClassified: boolean;
+  sets: SetLog[];
+};
+
+/**
+ * Every logged instance in a time window, classified, for the weekly
+ * muscle-volume report.
+ *
+ * A sibling of getRecentExerciseInstancesByName rather than an extension of
+ * it: that one caps at N instances per exercise name (which would truncate a
+ * week's volume) and has no time window, and adding one would change the
+ * per-name-cap semantics buildExerciseImprovements depends on.
+ *
+ * Deliberately does NOT filter prescriptionType or phase in SQL — those rules
+ * live in muscle-volume.ts where they are testable, and one of them is
+ * subtle enough to warrant it (mobility-phase strength work counts; see
+ * countsTowardVolume).
+ *
+ * Classification resolves the catalog link first and falls back to matching
+ * the free-text name, which is what makes this work for plans that were never
+ * touched by the backfill migrations.
+ */
+export async function getLoggedVolumeInstancesSince(
+  athleteProfileId: string,
+  since: Date,
+): Promise<LoggedVolumeInstance[]> {
+  const rows = await db
+    .select({
+      exerciseLogId: exerciseLog.id,
+      exerciseNameEs: exercisePrescription.exerciseNameEs,
+      completedAt: workoutSession.completedAt,
+      phase: exercisePrescription.phase,
+      prescriptionType: exercisePrescription.prescriptionType,
+      isUnilateral: exercisePrescription.isUnilateral,
+      exerciseId: exercisePrescription.exerciseId,
+      primaryMuscleGroup: exercise.primaryMuscleGroup,
+      secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+      jointStressTags: exercise.jointStressTags,
+    })
+    .from(exerciseLog)
+    .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
+    .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
+    .leftJoin(exercise, eq(exercisePrescription.exerciseId, exercise.id))
+    .where(
+      and(
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+        eq(workoutSession.status, "completed"),
+        gte(workoutSession.completedAt, since),
+      ),
+    )
+    .orderBy(desc(workoutSession.completedAt));
+
+  const exerciseLogIds = rows.map((row) => row.exerciseLogId);
+  const sets = exerciseLogIds.length
+    ? await db
+        .select()
+        .from(setLog)
+        .where(inArray(setLog.exerciseLogId, exerciseLogIds))
+        .orderBy(asc(setLog.setNumber))
+    : [];
+
+  const setsByExerciseLogId = new Map<string, SetLog[]>();
+  for (const set of sets) {
+    const bucket = setsByExerciseLogId.get(set.exerciseLogId);
+    if (bucket) {
+      bucket.push(set);
+    } else {
+      setsByExerciseLogId.set(set.exerciseLogId, [set]);
+    }
+  }
+
+  return rows.map((row) => {
+    const fallback = row.exerciseId ? null : findCatalogEntryByName(row.exerciseNameEs);
+    const isClassified = Boolean(row.exerciseId) || fallback !== null;
+    return {
+      exerciseNameEs: row.exerciseNameEs,
+      completedAt: row.completedAt,
+      phase: row.phase,
+      prescriptionType: row.prescriptionType,
+      isUnilateral: row.isUnilateral,
+      primaryMuscleGroup: row.primaryMuscleGroup ?? fallback?.primaryMuscleGroup ?? null,
+      secondaryMuscleGroups: row.secondaryMuscleGroups ?? fallback?.secondaryMuscleGroups ?? [],
+      jointLoads: row.jointStressTags ?? fallback?.jointLoads ?? [],
+      isClassified,
+      sets: setsByExerciseLogId.get(row.exerciseLogId) ?? [],
+    };
+  });
+}
+
 export type ExerciseInstance = {
   exerciseNameEs: string;
   sessionId: string;
   completedAt: Date | null;
   isUnilateral: boolean;
+  /** Resolved via the catalog link, falling back to the free-text name. */
+  primaryMuscleGroup: MuscleGroup | null;
+  isClassified: boolean;
+  /** Non-null only when this exercise was logged as a substitute. */
+  substitutedForNameEs: string | null;
   sets: SetLog[];
 };
 
@@ -506,10 +617,18 @@ export async function getRecentExerciseInstancesByName(
       sessionId: workoutSession.id,
       completedAt: workoutSession.completedAt,
       isUnilateral: exercisePrescription.isUnilateral,
+      exerciseId: exercisePrescription.exerciseId,
+      primaryMuscleGroup: exercise.primaryMuscleGroup,
+      substitutedForNameEs: originalPrescription.exerciseNameEs,
     })
     .from(exerciseLog)
     .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
     .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
+    .leftJoin(exercise, eq(exercisePrescription.exerciseId, exercise.id))
+    .leftJoin(
+      originalPrescription,
+      eq(exercisePrescription.substitutedForPrescriptionId, originalPrescription.id),
+    )
     .where(
       and(
         eq(workoutSession.athleteProfileId, athleteProfileId),
@@ -558,13 +677,19 @@ export async function getRecentExerciseInstancesByName(
   for (const [exerciseNameEs, group] of rowsByExerciseName) {
     instancesByExerciseName.set(
       exerciseNameEs,
-      group.slice(0, instancesPerExercise).map((row) => ({
-        exerciseNameEs,
-        sessionId: row.sessionId,
-        completedAt: row.completedAt,
-        isUnilateral: row.isUnilateral,
-        sets: setsByLogId.get(row.exerciseLogId) ?? [],
-      })),
+      group.slice(0, instancesPerExercise).map((row) => {
+        const fallback = row.exerciseId ? null : findCatalogEntryByName(row.exerciseNameEs);
+        return {
+          exerciseNameEs,
+          sessionId: row.sessionId,
+          completedAt: row.completedAt,
+          isUnilateral: row.isUnilateral,
+          primaryMuscleGroup: row.primaryMuscleGroup ?? fallback?.primaryMuscleGroup ?? null,
+          isClassified: Boolean(row.exerciseId) || fallback !== null,
+          substitutedForNameEs: row.substitutedForNameEs,
+          sets: setsByLogId.get(row.exerciseLogId) ?? [],
+        };
+      }),
     );
   }
 

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+
   integer,
   jsonb,
   index,
@@ -12,6 +13,8 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+
+import { muscleGroups, type JointLoad, type MovementPattern } from "@/training/muscle-taxonomy";
 
 export const localeEnum = pgEnum("locale", ["es", "en"]);
 export const unitsEnum = pgEnum("units", ["metric"]);
@@ -43,6 +46,12 @@ export const exerciseLoadMechanismEnum = pgEnum("exercise_load_mechanism", [
 ]);
 export const exercisePrescriptionTypeEnum = pgEnum("exercise_prescription_type", ["strength", "duration"]);
 export const planShareInviteStatusEnum = pgEnum("plan_share_invite_status", ["pending", "redeemed"]);
+// Values come from src/training/muscle-taxonomy.ts so the pgEnum literally
+// cannot drift from the TS union. A pgEnum rather than text because the ~70
+// seed rows are INSERTed by hand-written migration SQL where TypeScript checks
+// nothing, and a typo'd 'gluteous' would silently create a 14th bucket that
+// every weekly-volume report would then under-count against.
+export const muscleGroupEnum = pgEnum("muscle_group", muscleGroups);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -200,26 +209,77 @@ export const bodyMeasurement = pgTable(
   ],
 );
 
+// The exercise catalog: the single normalized source of truth for what muscle
+// an exercise trains. Revived from the removed "Pesos base" intake flow, which
+// left 12 rows behind that baseline_lift still references with
+// onDelete:"restrict" — they cannot be deleted, so they are simply inactive.
+//
+// exercisePrescription.exerciseNameEs stays free text and stays the display
+// name; this table only ever carries classification. See
+// src/training/muscle-taxonomy.ts for the resolution order and the vocabulary.
 export const exercise = pgTable(
   "exercise",
   {
     id: text("id").primaryKey(),
+    // Catalog ids ARE slugs. The seed runs independently against the dev and
+    // production Neon branches, so rows must come out byte-identical on both;
+    // a generated id would diverge and break cross-branch comparison.
     slug: text("slug").notNull(),
     nameEs: text("name_es").notNull(),
     nameEn: text("name_en").notNull(),
+    // NULL: seeded and shared by every profile. Set: created by one athlete
+    // and private to them, so one person adding "Prensa rara" doesn't pollute
+    // another's picker.
+    athleteProfileId: text("athlete_profile_id").references(() => athleteProfile.id, {
+      onDelete: "cascade",
+    }),
+    // DEFAULT false, deliberately. This is what lets the seed migration ignore
+    // the 12 legacy rows without enumerating their slugs — and it means any
+    // legacy row on the production branch that this machine has never seen is
+    // hidden automatically rather than appearing in a picker as garbage. Only
+    // rows the seed INSERT explicitly touches become true.
+    isActive: boolean("is_active").notNull().default(false),
+    // Nullable on purpose, twice over: cardio/conditioning entries genuinely
+    // train no group for hypertrophy (distinct from "unclassified"), and a
+    // NOT NULL add-column whose backfill misses one unseen production row
+    // would fail mid-`vercel build` and take the whole deploy down.
+    primaryMuscleGroup: muscleGroupEnum("primary_muscle_group"),
+    // Enum array rather than jsonb: same DB-level guard as the primary column,
+    // and it supports `&&`/`= ANY` for "what else hits femorales".
+    secondaryMuscleGroups: muscleGroupEnum("secondary_muscle_groups")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    // Superseded by primaryMuscleGroup/secondaryMuscleGroups above. Still
+    // holding English tokens ("biceps", "quadriceps") on the 12 inactive
+    // legacy rows and read by nothing; dropped in a follow-up migration
+    // rather than here, because dropping and adding in one diff makes
+    // drizzle-kit ask whether it's a rename (same reason 0010 added and 0011
+    // dropped).
     primaryMuscles: jsonb("primary_muscles").$type<string[]>().notNull().default([]),
     secondaryMuscles: jsonb("secondary_muscles").$type<string[]>().notNull().default([]),
     equipmentType: text("equipment_type").notNull(),
-    movementPattern: text("movement_pattern"),
+    // Kept as text rather than promoted to a pgEnum: no aggregation partitions
+    // on it (push:pull derives from the muscle group's region), and it's the
+    // vocabulary most likely to churn, where an ALTER TYPE per iteration is
+    // pure friction.
+    movementPattern: text("movement_pattern").$type<MovementPattern>(),
     isUnilateralCapable: boolean("is_unilateral_capable").notNull().default(false),
-    jointStressTags: jsonb("joint_stress_tags").$type<string[]>().notNull().default([]),
+    jointStressTags: jsonb("joint_stress_tags").$type<JointLoad[]>().notNull().default([]),
     defaultRepRangeMin: integer("default_rep_range_min").notNull().default(8),
     defaultRepRangeMax: integer("default_rep_range_max").notNull().default(12),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: updatedAtColumn(),
   },
-  (table) => [uniqueIndex("exercise_slug_unique").on(table.slug)],
+  (table) => [
+    // Two partial uniques rather than one global: a seeded slug is unique
+    // across the app, but two athletes may each add their own "Prensa rara".
+    uniqueIndex("exercise_seeded_slug_unique")
+      .on(table.slug)
+      .where(sql`${table.athleteProfileId} is null`),
+    uniqueIndex("exercise_profile_slug_unique").on(table.athleteProfileId, table.slug),
+  ],
 );
 
 export const baselineLift = pgTable(
@@ -381,9 +441,22 @@ export const exercisePrescription = pgTable(
     // without recording it would erase the one signal a physio would care
     // about. Nullable — substitutes predating this, or reused later, have none.
     substitutionReasonEs: text("substitution_reason_es"),
+    // The classification link. Nullable by design: exerciseNameEs stays free
+    // text and stays the display name, so an unmatched row degrades to "Sin
+    // clasificar" in reports rather than blocking the builder or forcing a
+    // catalog picker into the mid-session substitution flow. Reads fall back
+    // to name matching (see muscle-taxonomy.ts), so this column is an
+    // optimization over that fallback, not the only path.
+    //
+    // set null rather than restrict: restrict protects logged history on
+    // exerciseLog, but this is only a pointer to a classification, and
+    // restrict here would recreate exactly the problem baseline_lift caused —
+    // catalog rows that can never be cleaned up.
+    exerciseId: text("exercise_id").references(() => exercise.id, { onDelete: "set null" }),
   },
   (table) => [
     index("exercise_prescription_plan_session_template_id_idx").on(table.planSessionTemplateId),
+    index("exercise_prescription_exercise_id_idx").on(table.exerciseId),
     uniqueIndex("exercise_prescription_template_order_unique").on(table.planSessionTemplateId, table.orderIndex),
   ],
 );

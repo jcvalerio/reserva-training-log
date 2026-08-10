@@ -27,6 +27,9 @@ function buildInstance(overrides: Partial<ExerciseInstance> = {}): ExerciseInsta
     sessionId: "session-1",
     completedAt: new Date("2026-07-20T12:00:00Z"),
     isUnilateral: false,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
     sets: [buildSet()],
     ...overrides,
   };
@@ -180,5 +183,28 @@ describe("pickDefaultExerciseName", () => {
 
   it("returns null for an empty array", () => {
     expect(pickDefaultExerciseName([])).toBeNull();
+  });
+});
+
+describe("toExerciseSeriesGroups — exercises with no logged sets", () => {
+  it("drops an exercise whose instances have no sets", () => {
+    // An exerciseLog row is created the moment you open an exercise while
+    // training, so starting one and logging nothing (or deleting the sets
+    // afterwards) leaves a real instance with zero sets. The real data has two
+    // of these; they were rendering as rows with a dash and no chart.
+    const groups = toExerciseSeriesGroups(
+      new Map([
+        ["Prensa bilateral", [buildInstance({ sets: [] })]],
+        ["Prensa unilateral", [buildInstance({ sets: [buildSet({ setNumber: 1 })] })]],
+      ]),
+    );
+
+    expect(groups.map((group) => group.exerciseNameEs)).toEqual(["Prensa unilateral"]);
+  });
+
+  it("keeps pickDefaultExerciseName from selecting a set-less exercise", () => {
+    const groups = toExerciseSeriesGroups(new Map([["Prensa bilateral", [buildInstance({ sets: [] })]]]));
+
+    expect(pickDefaultExerciseName(groups)).toBeNull();
   });
 });

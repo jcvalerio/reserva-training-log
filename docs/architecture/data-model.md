@@ -49,15 +49,23 @@ Derived (computed on read, not stored): `thighGapCm = leftThighCm - rightThighCm
 
 ## Exercise
 
-Fields: `id`, `slug` (unique), `nameEs`, `nameEn`, `primaryMuscles`, `secondaryMuscles`, `equipmentType`, `movementPattern`, `isUnilateralCapable`, `jointStressTags`, `defaultRepRangeMin`/`Max`, `notes`, `createdAt`, `updatedAt`.
+The exercise catalog: the normalized source of truth for what muscle an exercise trains. **Revived 2026-08-09** (it had been orphaned since 2026-07-31, when the "Pesos base" intake flow it originally backed was removed) to support weekly volume-per-muscle-group reporting on `/progreso`.
 
-**Orphaned as of 2026-07-31**: this was a canonical exercise catalog originally backing the "Pesos base" (baseline-lift) intake flow. That feature was removed entirely (see implementation log, "Removed 'Pesos base'") because its data was never read by anything beyond a readiness-gate count. The table is left in place in the database, unused by any current code, rather than dropped — a deliberate, reversible choice, not an oversight. Exercises inside a plan (`exercisePrescription.exerciseNameEs`) are free text and were never foreign-keyed to this catalog.
+Fields: `id` (**equals `slug`** — the seed migration runs independently against the dev and production Neon branches, so rows must come out byte-identical on both; a generated id would diverge), `slug`, `nameEs`, `nameEn`, `athleteProfileId` (nullable FK → `AthleteProfile`, cascade — NULL means a seeded row shared by every profile, set means one athlete's private addition), `isActive` (boolean, **default `false`**), `primaryMuscleGroup` (`muscle_group` enum, nullable), `secondaryMuscleGroups` (`muscle_group[]`, default `{}`), `equipmentType`, `movementPattern` (text, typed `MovementPattern` in TS), `isUnilateralCapable`, `jointStressTags` (jsonb, typed `JointLoad[]`), `defaultRepRangeMin`/`Max`, `notes`, `createdAt`, `updatedAt`. `primaryMuscles`/`secondaryMuscles` (legacy jsonb holding English tokens) are superseded and read by nothing; they survive only because dropping them in the same diff that adds the new columns makes drizzle-kit prompt for a rename decision.
+
+`isActive` defaulting to **false** is load-bearing. 12 legacy rows from the removed flow are still referenced by `BaselineLift` with `onDelete: restrict`, so they can never be deleted; defaulting to false hides them from every picker without the migration having to enumerate their slugs, and hides any unseen legacy row on the production branch automatically. Only rows the seed `INSERT` in `drizzle/0018` explicitly touches become active.
+
+`primaryMuscleGroup` is nullable for two distinct reasons: cardio and conditioning entries genuinely train no group for hypertrophy purposes (a *classified* zero, distinct from "unclassified"), and a `NOT NULL` add-column whose backfill missed one unseen production row would fail mid-`vercel build` and take the whole deploy down.
+
+Body region (empuje/tirón/pierna/core) is **derived** from the primary muscle group by `regionForMuscleGroup` and is deliberately never stored — storing a region beside a muscle group is exactly how `incrementCategory` drifted into meaning two things at once.
+
+The vocabulary, the ~70-entry seed catalog, and the name matcher live in `src/training/muscle-taxonomy.ts`; the pgEnum's values are imported from that module so the two cannot drift.
 
 ## BaselineLift
 
 Fields: `id`, `athleteProfileId`, `exerciseId` (FK → `Exercise`, `onDelete: restrict`), `side`, `weightKg`, `reps`, `sets`, `rir`, `painScore`, `notes`, `recordedAt`.
 
-**Orphaned as of 2026-07-31**, same removal as `Exercise` above — no route, form, or repository code touches this table anymore (`src/baseline/` and `src/app/baseline/` were deleted). Retained in the database rather than dropped.
+**Orphaned as of 2026-07-31** — no route, form, or repository code touches this table (`src/baseline/` and `src/app/baseline/` were deleted). Retained rather than dropped. Its `restrict` FK onto `Exercise` is why the 12 legacy catalog rows are deactivated rather than deleted (see `Exercise` above).
 
 ## WorkoutPlan
 
@@ -83,9 +91,13 @@ Relationships: has many `ExercisePrescription`.
 
 Planned exercise inside a session template. The most redesigned table in the schema — four separate phases replaced its original shape (see implementation log).
 
-Fields: `id`, `planSessionTemplateId`, `orderIndex`, `exerciseNameEs`/`exerciseNameEn` (free text — **not** a foreign key to `Exercise`), `phase` (`warmup | main | accessory | mobility`), `isUnilateral` (boolean — replaced a 3-value `sideMode` enum whose two unilateral variants had zero behavioral difference anywhere in the app), `prescriptionType` (`strength | duration`), `targetSets`, `targetRepMin`/`targetRepMax`/`targetRir` (nullable — only meaningful for `strength`), `durationSeconds` (nullable — only meaningful for `duration`), `restSeconds`, `notesEs`/`notesEn`, `painSensitive`, `substitutionOptionsEs` (jsonb string array), `loadMechanism` (`bodyweight | dumbbell | machine | barbell`, nullable), `isCompound` (nullable boolean).
+Fields: `id`, `planSessionTemplateId`, `orderIndex`, `exerciseNameEs`/`exerciseNameEn` (free text — **not** a foreign key to `Exercise`), `phase` (`warmup | main | accessory | mobility`), `isUnilateral` (boolean — replaced a 3-value `sideMode` enum whose two unilateral variants had zero behavioral difference anywhere in the app), `prescriptionType` (`strength | duration`), `targetSets`, `targetRepMin`/`targetRepMax`/`targetRir` (nullable — only meaningful for `strength`), `durationSeconds` (nullable — only meaningful for `duration`), `restSeconds`, `notesEs`/`notesEn`, `painSensitive`, `substitutionOptionsEs` (jsonb string array), `loadMechanism` (`bodyweight | dumbbell | machine | barbell`, nullable), `isCompound` (nullable boolean), `exerciseId` (nullable FK → `Exercise`, `onDelete: set null`).
 
-`loadMechanism`×`isCompound` replaced an earlier `incrementCategory` enum that conflated equipment type with body region; together they drive the suggested weight-increment percentage in `/entrenar` (`src/workouts/progression-view.ts`), not an exercise taxonomy. `notesEs` is shown as a coaching cue while training, not just in plan previews.
+`loadMechanism`×`isCompound` replaced an earlier `incrementCategory` enum that conflated equipment type with body region; together they drive the suggested weight-increment percentage in `/entrenar` (`src/workouts/progression-view.ts`). They are **not** the exercise taxonomy — that is `exerciseId`, added 2026-08-09.
+
+`exerciseId` is nullable by design. `exerciseNameEs` remains free text and remains the display name, so the builder and the mid-session substitution flow keep accepting typed names; an unmatched row degrades to "Sin clasificar" in reports rather than blocking anything. `set null` rather than `restrict`, because `restrict` protects logged history on `ExerciseLog` whereas this is only a pointer to a classification — and `restrict` here would recreate exactly the `BaselineLift` problem of catalog rows that can never be cleaned up.
+
+Classification resolves in three steps: `exerciseId` → catalog row, else `findCatalogEntryByName(exerciseNameEs)` in TS (accent/case/block-prefix/alias tolerant), else unclassified. Step two is why the backfill migrations are an optimization rather than a correctness requirement — plans this machine has never seen still classify correctly. `notesEs` is shown as a coaching cue while training, not just in plan previews.
 
 ## WorkoutSession
 
@@ -125,4 +137,7 @@ There is no `ProgressionSuggestion` table. A next-session weight/rep suggestion 
 4. Unilateral exercises log separate left/right sets; `targetSets` means sets *per side*, not a shared total (a real bug fixed during the exercise-model redesign — see implementation log).
 5. Body measurements are append-only; a save never overwrites a previous row.
 6. Progression suggestions are computed, not stored, and are always a prefilled default the user can override by logging something different.
-7. At most one `WorkoutPlan` per profile has `status = 'active'` (DB-enforced via a partial unique index); activating a new one archives whichever plan was active, it doesn't delete it.
+7. Classification is per **prescription**, not per exercise name. The same free-text name on two different days may carry different `exerciseId`s; weekly volume resolves per prescription (correct — that is where the sets are), while `/progreso`'s grouped exercise list resolves per name off the most recent instance.
+8. A substitute resolves its own `exerciseId` from its own name and never inherits the replaced exercise's. Dosage (phase, sets, reps, RIR, rest, load mechanism) inherits; identity does not — the live data has a calf raise substituting an incline press, and inheriting would credit calf work to pecho.
+9. Effective sets for a unilateral exercise are `max(left, right) + bilateral`, never a distinct-`setNumber` count: `setNumber` is assigned across the whole exercise log regardless of side, so 3 left + 3 right carries setNumbers 1–6 and a distinct count would double it.
+10. At most one `WorkoutPlan` per profile has `status = 'active'` (DB-enforced via a partial unique index); activating a new one archives whichever plan was active, it doesn't delete it.

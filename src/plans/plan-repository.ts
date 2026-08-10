@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exercisePrescription, planSessionTemplate, workoutPlan, workoutSession } from "@/db/schema";
+import { findCatalogEntryByName } from "@/training/muscle-taxonomy";
 
 import { generatedWorkoutPlanSchema, type GeneratedWorkoutPlan } from "./generated-plan-schema";
 import type { PlanHistoryRow } from "./plan-history";
@@ -202,6 +203,21 @@ export async function createSubstituteExercise(
       // Not inherited: the English name belongs to the original movement, and
       // carrying it over would mislabel a different exercise.
       exerciseNameEn: null,
+      // Resolved from the substitute's OWN name, never inherited from the
+      // exercise it replaces — the one field here that deliberately breaks
+      // this function's inherit-everything rule.
+      //
+      // Everything else copied below is DOSAGE (phase, sets, reps, RIR, rest,
+      // load mechanism) and correctly carries over: you swap the machine, not
+      // the prescription. exerciseId is IDENTITY, and the real data shows why
+      // that matters — "Pantorrilla sentada unilateral" substituting "Press
+      // inclinado en máquina" would credit calf work to pecho, silently and
+      // permanently, in the weekly-volume report.
+      //
+      // Null when the typed name matches no catalog entry: "Sin clasificar" is
+      // visible and one tap to fix, whereas a confidently wrong muscle group
+      // is neither.
+      exerciseId: findCatalogEntryByName(input.exerciseNameEs)?.slug ?? null,
       phase: source.phase,
       isUnilateral: source.isUnilateral,
       prescriptionType: source.prescriptionType,
@@ -352,6 +368,9 @@ export async function activateSeededPlanForProfile(
       orderIndex: exerciseIndex + 1,
       exerciseNameEs: exercise.exerciseNameEs,
       exerciseNameEn: exercise.exerciseNameEn ?? null,
+      // Falls back to name matching so a template that predates carrying an
+      // explicit id still activates fully classified.
+      exerciseId: exercise.exerciseId ?? findCatalogEntryByName(exercise.exerciseNameEs)?.slug ?? null,
       phase: exercise.phase,
       isUnilateral: exercise.isUnilateral,
       prescriptionType: exercise.prescriptionType,
@@ -421,6 +440,11 @@ export function toGeneratedWorkoutPlan(active: ActivePlanWithSessions): Generate
             // discriminant on GeneratedWorkoutPlan's own type.
             exerciseNameEs: exercise.exerciseNameEs,
             exerciseNameEn: orUndefined(exercise.exerciseNameEn),
+            // A field present in the DB and the builder but missing from this
+            // pass-through is dropped on read with no error anywhere — the
+            // symptom would be "every activated plan shows Sin clasificar".
+            // Covered by a round-trip test in plan-repository.test.ts.
+            exerciseId: orUndefined(exercise.exerciseId),
             phase: exercise.phase,
             isUnilateral: exercise.isUnilateral,
             prescriptionType: exercise.prescriptionType,

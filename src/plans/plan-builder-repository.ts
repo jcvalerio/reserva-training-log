@@ -4,6 +4,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exercisePrescription, planSessionTemplate, workoutPlan } from "@/db/schema";
+import { findCatalogEntryByName } from "@/training/muscle-taxonomy";
 
 import type {
   PlanBuilderExerciseInput,
@@ -266,6 +267,10 @@ export async function saveDraftSession(
     return {
       exerciseNameEs: exerciseInput.exerciseNameEs,
       exerciseNameEn: null,
+      // The form's explicit choice wins; otherwise resolve from the typed
+      // name, so someone who never touches the select still gets a classified
+      // exercise whenever the name is one the catalog knows.
+      exerciseId: exerciseInput.exerciseId ?? findCatalogEntryByName(exerciseInput.exerciseNameEs)?.slug ?? null,
       phase: exerciseInput.phase,
       isUnilateral: exerciseInput.isUnilateral,
       prescriptionType: exerciseInput.prescriptionType,
@@ -421,6 +426,9 @@ export async function insertClonedPlanSessions(targetPlanId: string, sourceSessi
           orderIndex: exercise.orderIndex,
           exerciseNameEs: exercise.exerciseNameEs,
           exerciseNameEn: exercise.exerciseNameEn,
+          // Copied verbatim like lineageKey: a clone is the same exercise, so
+          // it must not have to re-resolve its own classification.
+          exerciseId: exercise.exerciseId,
           phase: exercise.phase,
           isUnilateral: exercise.isUnilateral,
           prescriptionType: exercise.prescriptionType,

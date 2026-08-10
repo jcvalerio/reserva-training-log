@@ -67,6 +67,7 @@ function toActivePlanWithSessions(plan: GeneratedWorkoutPlan): ActivePlanWithSes
       lineageKey: null,
       substitutedForPrescriptionId: null,
       substitutionReasonEs: null,
+      exerciseId: exercise.exerciseId ?? null,
     }));
 
     return { template, exercises };
@@ -143,5 +144,27 @@ describe("toGeneratedWorkoutPlan", () => {
     expect(() => toGeneratedWorkoutPlan({ plan: weekOne.plan, sessions: allWeeksSessions })).not.toThrow();
     expect(mapped.sessions).toHaveLength(5);
     expect(mapped).toEqual(seeded);
+  });
+});
+
+describe("toGeneratedWorkoutPlan — exerciseId", () => {
+  it("round-trips the catalog link back out", () => {
+    // The specific hazard this guards: exerciseId lives in the DB, the Zod
+    // contract and the builder form, but toGeneratedWorkoutPlan's flat
+    // pass-through is hand-written. Omitting it there drops the field on every
+    // read with no error anywhere, and the only symptom would be that every
+    // activated plan silently reports "Sin clasificar".
+    const active = toActivePlanWithSessions(createSeededHypertrophyPlan());
+    active.sessions[0]!.exercises[0]!.exerciseId = "press-de-pecho-en-maquina";
+
+    const generated = toGeneratedWorkoutPlan(active);
+
+    expect(generated.sessions[0]!.exercises[0]!.exerciseId).toBe("press-de-pecho-en-maquina");
+  });
+
+  it("leaves exerciseId undefined for an unclassified exercise", () => {
+    const generated = toGeneratedWorkoutPlan(toActivePlanWithSessions(createSeededHypertrophyPlan()));
+
+    expect(generated.sessions[0]!.exercises[0]!.exerciseId).toBeUndefined();
   });
 });

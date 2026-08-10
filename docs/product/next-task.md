@@ -1,10 +1,37 @@
 # Next Task
 
-## Status: exercise substitution + the bigger reading type scale — shipped, deployed and committed (`ffe3197`).
+## Status: the exercise taxonomy and a rebuilt `/progreso` — code complete on `main`, not deployed, not committed.
+
+**All five feedback items are now done in code.** Item 5 turned into something bigger than the original ask, because you reframed it: rather than only regrouping the dashboard, you decided to add the muscle-group taxonomy the project had declined twice before, so the app could produce real reports.
+
+What that bought, in order of value:
+
+1. **Series por grupo muscular** is the new headline on `/progreso` — weekly effective sets per muscle against a reference range. It's the number a coach actually reads for muscle gain, and crucially it's meaningful at *one* logged session per exercise, which is the data you actually have. The old blocker ("no exercise has two data points, so every trend line is a single dot") no longer decides what the page can show.
+2. **The dropdown is gone.** Exercises are grouped by muscle group; tapping one opens the same progression chart as before. The chart was never your complaint, so it survives intact.
+3. **Push:tirón and cuádriceps:femorales ratios**, and **pain grouped by joint** — the physio half. You log a pain score on every set and until now it was only ever visible per exercise.
+4. The app can finally tell when a substitution changed the muscle worked. Your real swap — *Pantorrilla sentada unilateral* replacing *Press inclinado en máquina* — is exactly the case it couldn't see before.
+
+**Your "Core" ×5 is now five specific exercises**, one per day, chosen against each day's load: Crunch en máquina (días 1 and 2), Pallof press en polea (día 3 — antirotation after the hinge day, instead of more loaded flexion), Elevación de rodillas en paralelas (día 4), Plancha lateral (día 5). Día 3's two logged sets get relabeled, which you approved.
+
+**One honest consequence:** splitting Core removed the only exercise that had two completed instances, so until the rotation repeats, "Mejoras recientes" will be empty and every progression line is a single dot. The split revealed that rather than caused it — those two instances were never the same exercise — and it's exactly why weekly volume leads the page now.
+
+**Two things before deploying:**
+- Browser check at 390×844. This needs you to sign in (Google OAuth only), so it hasn't been done yet.
+- **Confirm the Core rename should reach Athlete B's and Athlete C's plans.** The migration matches on day + name rather than row ids, which is the only way it can work across the dev and production branches — but it means those exercises get renamed in their accounts too, if their plans are clones of yours.
+
+**The dev database now contains synthetic history, deliberately kept.** Two prior weeks (Mon 2026-07-20 and Mon 2026-07-27, 7 sessions / 65 sets) were seeded so the week-over-week deltas and the per-exercise progression charts have something to render against — before it, everything was a single dot. **Every synthetic row has a `demo-seed-` id prefix**, nothing else was touched, and removal is one cascading statement:
+
+```sql
+DELETE FROM workout_session WHERE id LIKE 'demo-seed-%';
+```
+
+It exists **only on the Neon development branch**. Production has its own branch, so it does not and cannot travel with a deploy. Treat any `demo-seed-` row as scaffolding, never as real training history — the four real sessions are the ones without that prefix.
+
+Migrations `0018`, `0019`, `0020` are applied to dev; production applies them automatically during the Vercel build. 29/29 of your prescriptions classify, none "Sin clasificar". `lint`/`typecheck`/`test` (396)/`build` all green.
+
+## Prior status: exercise substitution + the bigger reading type scale — shipped, deployed and committed (`ffe3197`).
 
 Both live at `https://gym.jcvalerio.com`. Migration `0017` (two nullable columns on `exercise_prescription`) verified applied in production, and the new type scale confirmed in the production CSS with headings untouched. Deployed while your Día 4 session was active — that's normally the stop condition here, but you confirmed you were on `localhost:3000`, which a production deploy can't interrupt, and the migration was additive with no backfill.
-
-**Four of the five feedback items are now done.** Only item 5 (the `/progreso` dashboard) is left, and it's still waiting on data — see below.
 
 Worth doing on-device: check the new default text sizes on your real iPhone, since the original complaint was about on-device readability. The ± stepper values are worth a glance in the same pass.
 

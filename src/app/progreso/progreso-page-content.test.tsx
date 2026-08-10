@@ -9,7 +9,7 @@ import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/imp
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import type { WorkoutSession } from "@/workouts/workout-repository";
 
-import { ProgresoPageContent } from "./progreso-page-content";
+import { formatRatio, ProgresoPageContent } from "./progreso-page-content";
 
 function buildImprovement(overrides: Partial<ExerciseImprovement> = {}): ExerciseImprovement {
   return {
@@ -74,6 +74,7 @@ function renderPage(overrides: Partial<Props> = {}) {
     measurementSeries: [],
     exerciseSeriesGroups: [],
     defaultExerciseName: null,
+    muscleVolumeSummary: null,
     consistencySummary: null,
   };
   return render(<ProgresoPageContent {...defaults} {...overrides} />);
@@ -246,6 +247,9 @@ describe("ProgresoPageContent", () => {
       {
         exerciseNameEs: "Prensa de piernas",
         isUnilateral: false,
+        primaryMuscleGroup: null,
+        isClassified: false,
+        substitutedForNameEs: null,
         points: [
           {
             completedAt: new Date("2026-07-20T12:00:00Z"),
@@ -264,14 +268,16 @@ describe("ProgresoPageContent", () => {
 
     renderPage({ exerciseSeriesGroups, defaultExerciseName: "Prensa de piernas" });
 
-    expect(screen.getByText("Progresión por ejercicio")).toBeVisible();
-    expect(screen.getByRole("combobox")).toHaveValue("Prensa de piernas");
+    expect(screen.getByText("Ejercicios por grupo muscular")).toBeVisible();
+    // The dropdown is gone — that was the whole point of the change.
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByRole("button", { name: /Prensa de piernas/ })).toBeVisible();
   });
 
   it("hides the exercise progression chart section when there is no exercise series", () => {
     renderPage();
 
-    expect(screen.queryByText("Progresión por ejercicio")).toBeNull();
+    expect(screen.queryByText("Ejercicios por grupo muscular")).toBeNull();
   });
 
   it("shows the consistency chart section when a consistency summary is provided", () => {
@@ -284,5 +290,23 @@ describe("ProgresoPageContent", () => {
     renderPage({ consistencySummary });
 
     expect(screen.getByText("Consistencia semanal")).toBeVisible();
+  });
+});
+
+describe("formatRatio", () => {
+  it("reads the correct way round when the right side is larger", () => {
+    // Real dev-DB data: cuádriceps 4, femorales 6 -> 0.667. There is MORE
+    // femoral work, so this must not render "1.5 : 1". Both branches were
+    // inverted when this shipped and the dashboard stated the opposite of
+    // the data.
+    expect(formatRatio(4 / 6)).toBe("1 : 1.5");
+  });
+
+  it("reads the correct way round when the left side is larger", () => {
+    expect(formatRatio(8 / 4)).toBe("2.0 : 1");
+  });
+
+  it("renders an even split as 1 : 1", () => {
+    expect(formatRatio(1)).toBe("1.0 : 1");
   });
 });

@@ -9,6 +9,9 @@ const groups: ExerciseSeriesGroup[] = [
   {
     exerciseNameEs: "Prensa de piernas",
     isUnilateral: false,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
     points: [
       {
         completedAt: new Date("2026-07-13T12:00:00Z"),
@@ -37,6 +40,9 @@ const groups: ExerciseSeriesGroup[] = [
   {
     exerciseNameEs: "Sentadilla",
     isUnilateral: false,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
     points: [
       {
         completedAt: new Date("2026-07-20T12:00:00Z"),
@@ -54,6 +60,9 @@ const groups: ExerciseSeriesGroup[] = [
   {
     exerciseNameEs: "Prensa unilateral",
     isUnilateral: true,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
     points: [
       {
         completedAt: new Date("2026-07-13T12:00:00Z"),
@@ -82,6 +91,9 @@ const groups: ExerciseSeriesGroup[] = [
   {
     exerciseNameEs: "Curl femoral unilateral",
     isUnilateral: true,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
     points: [
       {
         completedAt: new Date("2026-07-20T12:00:00Z"),
@@ -98,33 +110,45 @@ const groups: ExerciseSeriesGroup[] = [
   },
 ];
 
-describe("ExerciseProgressionChart", () => {
-  it("renders the default exercise's weight series by default", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa de piernas" />);
+function groupNamed(exerciseNameEs: string) {
+  const found = groups.find((group) => group.exerciseNameEs === exerciseNameEs);
+  if (!found) throw new Error(`no fixture group named ${exerciseNameEs}`);
+  return found;
+}
 
-    expect(screen.getByRole("combobox")).toHaveValue("Prensa de piernas");
+describe("ExerciseProgressionChart", () => {
+  it("renders the given exercise's weight series by default", () => {
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
+
     expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Peso promedio de Prensa de piernas");
   });
 
+  it("no longer owns an exercise picker", () => {
+    // The dropdown was the user's actual complaint ("I have to tap the
+    // dropdown to change the exercise"). Choosing an exercise moved to
+    // ExerciseGroupList; this component renders exactly one exercise.
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
+
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
   it("switches to the volume series when the Volumen toggle is clicked", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa de piernas" />);
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Volumen" }));
 
     expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Volumen de Prensa de piernas");
   });
 
-  it("switches exercise via the picker and shows the single-instance hint", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa de piernas" />);
-
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Sentadilla" } });
+  it("shows the single-instance hint for an exercise with one logged session", () => {
+    render(<ExerciseProgressionChart group={groupNamed("Sentadilla")} />);
 
     expect(screen.getByRole("img").getAttribute("aria-label")).toContain("de Sentadilla");
     expect(screen.getByText("Registra otra sesión de este ejercicio para ver una tendencia.")).toBeVisible();
   });
 
   it("shows a left/right split chart and unilateral badge for a unilateral exercise", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa unilateral" />);
+    render(<ExerciseProgressionChart group={groupNamed("Prensa unilateral")} />);
 
     expect(screen.getByText(/Ejercicio unilateral/)).toBeVisible();
     expect(screen.getByText("Izquierda")).toBeVisible();
@@ -133,27 +157,27 @@ describe("ExerciseProgressionChart", () => {
   });
 
   it("does not show the unilateral badge or split legend for a bilateral exercise", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa de piernas" />);
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
 
     expect(screen.queryByText(/Ejercicio unilateral/)).toBeNull();
     expect(screen.queryByText("Izquierda")).toBeNull();
   });
 
   it("shows the effort-gap chart (left minus right RIR) for a unilateral exercise", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa unilateral" />);
+    render(<ExerciseProgressionChart group={groupNamed("Prensa unilateral")} />);
 
     expect(screen.getByText("Brecha de esfuerzo (RIR izq − der)")).toBeVisible();
     expect(screen.getByRole("img", { name: /izquierda menos derecha/ })).toBeVisible();
   });
 
   it("does not show an effort-gap section for a bilateral exercise", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Prensa de piernas" />);
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
 
     expect(screen.queryByText("Brecha de esfuerzo (RIR izq − der)")).toBeNull();
   });
 
   it("shows a fallback message instead of a gap chart when no instance has RIR on both sides", () => {
-    render(<ExerciseProgressionChart groups={groups} defaultExerciseName="Curl femoral unilateral" />);
+    render(<ExerciseProgressionChart group={groupNamed("Curl femoral unilateral")} />);
 
     expect(screen.getByText("Brecha de esfuerzo (RIR izq − der)")).toBeVisible();
     expect(

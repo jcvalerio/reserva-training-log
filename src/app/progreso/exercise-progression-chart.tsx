@@ -34,35 +34,17 @@ function formatSignedRir(value: number): string {
   return `${sign}${rounded} RIR`;
 }
 
-export function ExerciseProgressionChart({
-  groups,
-  defaultExerciseName,
-}: {
-  groups: ExerciseSeriesGroup[];
-  defaultExerciseName: string;
-}) {
-  const [selectedName, setSelectedName] = useState(defaultExerciseName);
+// Renders ONE exercise. The <select> that used to live here is gone —
+// picking an exercise is ExerciseGroupList's job now, since "I have to tap the
+// dropdown to change the exercise" was the actual complaint. Everything below
+// it (the metric toggle, the unilateral dual-line branch, the effort gap) was
+// never the problem and is unchanged.
+export function ExerciseProgressionChart({ group: selectedGroup }: { group: ExerciseSeriesGroup }) {
   const [metric, setMetric] = useState<Metric>("avgWeightKg");
-
-  const selectedGroup = groups.find((group) => group.exerciseNameEs === selectedName) ?? groups[0];
-  if (!selectedGroup) {
-    return null;
-  }
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <select
-          value={selectedGroup.exerciseNameEs}
-          onChange={(event) => setSelectedName(event.target.value)}
-          className="min-w-0 flex-1 rounded-xl bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-        >
-          {groups.map((group) => (
-            <option key={group.exerciseNameEs} value={group.exerciseNameEs}>
-              {group.exerciseNameEs}
-            </option>
-          ))}
-        </select>
+      <div className="flex items-center justify-end gap-2">
         <div className="flex shrink-0 gap-1 text-xs">
           {(Object.keys(METRIC_LABEL) as Metric[]).map((option) => (
             <button

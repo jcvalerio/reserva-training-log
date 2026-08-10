@@ -33,7 +33,8 @@ describe("SessionEditorForm", () => {
         initialFocus="Cuádriceps"
         initialExercises={[
           {
-            exerciseNameEs: "Prensa de piernas",
+            exerciseId: null,
+    exerciseNameEs: "Prensa de piernas",
             phase: "main",
             isUnilateral: false,
             prescriptionType: "strength",
@@ -215,7 +216,8 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[
           {
-            exerciseNameEs: "Prensa de piernas",
+            exerciseId: null,
+    exerciseNameEs: "Prensa de piernas",
             phase: "main",
             isUnilateral: false,
             prescriptionType: "strength",

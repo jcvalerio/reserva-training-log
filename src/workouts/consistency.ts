@@ -19,7 +19,15 @@ export type ConsistencySummary = {
   currentWeekDaysTrained: number;
 };
 
-function startOfWeek(date: Date): Date {
+/**
+ * Monday of the given date's week, as a local calendar date at midnight.
+ *
+ * Exported for muscle-volume.ts rather than duplicated there: the weekly
+ * volume chart and the Consistencia semanal chart render on the same screen,
+ * and two independent Monday implementations drifting by a day would be a
+ * visible, confusing bug.
+ */
+export function startOfWeek(date: Date): Date {
   const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = weekStart.getDay(); // 0 (Sun) - 6 (Sat)
   const diffToMonday = day === 0 ? -6 : 1 - day;

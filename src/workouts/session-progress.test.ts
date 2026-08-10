@@ -168,6 +168,7 @@ function buildActivePlan(): ActivePlanWithSessions {
     lineageKey: null,
     substitutedForPrescriptionId: null,
     substitutionReasonEs: null,
+    exerciseId: null,
   };
 
   return {

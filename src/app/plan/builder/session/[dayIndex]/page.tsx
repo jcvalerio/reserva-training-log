@@ -42,6 +42,7 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
   const existingSession = draft.sessions.find((session) => session.template.dayIndex === dayIndex);
   const initialExercises: SessionEditorInitialExercise[] = (existingSession?.exercises ?? []).map((exercise) => ({
     exerciseNameEs: exercise.exerciseNameEs,
+    exerciseId: exercise.exerciseId,
     phase: exercise.phase,
     isUnilateral: exercise.isUnilateral,
     prescriptionType: exercise.prescriptionType,

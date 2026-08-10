@@ -6,6 +6,7 @@ import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import type { ExercisePrescriptionDefaults } from "@/plans/plan-builder-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
+import { exerciseCatalog, muscleGroupLabelsEs, muscleGroups } from "@/training/muscle-taxonomy";
 import { rirLabelsEs, rirValues } from "@/training/rir";
 import { buildYoutubeTechniqueSearchUrl } from "@/training/youtube-technique";
 import type { LoadMechanism } from "@/workouts/progression-view";
@@ -18,6 +19,7 @@ type PrescriptionType = "strength" | "duration";
 
 export type SessionEditorInitialExercise = {
   exerciseNameEs: string;
+  exerciseId: string | null;
   phase: Phase;
   isUnilateral: boolean;
   prescriptionType: PrescriptionType;
@@ -40,6 +42,7 @@ function blankRow(key: string): ExerciseRowValue {
   return {
     key,
     exerciseNameEs: "",
+    exerciseId: null,
     phase: "main",
     isUnilateral: false,
     prescriptionType: "strength",
@@ -477,6 +480,33 @@ function ExerciseRowFields({
         </label>
       </div>
 
+      <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Grupo muscular</span>
+        <select name={`${prefix}:exerciseId`} defaultValue={value.exerciseId ?? ""} className="input">
+          <option value="">Sin clasificar</option>
+          {catalogByMuscleGroup.map(({ muscleGroup, entries }) => (
+            <optgroup key={muscleGroup} label={muscleGroupLabelsEs[muscleGroup]}>
+              {entries.map((catalogEntry) => (
+                <option key={catalogEntry.slug} value={catalogEntry.slug}>
+                  {catalogEntry.nameEs}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+          <optgroup label="Cardio y acondicionamiento">
+            {cardioCatalogEntries.map((catalogEntry) => (
+              <option key={catalogEntry.slug} value={catalogEntry.slug}>
+                {catalogEntry.nameEs}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+      </label>
+      <p className="mt-2 text-xs leading-5 text-zinc-400">
+        Clasifica el ejercicio para el resumen de series por grupo muscular en Progreso. El nombre que escribiste arriba
+        sigue siendo el que verás al entrenar.
+      </p>
+
       {isDuration ? null : (
         <>
           <div className="mt-3 grid grid-cols-2 gap-3">
@@ -505,8 +535,9 @@ function ExerciseRowFields({
             </label>
           </div>
           <p className="mt-2 text-xs leading-5 text-zinc-400">
-            Esto no clasifica el ejercicio — solo define cómo se sugiere el aumento de peso en Entrenar (ej. máquina
-            compuesta: +5%; aislamiento: suma una repetición en vez de subir peso).
+            Esto no es la clasificación muscular (esa es «Grupo muscular» arriba) — solo define cómo se sugiere el
+            aumento de peso en Entrenar (ej. máquina compuesta: +5%; aislamiento: suma una repetición en vez de subir
+            peso).
           </p>
         </>
       )}
@@ -545,6 +576,19 @@ function ExerciseRowFields({
     </section>
   );
 }
+
+// Grouped once at module scope, not per render: the catalog is a static
+// import and the same ~70 options are rendered for every exercise row.
+const catalogByMuscleGroup = muscleGroups
+  .map((muscleGroup) => ({
+    muscleGroup,
+    entries: exerciseCatalog.filter((catalogEntry) => catalogEntry.primaryMuscleGroup === muscleGroup),
+  }))
+  .filter((group) => group.entries.length > 0);
+
+// Null primary group — known exercises that deliberately contribute no
+// effective sets, kept selectable so cardio rows can still be classified.
+const cardioCatalogEntries = exerciseCatalog.filter((catalogEntry) => catalogEntry.primaryMuscleGroup === null);
 
 const phaseOptions: Array<[Phase, string]> = [
   ["warmup", "Calentamiento"],

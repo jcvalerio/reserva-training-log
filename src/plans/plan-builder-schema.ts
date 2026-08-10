@@ -74,6 +74,16 @@ export function parsePlanBuilderSessionInfoFormData(formData: FormData): PlanBui
 
 const commonExerciseRowFields = {
   exerciseNameEs: requiredTrimmedString("Nombre del ejercicio", 200),
+  // Catalog link carrying the muscle-group classification. In the COMMON
+  // fields rather than the strength branch, unlike loadMechanism/isCompound:
+  // those are strength-only because they only drive weight suggestions,
+  // whereas a plank has a muscle group and a joint load even though it
+  // contributes no effective sets. Empty select value ("Sin clasificar")
+  // becomes undefined, and the repository then falls back to name matching.
+  exerciseId: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : undefined),
+    z.string().max(120).optional(),
+  ),
   phase: withDefault("main", phaseSchema),
   isUnilateral: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
   targetSets: requiredNumber("Series", 1, 6).pipe(z.number().int()),
@@ -153,6 +163,7 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
       planBuilderExerciseInputSchema.parse({
         prescriptionType,
         exerciseNameEs: nameValue,
+        exerciseId: formData.get(`${prefix}:exerciseId`),
         phase: formData.get(`${prefix}:phase`),
         isUnilateral: formData.get(`${prefix}:isUnilateral`),
         targetSets: formData.get(`${prefix}:targetSets`),

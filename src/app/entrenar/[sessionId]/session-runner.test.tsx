@@ -94,6 +94,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
     lineageKey: null,
     substitutedForPrescriptionId: null,
     substitutionReasonEs: null,
+    exerciseId: null,
     loggedSets: [],
     previousPerformance: null,
     ...overrides,

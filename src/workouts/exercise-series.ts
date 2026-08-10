@@ -1,3 +1,5 @@
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
+
 import { average, totalVolumeLoadKg } from "./improvement";
 import { toStrengthSetLog, type ExerciseInstance, type StrengthSetLog } from "./workout-repository";
 
@@ -24,6 +26,13 @@ export type ExerciseSeriesPoint = {
 export type ExerciseSeriesGroup = {
   exerciseNameEs: string;
   isUnilateral: boolean;
+  /** Read off the most recent instance — classification is per prescription,
+   *  but this series is keyed by name, so the same name across two days could
+   *  in principle carry different links. Most recent wins; the weekly volume
+   *  report resolves per prescription and stays correct either way. */
+  primaryMuscleGroup: MuscleGroup | null;
+  isClassified: boolean;
+  substitutedForNameEs: string | null;
   points: ExerciseSeriesPoint[];
 };
 
@@ -69,18 +78,33 @@ export function buildExerciseSeries(instances: ExerciseInstance[]): ExerciseSeri
 }
 
 /**
- * Builds the /progreso exercise picker's full option list, sorted
- * alphabetically (es). isUnilateral is read off the first instance —
- * whether an exercise is unilateral is a property of the exercise
- * prescription, not expected to change instance-to-instance.
+ * Builds the /progreso exercise list, sorted alphabetically (es).
+ * isUnilateral is read off the first instance — whether an exercise is
+ * unilateral is a property of the exercise prescription, not expected to
+ * change instance-to-instance.
+ *
+ * Groups with no points are dropped. An exerciseLog row is created as soon as
+ * you open an exercise while training, so an exercise you started and logged
+ * nothing against — or whose sets you later deleted — still comes back from
+ * getRecentExerciseInstancesByName with zero sets. Two such rows exist in the
+ * real data ("Extensión de cuádriceps unilateral", "Prensa bilateral"), and
+ * they were rendering as exercise rows with a dash and no chart. There is no
+ * series to show, so there should be no row: filtered here at the source
+ * rather than in the list component, so pickDefaultExerciseName can't pick one
+ * either.
  */
 export function toExerciseSeriesGroups(instancesByName: Map<string, ExerciseInstance[]>): ExerciseSeriesGroup[] {
   return [...instancesByName.entries()]
     .map(([exerciseNameEs, instances]) => ({
       exerciseNameEs,
       isUnilateral: instances[0]?.isUnilateral ?? false,
+      // instances are newest-first from the query, so [0] is the most recent.
+      primaryMuscleGroup: instances[0]?.primaryMuscleGroup ?? null,
+      isClassified: instances[0]?.isClassified ?? false,
+      substitutedForNameEs: instances[0]?.substitutedForNameEs ?? null,
       points: buildExerciseSeries(instances),
     }))
+    .filter((group) => group.points.length > 0)
     .sort((a, b) => a.exerciseNameEs.localeCompare(b.exerciseNameEs, "es"));
 }
 

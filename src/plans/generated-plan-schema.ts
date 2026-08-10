@@ -13,6 +13,16 @@ const rirSchema = z.union(rirValues.map((value) => z.literal(value)) as [
 const commonExerciseFields = {
   exerciseNameEs: z.string().min(1),
   exerciseNameEn: z.string().min(1).optional(),
+  // Catalog link carrying the muscle-group classification (see
+  // src/training/muscle-taxonomy.ts). Optional: exerciseNameEs remains the
+  // display name and free text, so an unclassified exercise degrades to "Sin
+  // clasificar" in reports rather than being rejected here.
+  //
+  // In the COMMON fields, not the strength branch, unlike loadMechanism and
+  // isCompound — those are strength-only because they only drive weight
+  // suggestions, whereas a plank has a muscle group and a joint load even
+  // though it contributes no effective sets.
+  exerciseId: z.string().min(1).optional(),
   phase: z.enum(["warmup", "main", "accessory", "mobility"]),
   isUnilateral: z.boolean(),
   targetSets: z.number().int().min(1).max(6),
