@@ -4,7 +4,9 @@ Living checkpoint for small iterations. Update this after every task iteration s
 
 ## 2026-08-09 — setLog.painLocation: pain by location becomes a measurement instead of an inference
 
-Status: code complete, `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Migration `drizzle/0021_quiet_onslaught.sql` generated **and applied to the dev DB** — purely additive: one enum, one nullable column, no backfill.
+Status: shipped. Committed as `5217545` on `main` (`feat: record where it hurts, not just how much`), `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, new `/guia` pain copy confirmed in the production HTML). Zero active sessions before deploying.
+
+Migration `drizzle/0021_quiet_onslaught.sql` — purely additive: one enum, one nullable column, no backfill. Applied to dev directly; applied to production by the chained `db:migrate && build`, proven by the new code being live. The production DB still cannot be queried directly (`DATABASE_URL` is Sensitive in Vercel).
 
 Closes the gap this project's own docs called the biggest honesty problem in the reporting. Until now `setLog` recorded *how much* it hurt but never *where*, so the pain report attributed a set's pain to every joint its exercise loads — which would confidently report "hombro" for someone whose wrist hurt. The UI had to hedge in its own heading to stay truthful.
 
@@ -22,7 +24,7 @@ Correcting a set back down to pain 0 clears the stored location, so a pain-free 
 
 Files touched: `src/training/muscle-taxonomy.ts`, `src/db/schema.ts`, `drizzle/0021_quiet_onslaught.sql` (new), `src/workouts/set-log-schema.ts`, `src/workouts/workout-repository.ts`, `src/workouts/muscle-volume.ts` (+5 tests), `src/app/entrenar/actions.ts`, `src/app/entrenar/[sessionId]/session-runner.tsx`, `src/app/progreso/progreso-page-content.tsx`, `src/app/guia/page.tsx`, `docs/architecture/data-model.md`, `docs/product/project-status.md`, plus `painLocation: null` added to SetLog fixtures in five test files.
 
-Next iteration: deploy when asked. Then, once real pain is actually logged, revisit whether "muscular" should stop blocking aggressive progression — that is the decision this column exists to make answerable with evidence.
+Next iteration: once real pain is actually logged, revisit whether "muscular" should stop blocking aggressive progression — that is the decision this column exists to make answerable with evidence.
 
 ## 2026-08-09 — Documented where the project stands, and gave the three docs one job each
 
