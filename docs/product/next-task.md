@@ -1,6 +1,6 @@
 # Next Task
 
-## Status: the exercise taxonomy and a rebuilt `/progreso` — code complete on `main`, not deployed, not committed.
+## Status: the exercise taxonomy and a rebuilt `/progreso` — shipped, deployed and committed (`bfdd8fb`).
 
 **All five feedback items are now done in code.** Item 5 turned into something bigger than the original ask, because you reframed it: rather than only regrouping the dashboard, you decided to add the muscle-group taxonomy the project had declined twice before, so the app could produce real reports.
 
@@ -15,9 +15,9 @@ What that bought, in order of value:
 
 **One honest consequence:** splitting Core removed the only exercise that had two completed instances, so until the rotation repeats, "Mejoras recientes" will be empty and every progression line is a single dot. The split revealed that rather than caused it — those two instances were never the same exercise — and it's exactly why weekly volume leads the page now.
 
-**Two things before deploying:**
-- Browser check at 390×844. This needs you to sign in (Google OAuth only), so it hasn't been done yet.
-- **Confirm the Core rename should reach Athlete B's and Athlete C's plans.** The migration matches on day + name rather than row ids, which is the only way it can work across the dev and production branches — but it means those exercises get renamed in their accounts too, if their plans are clones of yours.
+**Now worth checking against your real production data**, since that's the whole point of shipping it: open `/progreso` on your phone and confirm the volume numbers, the body map, and the grouped exercise list read correctly for you — and ask Athletes B and C whether anything looks wrong in theirs, since the Core rename reached their plans too if those are clones of yours. Anything the catalog didn't recognise will show up in the visible "Sin clasificar" disclosure rather than failing quietly.
+
+Note the production `DATABASE_URL` is now marked Sensitive in Vercel, so it can no longer be pulled for a direct `psql` check — the URL has to come from the Neon console if you want one.
 
 **The dev database now contains synthetic history, deliberately kept.** Two prior weeks (Mon 2026-07-20 and Mon 2026-07-27, 7 sessions / 65 sets) were seeded so the week-over-week deltas and the per-exercise progression charts have something to render against — before it, everything was a single dot. **Every synthetic row has a `demo-seed-` id prefix**, nothing else was touched, and removal is one cascading statement:
 

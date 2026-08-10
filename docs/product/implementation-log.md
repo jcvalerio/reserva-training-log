@@ -2,9 +2,23 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Deployed and committed the exercise taxonomy and the rebuilt /progreso
+
+Status: shipped. Committed as `bfdd8fb` on `main` (`feat: add an exercise taxonomy and rebuild /progreso around it`) — 43 files, one commit covering all seven phases plus the mobile-UX pass, per this project's pattern for stacked work. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` HTTP 200, `/progreso` and `/entrenar` 307-to-auth). Adds one runtime dependency, `lucide-react`.
+
+Deployed with **no** workout session active — the Día 4 session that had been open all day was completed by the user at 18:27 local while reviewing the dashboard, and `status = 'active'` returned zero rows immediately before deploying.
+
+**Migrations verified indirectly, and this is a change from previous deploys worth recording.** `vercel.json`'s `buildCommand` is `npm run db:migrate && npm run build`, so the build only runs if the migration exits 0 — the deployment being live and serving the new `/guia` volume section proves `0018`, `0019` and `0020` applied to the production branch. What could **not** be done this time is the direct `psql` confirmation earlier entries used: the production `DATABASE_URL` is now marked **Sensitive** in Vercel, so `vercel env pull` returns the literal string `[SENSITIVE]` rather than the URL. Anyone wanting the direct check (`select count(*) from drizzle.__drizzle_migrations` should be 21, and `exercise_prescription.exercise_id` should exist) needs the URL from the Neon console. Worth knowing before planning the next schema-carrying deploy.
+
+**What this deploy does to the other two accounts.** `0019` renames prescriptions named "Core" keyed on `day_index` across every plan, not scoped to a profile — that is the only form that works across branches where ids differ, and it deliberately reaches clones of the user's plan in Athlete B's and Athlete C's accounts. Confirmed with the user beforehand. Día 5's flip to duration type stays guarded by "has no logged sets", so it cannot rewrite anyone's history; at worst it no-ops. Any exercise the seed map does not recognise backfills as NULL and shows in the visible "Sin clasificar" disclosure rather than failing.
+
+**The dev database now carries synthetic history on purpose.** Two prior weeks (7 sessions, 65 sets, all ids prefixed `demo-seed-`) were seeded so the week-over-week deltas and the progression charts have a baseline — before it, every chart was a single dot and the deltas rendered nothing. It lives only on the Neon development branch and cannot travel with a deploy. `DELETE FROM workout_session WHERE id LIKE 'demo-seed-%';` removes all of it via cascade. Treat any `demo-seed-` row as scaffolding, never as real history.
+
+**Not verified in a browser.** The Playwright MCP profile was held by a 7-hour-old Chrome belonging to a different MCP server instance, which would not release it; the only way through was for the user to close the window and sign in again, undoing the sign-in they had just done. The user reviewed the pages directly instead. Everything mechanically checkable was checked: 419 tests, clean build, and the volume numbers confirmed against the dev DB by direct query.
+
 ## 2026-08-09 — The exercise taxonomy, and a /progreso built on it (feedback item 5, complete)
 
-Status: code complete, `lint`/`typecheck`/`test` (419 passing, +63 new)/`build` all green. One new runtime dependency: `lucide-react`. Migrations `drizzle/0018_gigantic_wong.sql`, `0019_link_prescriptions_to_catalog.sql` and `0020_link_catalog_aliases.sql` generated **and applied to the dev DB**. Not yet deployed/committed. Not yet verified in a browser — the Playwright pass needs the user to sign in (Google OAuth only).
+Status: code complete, `lint`/`typecheck`/`test` (419 passing, +63 new)/`build` all green. One new runtime dependency: `lucide-react`. Migrations `drizzle/0018_gigantic_wong.sql`, `0019_link_prescriptions_to_catalog.sql` and `0020_link_catalog_aliases.sql` generated **and applied to the dev DB**. Shipped — see the deploy entry above.
 
 Came from `docs/product/progress-dashboard-kickoff-prompt.md`, but the user reframed it first: *"revisit the taxonomy, now after used the app in production we noticed that adding the taxonomy is going to help us to generate better reports… determine the best way to categorize and track this information from the point of view of muscle gain."* So this reopens — deliberately, with the user's explicit decision — the taxonomy question declined on 2026-08-02 and in `loadMechanism`'s own doc comment.
 
