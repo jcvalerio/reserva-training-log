@@ -2,6 +2,30 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Documented where the project stands, and gave the three docs one job each
+
+Status: docs only, no code change. `lint`/`test` (429) still green. Not deployed (nothing to deploy); committed.
+
+The user asked for the project status to be documented so features can keep being added. The real problem was not a missing document but three documents trying to be the same one: `next-task.md` had accumulated **16 "Prior status" sections** and become a second changelog, duplicating an implementation log that is already 1738 lines. That duplication is precisely how `data-model.md` drifted for months, which its own preamble now warns about.
+
+Split by job instead:
+
+- **`project-status.md` (new)** — where the project is and what constrains a new feature. Durable; rewrite sections as reality changes.
+- **`next-task.md`** — only what is immediately next. Trimmed 168 → 56 lines.
+- **`implementation-log.md`** — how we got here and why. Unchanged in role; still the source of truth for decisions.
+
+Before trimming, every commit referenced by a removed "Prior status" section was verified to appear in the implementation log (`8459052`, `f039f89`, `9c2c550`, `344237a`, `2469330`, `0305f98`, `a66474a`, `7de478e` — all present). Nothing was lost; the duplication was.
+
+`project-status.md` deliberately records the *reasoning* behind the four load-bearing rules in the reporting layer — the three-step classification fallback, `max(left, right)` for unilateral sets, mobility-phase strength work counting, and substitutes never inheriting identity — because each was arrived at by getting it wrong first, and a new session reading only the code would plausibly "simplify" any of them back into a bug.
+
+**Also corrected `AGENTS.md`'s opening line**, which still called this "an AI personal trainer" — stale since M3 was dropped on 2026-07-31, and actively misleading as the first thing a new session reads. It now says what the app is and points at `project-status.md`.
+
+**`milestones.md`**: M6's "Basic progress dashboard" deliverable marked done and well past basic. Its remaining acceptance criteria are field validation — two weeks of real use per tester, friction documented, and the web/offline/native decision — none of which is code.
+
+Files touched: `docs/product/project-status.md` (new), `docs/product/next-task.md`, `docs/product/milestones.md`, `AGENTS.md`.
+
+Next iteration: nothing outstanding. Candidates are ranked in `project-status.md`; the strongest is a `painLocation` column on `setLog`, which would turn pain-by-joint from an inference into a measurement.
+
 ## 2026-08-09 — Deployed a "Semana pasada" period, and moved the delta baseline onto the view
 
 Status: shipped. Committed as `6fb8006` on `main` (`feat: add a "Semana pasada" period to Series por grupo muscular`), `lint`/`typecheck`/`test` (429 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth). No migration, no data change.

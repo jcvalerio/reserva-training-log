@@ -115,9 +115,9 @@ Goal: validate the real workflow before expanding.
 Deliverables:
 - Real-use checklist.
 - Feedback form or notes capture.
-- Basic progress dashboard.
+- Basic progress dashboard. **Done, and well past "basic"** — `/progreso` now reports weekly effective sets per muscle group against reference ranges over four selectable periods, a front/back body map, push:tirón and cuádriceps:femorales balance, pain grouped by joint, and per-exercise progression grouped by muscle group. Backed by the exercise taxonomy added 2026-08-09 (`src/training/muscle-taxonomy.ts`). See `docs/product/project-status.md`.
 
-Acceptance:
-- All three testers complete at least two weeks of sessions.
-- Friction points are documented.
-- Decision made: continue web, add offline, or move toward native Apple app/watch.
+Acceptance — **the only milestone work left, and none of it is code**:
+- All three testers complete at least two weeks of sessions. *Open.*
+- Friction points are documented. *Partly done* — the 2026-08 feedback batch produced five items, all shipped (see the implementation log).
+- Decision made: continue web, add offline, or move toward native Apple app/watch. *Open.*

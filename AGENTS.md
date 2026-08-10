@@ -2,7 +2,9 @@
 
 ## Project identity
 
-Fresh Web MVP for an AI personal trainer focused on iPhone gym use.
+Web MVP for an iPhone-first gym training log: build a plan by hand, log every set with weight, reps, RIR and pain, and read progress back per muscle group.
+
+**Not an "AI personal trainer" despite the repo name** — AI plan generation was evaluated and dropped (milestone M3, 2026-07-31), and there is no AI anywhere in the product. Start at `docs/product/project-status.md` for where things stand and what constrains a new feature.
 
 ## Product rules
 
