@@ -2,6 +2,28 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Period views on Series por grupo muscular (esta semana / 4 semanas / todo)
+
+Status: code complete, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. No migration. Not yet deployed/committed.
+
+The user asked whether the section could cover more than the current week — "all time, current month" — to get more value from the chart. Evaluated first rather than built, because there is a real trap in it.
+
+**The numbers must be an average per week, never a period total.** `weeklySetReferenceRange` is a weekly dose, so a multi-week total sits several times above the band. On the real dev data cuádriceps totals 15 sets over three weeks, which lands comfortably inside its 8–20 reference band and reads as healthy — while the truth is roughly 5/week, well under the floor. Totals launder undertraining into a passing grade, and the longer the period the worse it gets. Averages keep the band valid at every range, and as a bonus they smooth the frequency noise that made a per-muscle trend chart the wrong answer a few hours earlier.
+
+**Confirmed via `AskUserQuestion`:** three pills (esta semana / 4 semanas / todo) with the multi-week ones showing a weekly average; a **rolling 4 weeks rather than a calendar month**, because calendar months start mid-week and would split a training week across two periods while every other weekly view here uses Monday-start buckets; and the **in-progress week excluded from averages**, since a Tuesday holds one session out of five and counting it would make the average sag every Monday and recover every Sunday, reading as a performance drop rather than a shortage of elapsed days.
+
+Averaging starts at the first week that actually contains training. The trailing window pre-seeds empty buckets, and weeks before an athlete ever trained are not rest weeks — dividing real work by imaginary weeks would understate everyone's history permanently. Rest weeks *after* that point are kept in the divisor: a week off genuinely halved the weekly dose and the average should say so. A test failure caught this: training one week and resting the next correctly gives 2 weeks and an average of 3, not 1 week and 6 — the assertion was wrong, the behaviour was right.
+
+**New `muscle-volume-section.tsx`** owns the period state so the body map and the bars shade to the same window. Two panels on one screen disagreeing about which weeks they cover would be worse than no selector at all. Deltas stay on the current-week view only — comparing a 4-week average against "last week" would be two different units. A period with no completed weeks behind it does not get a pill at all, rather than selecting into an empty chart.
+
+`getLoggedVolumeInstancesSince` is now called with the epoch rather than an 8-week window, and `buildMuscleVolumeSummary` creates week buckets on demand, so "Todo" is not silently capped at `weeksBack`.
+
+**Verified live** against the dev DB, and the feature immediately earned itself: pecho reads **6 this week** but averages **1.5/week** across completed weeks, against a 10–20 band. The weekly view shows a reasonable chest day; the period view shows chest is badly undertrained. That gap is the reason the selector exists.
+
+Files touched: `src/workouts/muscle-volume.ts` (+6 tests), `src/app/progreso/muscle-volume-section.tsx` (new), `src/app/progreso/muscle-volume-chart.tsx` (+test), `src/app/progreso/body-map.tsx` (+test), `src/app/progreso/progreso-page-content.tsx`, `src/app/progreso/page.tsx`, `src/app/guia/page.tsx`.
+
+Next iteration: deploy when asked. Then let a few real weeks accumulate before revisiting whether a trend chart is worth it — the 4-week average may already answer what a trend line would have.
+
 ## 2026-08-09 — Deployed and committed the exercise taxonomy and the rebuilt /progreso
 
 Status: shipped. Committed as `bfdd8fb` on `main` (`feat: add an exercise taxonomy and rebuild /progreso around it`) — 43 files, one commit covering all seven phases plus the mobile-UX pass, per this project's pattern for stacked work. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` HTTP 200, `/progreso` and `/entrenar` 307-to-auth). Adds one runtime dependency, `lucide-react`.

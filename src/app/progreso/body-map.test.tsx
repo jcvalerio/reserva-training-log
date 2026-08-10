@@ -2,17 +2,16 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { muscleGroups } from "@/training/muscle-taxonomy";
-import type { WeeklyMuscleVolume } from "@/workouts/muscle-volume";
+import type { VolumeView, WeeklyMuscleVolume } from "@/workouts/muscle-volume";
 
 import { anteriorRegions, posteriorRegions } from "./body-map-geometry";
 import { BodyMap, shadeForVolume } from "./body-map";
 
-function buildWeek(byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] = []): WeeklyMuscleVolume {
-  return {
-    weekStartDate: new Date("2026-08-03T00:00:00"),
-    byMuscleGroup,
-    totalEffectiveSets: byMuscleGroup.reduce((sum, row) => sum + row.effectiveSets, 0),
-  };
+function buildView(
+  byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] = [],
+  overrides: Partial<VolumeView> = {},
+): VolumeView {
+  return { key: "week", labelEs: "Esta semana", byMuscleGroup, weeksCounted: 0, isAverage: false, ...overrides };
 }
 
 describe("body-map geometry", () => {
@@ -72,7 +71,7 @@ describe("shadeForVolume", () => {
 
 describe("BodyMap", () => {
   it("renders both views with accessible labels", () => {
-    render(<BodyMap week={buildWeek([{ muscleGroup: "pecho", effectiveSets: 6 }])} />);
+    render(<BodyMap view={buildView([{ muscleGroup: "pecho", effectiveSets: 6 }])} />);
 
     const views = screen.getAllByRole("img");
     expect(views).toHaveLength(2);
@@ -81,8 +80,8 @@ describe("BodyMap", () => {
   });
 
   it("prompts the user to tap before anything is selected", () => {
-    render(<BodyMap week={buildWeek()} />);
+    render(<BodyMap view={buildView()} />);
 
-    expect(screen.getByText("Toca un músculo para ver sus series de la semana.")).toBeVisible();
+    expect(screen.getByText("Toca un músculo para ver sus series.")).toBeVisible();
   });
 });

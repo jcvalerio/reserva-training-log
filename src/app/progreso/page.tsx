@@ -26,11 +26,11 @@ const EXERCISE_INSTANCE_HISTORY_LIMIT = 12;
 // so all three weekly views on this page cover the same span.
 const VOLUME_WEEKS_BACK = 8;
 
-// Outside the component: reading the clock inside a component body trips
-// react-hooks/purity, and this is a request-time value either way.
-function volumeWindowStart(): Date {
-  return new Date(Date.now() - VOLUME_WEEKS_BACK * 7 * 24 * 60 * 60 * 1000);
-}
+// All history, not a trailing window: the "Todo" period view averages over
+// every completed week an athlete has trained, and buildMuscleVolumeSummary
+// creates its week buckets on demand rather than being capped at
+// VOLUME_WEEKS_BACK. With three users this is a few hundred rows.
+const VOLUME_HISTORY_START = new Date(0);
 
 export default async function ProgresoPage() {
   const user = await requireCurrentUser();
@@ -43,12 +43,11 @@ export default async function ProgresoPage() {
   let muscleVolumeSummary: MuscleVolumeSummary | null = null;
 
   if (profile) {
-    const volumeSince = volumeWindowStart();
     const [sessions, instances, measurements, volumeInstances] = await Promise.all([
       getCompletedWorkoutSessionsForProfile(profile.id),
       getRecentExerciseInstancesByName(profile.id, EXERCISE_INSTANCE_HISTORY_LIMIT),
       getRecentBodyMeasurementsForProfile(profile.id, 24),
-      getLoggedVolumeInstancesSince(profile.id, volumeSince),
+      getLoggedVolumeInstancesSince(profile.id, VOLUME_HISTORY_START),
     ]);
     completedSessions = sessions;
     instancesByName = instances;

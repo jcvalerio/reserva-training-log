@@ -9,7 +9,7 @@ import {
   weeklySetReferenceRange,
   type MuscleGroup,
 } from "@/training/muscle-taxonomy";
-import { UNCLASSIFIED_BUCKET, type WeeklyMuscleVolume } from "@/workouts/muscle-volume";
+import { UNCLASSIFIED_BUCKET, type VolumeView, type WeeklyMuscleVolume } from "@/workouts/muscle-volume";
 
 // Deliberately NOT built on bar-chart.tsx. That one is vertical,
 // zero-baselined and week-indexed with a single shared target line; this needs
@@ -89,8 +89,8 @@ function formatSets(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-export function buildMuscleVolumeRows(week: WeeklyMuscleVolume): MuscleVolumeRow[] {
-  const setsByGroup = new Map(week.byMuscleGroup.map((row) => [row.muscleGroup, row.effectiveSets]));
+export function buildMuscleVolumeRows(view: { byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] }): MuscleVolumeRow[] {
+  const setsByGroup = new Map(view.byMuscleGroup.map((row) => [row.muscleGroup, row.effectiveSets]));
 
   const rows: MuscleVolumeRow[] = muscleGroups.map((muscleGroup: MuscleGroup) => ({
     key: muscleGroup,
@@ -117,14 +117,14 @@ export function buildMuscleVolumeRows(week: WeeklyMuscleVolume): MuscleVolumeRow
 // into an sr-only sentence made assistive tech announce everything twice. Only
 // the bars are SVG, and they carry no information the text doesn't.
 export function MuscleVolumeChart({
-  week,
+  view,
   previousWeek = null,
 }: {
-  week: WeeklyMuscleVolume;
+  view: VolumeView;
   previousWeek?: WeeklyMuscleVolume | null;
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const rows = buildMuscleVolumeRows(week);
+  const rows = buildMuscleVolumeRows(view);
 
   // Groups with real volume this week get the full bar row; groups sitting at
   // 0 collapse into a compact, always-visible name list below (see the
@@ -146,7 +146,7 @@ export function MuscleVolumeChart({
   return (
     <div>
       {trainedRows.length === 0 ? (
-        <p className="text-xs leading-5 text-zinc-400">Todavía no hay series registradas esta semana.</p>
+        <p className="text-xs leading-5 text-zinc-400">{view.isAverage ? "Todavía no hay semanas completas que promediar." : "Todavía no hay series registradas esta semana."}</p>
       ) : (
         <ul className="grid gap-0.5">
           {trainedRows.map((row) => {

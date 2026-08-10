@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { muscleGroupLabelsEs, weeklySetReferenceRange, type MuscleGroup } from "@/training/muscle-taxonomy";
-import { UNCLASSIFIED_BUCKET, type WeeklyMuscleVolume } from "@/workouts/muscle-volume";
+import { UNCLASSIFIED_BUCKET, type VolumeView } from "@/workouts/muscle-volume";
 
 import { anteriorRegions, BODY_MAP_VIEWBOX, posteriorRegions } from "./body-map-geometry";
 
@@ -64,7 +64,7 @@ function BodyView({
         viewBox={BODY_MAP_VIEWBOX}
         className="h-auto w-full touch-none"
         role="img"
-        aria-label={`Vista ${titleEs.toLowerCase()} del cuerpo, coloreada por series entrenadas esta semana`}
+        aria-label={`Vista ${titleEs.toLowerCase()} del cuerpo, coloreada por series entrenadas`}
       >
         {regions.map((region, regionIndex) =>
           region.polygons.map((points, polygonIndex) => {
@@ -93,11 +93,11 @@ function BodyView({
   );
 }
 
-export function BodyMap({ week }: { week: WeeklyMuscleVolume }) {
+export function BodyMap({ view }: { view: VolumeView }) {
   const [selected, setSelected] = useState<MuscleGroup | null>(null);
 
   const setsByGroup = new Map<MuscleGroup, number>();
-  for (const row of week.byMuscleGroup) {
+  for (const row of view.byMuscleGroup) {
     if (row.muscleGroup !== UNCLASSIFIED_BUCKET) {
       setsByGroup.set(row.muscleGroup, row.effectiveSets);
     }
@@ -129,13 +129,17 @@ export function BodyMap({ week }: { week: WeeklyMuscleVolume }) {
           <>
             <span className="font-semibold text-zinc-100">{muscleGroupLabelsEs[selected]}</span> —{" "}
             {selectedSets === 0
-              ? "sin series esta semana"
-              : `${selectedSets === 1 ? "1 serie" : `${selectedSets} series`} esta semana · rango de referencia ${
-                  weeklySetReferenceRange[selected].min
-                }–${weeklySetReferenceRange[selected].max}`}
+              ? view.isAverage
+                ? "sin series en el periodo"
+                : "sin series esta semana"
+              : `${selectedSets === 1 ? "1 serie" : `${selectedSets} series`} ${
+                  view.isAverage ? "por semana" : "esta semana"
+                } · rango de referencia ${weeklySetReferenceRange[selected].min}–${
+                  weeklySetReferenceRange[selected].max
+                }`}
           </>
         ) : (
-          <span className="text-zinc-400">Toca un músculo para ver sus series de la semana.</span>
+          <span className="text-zinc-400">Toca un músculo para ver sus series.</span>
         )}
       </p>
     </div>

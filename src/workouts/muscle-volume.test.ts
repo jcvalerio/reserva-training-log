@@ -250,3 +250,88 @@ describe("week bucketing", () => {
     expect(summary.currentWeek.totalEffectiveSets).toBe(3);
   });
 });
+
+describe("buildMuscleVolumeSummary — period views", () => {
+  // NOW is Sunday 2026-08-09, so the current (in-progress) week starts Mon 03.
+  const PREV_WEEK = new Date("2026-07-29T12:00:00"); // week of Mon 27 Jul
+  const OLDER_WEEK = new Date("2026-07-22T12:00:00"); // week of Mon 20 Jul
+
+  it("offers a current-week view plus two averages", () => {
+    const summary = buildMuscleVolumeSummary([buildInstance()], { now: NOW });
+    expect(summary.views.map((view) => view.key)).toEqual(["week", "four_weeks", "all_time"]);
+    expect(summary.views[0]!.isAverage).toBe(false);
+    expect(summary.views[1]!.isAverage).toBe(true);
+  });
+
+  it("averages per week instead of totalling the period", () => {
+    // The whole reason for averaging: weeklySetReferenceRange is a weekly
+    // dose. On the real data cuádriceps totals 15 sets over three weeks, which
+    // sits inside its 8-20 band and reads as healthy — while the truth is
+    // 5/week, well under the floor. A total would launder that.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ primaryMuscleGroup: "cuadriceps", completedAt: PREV_WEEK, sets: buildSets(8) }),
+        buildInstance({ primaryMuscleGroup: "cuadriceps", completedAt: OLDER_WEEK, sets: buildSets(4) }),
+      ],
+      { now: NOW },
+    );
+    const allTime = summary.views.find((view) => view.key === "all_time")!;
+    expect(allTime.weeksCounted).toBe(2);
+    expect(allTime.byMuscleGroup.find((row) => row.muscleGroup === "cuadriceps")?.effectiveSets).toBe(6);
+  });
+
+  it("excludes the in-progress week from averages", () => {
+    // A Tuesday holding one session out of five must not drag the average and
+    // read as a drop in performance rather than a drop in elapsed days.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ primaryMuscleGroup: "pecho", completedAt: PREV_WEEK, sets: buildSets(6) }),
+        buildInstance({ primaryMuscleGroup: "pecho", completedAt: IN_WEEK, sets: buildSets(1) }),
+      ],
+      { now: NOW },
+    );
+    const allTime = summary.views.find((view) => view.key === "all_time")!;
+    expect(allTime.weeksCounted).toBe(1);
+    expect(allTime.byMuscleGroup.find((row) => row.muscleGroup === "pecho")?.effectiveSets).toBe(6);
+    // ...while the current-week view still reports the live number.
+    expect(summary.currentWeek.byMuscleGroup.find((row) => row.muscleGroup === "pecho")?.effectiveSets).toBe(1);
+  });
+
+  it("counts a rest week in the divisor, but never weeks before training began", () => {
+    // A week off is a real reduction in weekly dose. Weeks before you ever
+    // trained are not, so they must not be averaged against.
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ primaryMuscleGroup: "dorsal", completedAt: OLDER_WEEK, sets: buildSets(6) })],
+      { now: NOW },
+    );
+    // Trained the week of Mon 20 Jul, rested the week of Mon 27 Jul: two weeks
+    // in the divisor, so 6 sets average to 3/week. The rest week is the point —
+    // it genuinely halved the weekly dose and the average must say so.
+    const allTime = summary.views.find((view) => view.key === "all_time")!;
+    expect(allTime.weeksCounted).toBe(2);
+    expect(allTime.byMuscleGroup.find((row) => row.muscleGroup === "dorsal")?.effectiveSets).toBe(3);
+  });
+
+  it("reports empty averages when only the current week has data", () => {
+    const summary = buildMuscleVolumeSummary([buildInstance()], { now: NOW });
+    expect(summary.views.find((view) => view.key === "all_time")!.weeksCounted).toBe(0);
+    expect(summary.views.find((view) => view.key === "all_time")!.byMuscleGroup).toEqual([]);
+  });
+
+  it("aggregates history older than the trailing week window", () => {
+    // Buckets are created on demand, so all-time is not capped at weeksBack —
+    // a 2-week trailing window still sees training from six weeks ago.
+    const longAgo = new Date("2026-06-24T12:00:00");
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ primaryMuscleGroup: "gluteos", completedAt: longAgo, sets: buildSets(6) })],
+      { now: NOW, weeksBack: 2 },
+    );
+    const allTime = summary.views.find((view) => view.key === "all_time")!;
+    const gluteos = allTime.byMuscleGroup.find((row) => row.muscleGroup === "gluteos")?.effectiveSets ?? 0;
+    expect(gluteos).toBeGreaterThan(0);
+    // The idle weeks since then are counted, so the average is well under the
+    // 6 sets actually performed in that one week.
+    expect(allTime.weeksCounted).toBeGreaterThan(1);
+    expect(gluteos).toBeLessThan(6);
+  });
+});

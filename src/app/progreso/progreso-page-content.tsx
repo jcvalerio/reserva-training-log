@@ -13,10 +13,9 @@ import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
 import { AppShell } from "../app-shell";
 import { BarChart } from "./bar-chart";
-import { BodyMap } from "./body-map";
 import { ExerciseGroupList } from "./exercise-group-list";
 import { MeasurementSeriesChart } from "./measurement-series-chart";
-import { MuscleVolumeChart } from "./muscle-volume-chart";
+import { MuscleVolumeSection } from "./muscle-volume-section";
 
 export function ProgresoPageContent({
   hasProfile,
@@ -96,15 +95,8 @@ export function ProgresoPageContent({
           <p id="muscle-volume-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
             Series por grupo muscular
           </p>
-          <p className="mt-1 text-xs leading-5 text-zinc-400">Semana en curso</p>
           <div className="mt-3">
-            <BodyMap week={muscleVolumeSummary.currentWeek} />
-          </div>
-          <div className="mt-3 border-t border-zinc-800 pt-3">
-            <MuscleVolumeChart
-              week={muscleVolumeSummary.currentWeek}
-              previousWeek={muscleVolumeSummary.previousWeek}
-            />
+            <MuscleVolumeSection summary={muscleVolumeSummary} />
           </div>
 
           {muscleVolumeSummary.pushPullRatio !== null || muscleVolumeSummary.quadHamstringRatio !== null ? (

@@ -181,6 +181,14 @@ export default async function GuiaPage({
               color en esta app está reservado para el dolor.
             </p>
             <p className="rounded-xl bg-zinc-950 p-3 text-xs leading-5 text-zinc-400 ring-1 ring-zinc-800">
+              <span className="font-semibold text-zinc-100">Esta semana, 4 semanas y Todo:</span> los dos últimos
+              muestran el <span className="font-semibold">promedio por semana</span>, no el total del periodo. El rango
+              de referencia es una dosis semanal, así que un total de varias semanas quedaría muy por encima de la
+              banda y parecería saludable cuando no lo es. La semana en curso no entra en los promedios: un martes
+              tiene un día entrenado de cinco, y contarlo haría que el promedio bajara cada lunes sin que hayas
+              entrenado menos. Una semana de descanso sí cuenta — bajó tu dosis semanal de verdad.
+            </p>
+            <p className="rounded-xl bg-zinc-950 p-3 text-xs leading-5 text-zinc-400 ring-1 ring-zinc-800">
               <span className="font-semibold text-zinc-100">Sobre las articulaciones:</span> la app registra un valor
               de dolor por serie, pero no dónde te duele. Lo que ves agrupado por articulación es el dolor que
               anotaste en ejercicios que cargan esa articulación — una pista para revisar, no un diagnóstico.
