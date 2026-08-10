@@ -19,7 +19,15 @@ export function MuscleVolumeSection({ summary }: { summary: MuscleVolumeSummary 
   // A view with no weeks behind it (all-time on a brand-new account, or the
   // 4-week window before a second week exists) has nothing to say, so its pill
   // is not offered at all rather than selecting into an empty chart.
-  const availableViews = summary.views.filter((view) => view.key === "week" || view.weeksCounted > 0);
+  const availableViews = summary.views.filter(
+    (view) =>
+      view.key === "week" ||
+      // "Semana pasada" is offered as soon as any completed week exists, even
+      // if last week itself was empty — "you trained nothing last week" is a
+      // real answer, and the whole point of this view is being able to ask.
+      (view.key === "previous_week" && summary.views.some((other) => other.weeksCounted > 0)) ||
+      view.weeksCounted > 0,
+  );
   const activeView = availableViews.find((view) => view.key === viewKey) ?? availableViews[0]!;
 
   return (
@@ -47,7 +55,9 @@ export function MuscleVolumeSection({ summary }: { summary: MuscleVolumeSummary 
           ? `Promedio por semana · ${activeView.weeksCounted} ${
               activeView.weeksCounted === 1 ? "semana completa" : "semanas completas"
             }`
-          : "Semana en curso"}
+          : activeView.key === "previous_week"
+            ? "Semana completa anterior"
+            : "Semana en curso"}
       </p>
 
       <div className="mt-3">
@@ -55,12 +65,9 @@ export function MuscleVolumeSection({ summary }: { summary: MuscleVolumeSummary 
       </div>
 
       <div className="mt-3 border-t border-zinc-800 pt-3">
-        <MuscleVolumeChart
-          view={activeView}
-          // Deltas only make sense week-against-week. Comparing a 4-week
-          // average to "last week" would be two different units.
-          previousWeek={activeView.key === "week" ? summary.previousWeek : null}
-        />
+        {/* The delta comparison rides on the view, so a period can never be
+            rendered against a baseline that doesn't belong to it. */}
+        <MuscleVolumeChart view={activeView} />
       </div>
     </div>
   );

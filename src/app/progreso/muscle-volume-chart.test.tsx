@@ -9,34 +9,36 @@ function buildView(
   byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] = [],
   overrides: Partial<VolumeView> = {},
 ): VolumeView {
-  return { key: "week", labelEs: "Esta semana", byMuscleGroup, weeksCounted: 0, isAverage: false, ...overrides };
-}
-
-function buildWeek(
-  byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] = [],
-  weekStartDate = new Date("2026-08-03T00:00:00"),
-): WeeklyMuscleVolume {
   return {
-    weekStartDate,
+    key: "week",
+    labelEs: "Esta semana",
     byMuscleGroup,
-    totalEffectiveSets: byMuscleGroup.reduce((sum, row) => sum + row.effectiveSets, 0),
+    weeksCounted: 0,
+    isAverage: false,
+    comparison: null,
+    ...overrides,
   };
 }
+
+function buildComparison(byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"]) {
+  return { labelEs: "la semana pasada", byMuscleGroup };
+}
+
 
 describe("weekOverWeekDelta", () => {
   it("returns null when there is no previous week at all", () => {
     expect(weekOverWeekDelta(null, "pecho", 3)).toBeNull();
   });
 
-  it("returns null when the previous week has no volume", () => {
-    // The case that matters: on a first week of training, comparing against an
-    // empty week would render "+3" for every muscle and read as progress when
-    // there was simply nothing before.
-    expect(weekOverWeekDelta(buildWeek([]), "pecho", 3)).toBeNull();
+  it("returns null when the previous week had no volume", () => {
+    // buildMuscleVolumeSummary passes null rather than an empty week for
+    // exactly this reason: on a first week of training, comparing against
+    // nothing would render "+3" for every muscle and read as progress.
+    expect(weekOverWeekDelta(null, "pecho", 3)).toBeNull();
   });
 
   it("reports an increase, a decrease and no change", () => {
-    const previous = buildWeek([
+    const previous = buildComparison([
       { muscleGroup: "pecho", effectiveSets: 3 },
       { muscleGroup: "dorsal", effectiveSets: 6 },
       { muscleGroup: "cuadriceps", effectiveSets: 4 },
@@ -47,12 +49,12 @@ describe("weekOverWeekDelta", () => {
   });
 
   it("treats a muscle absent last week as zero, once there is a baseline", () => {
-    const previous = buildWeek([{ muscleGroup: "pecho", effectiveSets: 3 }]);
+    const previous = buildComparison([{ muscleGroup: "pecho", effectiveSets: 3 }]);
     expect(weekOverWeekDelta(previous, "biceps", 2)).toBe(2);
   });
 
   it("keeps half-set precision from secondary-muscle credit", () => {
-    const previous = buildWeek([{ muscleGroup: "biceps", effectiveSets: 1.5 }]);
+    const previous = buildComparison([{ muscleGroup: "biceps", effectiveSets: 1.5 }]);
     expect(weekOverWeekDelta(previous, "biceps", 3)).toBe(1.5);
   });
 });
@@ -75,8 +77,9 @@ describe("MuscleVolumeChart", () => {
   it("shows the week-over-week delta when a real previous week exists", () => {
     render(
       <MuscleVolumeChart
-        view={buildView([{ muscleGroup: "pecho", effectiveSets: 6 }])}
-        previousWeek={buildWeek([{ muscleGroup: "pecho", effectiveSets: 3 }], new Date("2026-07-27T00:00:00"))}
+        view={buildView([{ muscleGroup: "pecho", effectiveSets: 6 }], {
+          comparison: buildComparison([{ muscleGroup: "pecho", effectiveSets: 3 }]),
+        })}
       />,
     );
 

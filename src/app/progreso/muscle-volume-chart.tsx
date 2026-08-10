@@ -65,14 +65,14 @@ type MuscleVolumeRow = {
  * up as a trend.
  */
 export function weekOverWeekDelta(
-  previousWeek: WeeklyMuscleVolume | null,
+  comparison: VolumeView["comparison"],
   key: string,
   currentSets: number,
 ): number | null {
-  if (!previousWeek || previousWeek.totalEffectiveSets === 0) {
+  if (!comparison) {
     return null;
   }
-  const previousSets = previousWeek.byMuscleGroup.find((row) => row.muscleGroup === key)?.effectiveSets ?? 0;
+  const previousSets = comparison.byMuscleGroup.find((row) => row.muscleGroup === key)?.effectiveSets ?? 0;
   const delta = Math.round((currentSets - previousSets) * 100) / 100;
   return delta === 0 ? 0 : delta;
 }
@@ -81,6 +81,12 @@ function formatDelta(delta: number): string {
   if (delta === 0) return "—";
   const magnitude = Number.isInteger(delta) ? String(Math.abs(delta)) : Math.abs(delta).toFixed(1);
   return `${delta > 0 ? "▲ +" : "▼ −"}${magnitude}`;
+}
+
+function emptyMessageEs(view: VolumeView): string {
+  if (view.isAverage) return "Todavía no hay semanas completas que promediar.";
+  if (view.key === "previous_week") return "No registraste series la semana pasada.";
+  return "Todavía no hay series registradas esta semana.";
 }
 
 function formatSets(value: number): string {
@@ -116,13 +122,7 @@ export function buildMuscleVolumeRows(view: { byMuscleGroup: WeeklyMuscleVolume[
 // HTML text, so a screen reader already reads the whole table. Duplicating it
 // into an sr-only sentence made assistive tech announce everything twice. Only
 // the bars are SVG, and they carry no information the text doesn't.
-export function MuscleVolumeChart({
-  view,
-  previousWeek = null,
-}: {
-  view: VolumeView;
-  previousWeek?: WeeklyMuscleVolume | null;
-}) {
+export function MuscleVolumeChart({ view }: { view: VolumeView }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const rows = buildMuscleVolumeRows(view);
 
@@ -146,7 +146,7 @@ export function MuscleVolumeChart({
   return (
     <div>
       {trainedRows.length === 0 ? (
-        <p className="text-xs leading-5 text-zinc-400">{view.isAverage ? "Todavía no hay semanas completas que promediar." : "Todavía no hay series registradas esta semana."}</p>
+        <p className="text-xs leading-5 text-zinc-400">{emptyMessageEs(view)}</p>
       ) : (
         <ul className="grid gap-0.5">
           {trainedRows.map((row) => {
@@ -193,7 +193,7 @@ export function MuscleVolumeChart({
                     {formatSets(row.effectiveSets)}
                   </span>
                   {(() => {
-                    const delta = weekOverWeekDelta(previousWeek, row.key, row.effectiveSets);
+                    const delta = weekOverWeekDelta(view.comparison, row.key, row.effectiveSets);
                     // zinc, never green/red: colour here is reserved for pain,
                     // and "fewer sets" is not a warning.
                     return delta === null ? (
@@ -248,9 +248,7 @@ export function MuscleVolumeChart({
       ) : null}
 
       <p className="mt-2 text-xs leading-5 text-zinc-400">
-        {previousWeek && previousWeek.totalEffectiveSets > 0
-          ? "▲▼ compara con la semana pasada. "
-          : ""}
+        {view.comparison ? `▲▼ compara con ${view.comparison.labelEs}. ` : ""}
         La banda gris es el rango de referencia semanal, no una meta. Un ejercicio cuenta 1 serie para su grupo
         principal y media para cada grupo secundario; en unilaterales, izquierda y derecha cuentan como una sola serie.
       </p>

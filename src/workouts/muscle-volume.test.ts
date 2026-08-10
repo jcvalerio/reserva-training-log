@@ -256,11 +256,55 @@ describe("buildMuscleVolumeSummary — period views", () => {
   const PREV_WEEK = new Date("2026-07-29T12:00:00"); // week of Mon 27 Jul
   const OLDER_WEEK = new Date("2026-07-22T12:00:00"); // week of Mon 20 Jul
 
-  it("offers a current-week view plus two averages", () => {
+  it("offers this week, last week and two averages", () => {
     const summary = buildMuscleVolumeSummary([buildInstance()], { now: NOW });
-    expect(summary.views.map((view) => view.key)).toEqual(["week", "four_weeks", "all_time"]);
+    expect(summary.views.map((view) => view.key)).toEqual(["week", "previous_week", "four_weeks", "all_time"]);
     expect(summary.views[0]!.isAverage).toBe(false);
-    expect(summary.views[1]!.isAverage).toBe(true);
+    expect(summary.views[1]!.isAverage).toBe(false);
+    expect(summary.views[2]!.isAverage).toBe(true);
+  });
+
+  it("shows last week's real sets, not an average, on the previous-week view", () => {
+    // Early in a week the current view is nearly empty; this is how you look
+    // at the week you actually just finished.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ primaryMuscleGroup: "pecho", completedAt: PREV_WEEK, sets: buildSets(6) }),
+        buildInstance({ primaryMuscleGroup: "pecho", completedAt: IN_WEEK, sets: buildSets(1) }),
+      ],
+      { now: NOW },
+    );
+    const previous = summary.views.find((view) => view.key === "previous_week")!;
+    expect(previous.isAverage).toBe(false);
+    expect(previous.byMuscleGroup.find((row) => row.muscleGroup === "pecho")?.effectiveSets).toBe(6);
+  });
+
+  it("gives the previous-week view its own comparison, one week further back", () => {
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ primaryMuscleGroup: "dorsal", completedAt: PREV_WEEK, sets: buildSets(6) }),
+        buildInstance({ primaryMuscleGroup: "dorsal", completedAt: OLDER_WEEK, sets: buildSets(2) }),
+      ],
+      { now: NOW },
+    );
+    const previous = summary.views.find((view) => view.key === "previous_week")!;
+    expect(previous.comparison?.labelEs).toBe("la semana anterior");
+    expect(previous.comparison?.byMuscleGroup.find((row) => row.muscleGroup === "dorsal")?.effectiveSets).toBe(2);
+  });
+
+  it("gives the averages no comparison at all", () => {
+    // A 4-week average against "last week" would be two different units.
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ completedAt: PREV_WEEK }), buildInstance({ completedAt: OLDER_WEEK })],
+      { now: NOW },
+    );
+    expect(summary.views.find((view) => view.key === "four_weeks")!.comparison).toBeNull();
+    expect(summary.views.find((view) => view.key === "all_time")!.comparison).toBeNull();
+  });
+
+  it("offers no comparison when the baseline week had no training", () => {
+    const summary = buildMuscleVolumeSummary([buildInstance()], { now: NOW });
+    expect(summary.views.find((view) => view.key === "week")!.comparison).toBeNull();
   });
 
   it("averages per week instead of totalling the period", () => {

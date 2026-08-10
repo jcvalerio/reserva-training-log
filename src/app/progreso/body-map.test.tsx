@@ -11,7 +11,15 @@ function buildView(
   byMuscleGroup: WeeklyMuscleVolume["byMuscleGroup"] = [],
   overrides: Partial<VolumeView> = {},
 ): VolumeView {
-  return { key: "week", labelEs: "Esta semana", byMuscleGroup, weeksCounted: 0, isAverage: false, ...overrides };
+  return {
+    key: "week",
+    labelEs: "Esta semana",
+    byMuscleGroup,
+    weeksCounted: 0,
+    isAverage: false,
+    comparison: null,
+    ...overrides,
+  };
 }
 
 describe("body-map geometry", () => {

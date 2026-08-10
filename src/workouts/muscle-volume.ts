@@ -75,7 +75,7 @@ export type JointPainSummary = {
   exerciseNamesEs: string[];
 };
 
-export type VolumeViewKey = "week" | "four_weeks" | "all_time";
+export type VolumeViewKey = "week" | "previous_week" | "four_weeks" | "all_time";
 
 export type VolumeView = {
   key: VolumeViewKey;
@@ -91,9 +91,17 @@ export type VolumeView = {
    * floor. Totals launder undertraining into a passing grade.
    */
   byMuscleGroup: MuscleGroupVolume[];
-  /** Completed weeks averaged over. 0 for the current-week view. */
+  /** Completed weeks averaged over. 0 for the single-week views. */
   weeksCounted: number;
   isAverage: boolean;
+  /**
+   * What the ▲▼ deltas compare against, or null when no honest comparison
+   * exists. Carried on the view rather than passed alongside it, so a view can
+   * never be rendered against a comparison that doesn't belong to it — the
+   * averages have none, because a 4-week average against "last week" would be
+   * two different units.
+   */
+  comparison: { labelEs: string; byMuscleGroup: MuscleGroupVolume[] } | null;
 };
 
 export type MuscleVolumeSummary = {
@@ -207,9 +215,15 @@ function ratio(numerator: number, denominator: number): number | null {
  * Weeks before any training ever happened are not in the run at all, so a new
  * athlete is never averaged against emptiness.
  */
+/** A week with no training is not a baseline — comparing against it would
+ *  render a triumphant "+N" for every muscle against nothing. */
+function toComparison(labelEs: string, week: WeeklyMuscleVolume | null): VolumeView["comparison"] {
+  return week && week.totalEffectiveSets > 0 ? { labelEs, byMuscleGroup: week.byMuscleGroup } : null;
+}
+
 function buildAverageView(key: VolumeViewKey, labelEs: string, weeks: WeeklyMuscleVolume[]): VolumeView {
   if (weeks.length === 0) {
-    return { key, labelEs, byMuscleGroup: [], weeksCounted: 0, isAverage: true };
+      return { key, labelEs, byMuscleGroup: [], weeksCounted: 0, isAverage: true, comparison: null };
   }
 
   const totals = new Map<MuscleVolumeBucket, number>();
@@ -227,6 +241,7 @@ function buildAverageView(key: VolumeViewKey, labelEs: string, weeks: WeeklyMusc
       .filter((row) => row.effectiveSets > 0),
     weeksCounted: weeks.length,
     isAverage: true,
+    comparison: null,
   };
 }
 
@@ -325,6 +340,10 @@ export function buildMuscleVolumeSummary(
   const firstTrainedIndex = finishedWeeks.findIndex((week) => week.totalEffectiveSets > 0);
   const completedWeeks = firstTrainedIndex === -1 ? [] : finishedWeeks.slice(firstTrainedIndex);
 
+  // Two weeks back, so the "Semana pasada" view can carry its own delta
+  // instead of being the one pill that silently has none.
+  const weekBeforePrevious = weeks.length > 2 ? weeks[weeks.length - 3]! : null;
+
   const views: VolumeView[] = [
     {
       key: "week",
@@ -332,6 +351,18 @@ export function buildMuscleVolumeSummary(
       byMuscleGroup: currentWeek.byMuscleGroup,
       weeksCounted: 0,
       isAverage: false,
+      comparison: toComparison("la semana pasada", previousWeek),
+    },
+    {
+      // Early in the week the current view is nearly empty, and the averages
+      // smooth the last week away rather than showing it. This is the view for
+      // "how did the week I just finished actually go?".
+      key: "previous_week",
+      labelEs: "Semana pasada",
+      byMuscleGroup: previousWeek?.byMuscleGroup ?? [],
+      weeksCounted: 0,
+      isAverage: false,
+      comparison: toComparison("la semana anterior", weekBeforePrevious),
     },
     buildAverageView("four_weeks", "4 semanas", completedWeeks.slice(-4)),
     buildAverageView("all_time", "Todo", completedWeeks),
