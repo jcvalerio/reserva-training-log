@@ -1,0 +1,2 @@
+CREATE TYPE "public"."pain_location" AS ENUM('hombro', 'codo', 'muneca', 'columna_lumbar', 'cadera', 'rodilla', 'tobillo', 'muscular', 'otro');--> statement-breakpoint
+ALTER TABLE "set_log" ADD COLUMN "pain_location" "pain_location";

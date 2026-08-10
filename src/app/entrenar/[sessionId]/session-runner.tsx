@@ -7,6 +7,7 @@ import { formatKg, roundKgValue } from "@/lib/format";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
+import { painLocationLabelsEs, painLocations } from "@/training/muscle-taxonomy";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import { rpeLabelsEs, rpeValues } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
@@ -94,6 +95,10 @@ export function SessionRunner({
   // Both resets adjust state during render (React's documented pattern),
   // matching the exerciseIndex-reset approach useRestTimer already uses
   // below, instead of a setState-in-effect.
+  // Drives whether the "¿dónde te duele?" select is shown. Local rather than
+  // read off the form, because the input is uncontrolled and this is the only
+  // thing that needs to react to it.
+  const [painScoreInput, setPainScoreInput] = useState(0);
   const [showBonusForm, setShowBonusForm] = useState(false);
   // The swap panel follows the same reset rule: moving to another exercise
   // should never leave a half-filled "cambiar ejercicio" form open against the
@@ -485,8 +490,31 @@ export function SessionRunner({
                 defaultValue={0}
                 required
                 className="input"
+                onChange={(event) => setPainScoreInput(Number(event.target.value) || 0)}
               />
             </label>
+
+            {/* Only once there is pain to locate. Every set logged to date
+                carries pain 0, so in the normal flow this never appears and
+                costs nothing — but when it does appear it turns the
+                pain-by-joint report from an inference into a measurement. */}
+            {painScoreInput > 0 ? (
+              <label className="grid gap-1 text-sm font-medium text-zinc-300">
+                <span>¿Dónde te duele?</span>
+                <select name="painLocation" defaultValue="" className="input">
+                  <option value="">Sin especificar</option>
+                  {painLocations.map((location) => (
+                    <option key={location} value={location}>
+                      {painLocationLabelsEs[location]}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs leading-5 text-zinc-400">
+                  Las agujetas y el dolor articular no son lo mismo. Anotarlo deja ver si una articulación se queja
+                  siempre en el mismo movimiento.
+                </span>
+              </label>
+            ) : null}
 
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Notas (opcional)</span>

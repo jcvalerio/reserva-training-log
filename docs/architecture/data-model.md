@@ -63,7 +63,7 @@ The vocabulary, the ~70-entry seed catalog, and the name matcher live in `src/tr
 
 ## BaselineLift
 
-Fields: `id`, `athleteProfileId`, `exerciseId` (FK → `Exercise`, `onDelete: restrict`), `side`, `weightKg`, `reps`, `sets`, `rir`, `painScore`, `notes`, `recordedAt`.
+Fields: `id`, `athleteProfileId`, `exerciseId` (FK → `Exercise`, `onDelete: restrict`), `side`, `weightKg`, `reps`, `sets`, `rir`, `painScore`, `painLocation`, `notes`, `recordedAt`.
 
 **Orphaned as of 2026-07-31** — no route, form, or repository code touches this table (`src/baseline/` and `src/app/baseline/` were deleted). Retained rather than dropped. Its `restrict` FK onto `Exercise` is why the 12 legacy catalog rows are deactivated rather than deleted (see `Exercise` above).
 
@@ -139,5 +139,6 @@ There is no `ProgressionSuggestion` table. A next-session weight/rep suggestion 
 6. Progression suggestions are computed, not stored, and are always a prefilled default the user can override by logging something different.
 7. Classification is per **prescription**, not per exercise name. The same free-text name on two different days may carry different `exerciseId`s; weekly volume resolves per prescription (correct — that is where the sets are), while `/progreso`'s grouped exercise list resolves per name off the most recent instance.
 8. A substitute resolves its own `exerciseId` from its own name and never inherits the replaced exercise's. Dosage (phase, sets, reps, RIR, rest, load mechanism) inherits; identity does not — the live data has a calf raise substituting an incline press, and inheriting would credit calf work to pecho.
-9. Effective sets for a unilateral exercise are `max(left, right) + bilateral`, never a distinct-`setNumber` count: `setNumber` is assigned across the whole exercise log regardless of side, so 3 left + 3 right carries setNumbers 1–6 and a distinct count would double it.
-10. At most one `WorkoutPlan` per profile has `status = 'active'` (DB-enforced via a partial unique index); activating a new one archives whichever plan was active, it doesn't delete it.
+9. `painLocation` is the reported truth; the joints an exercise loads are only a fallback for sets logged before the column existed (added 2026-08-09). The two must never be presented identically — an inferred location would report "hombro" for a hurting wrist. It deliberately does not yet affect the progression thresholds.
+10. Effective sets for a unilateral exercise are `max(left, right) + bilateral`, never a distinct-`setNumber` count: `setNumber` is assigned across the whole exercise log regardless of side, so 3 left + 3 right carries setNumbers 1–6 and a distinct count would double it.
+11. At most one `WorkoutPlan` per profile has `status = 'active'` (DB-enforced via a partial unique index); activating a new one archives whichever plan was active, it doesn't delete it.

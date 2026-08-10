@@ -93,6 +93,7 @@ export async function saveSetAction(
     exercisePrescriptionId,
     ...input,
     notes: input.notes ?? null,
+    painLocation: input.painLocation ?? null,
   });
 
   revalidatePath(`/entrenar/${workoutSessionId}`);
@@ -161,6 +162,7 @@ export async function updateSetAction(
   const updated = await updateSetForSession(guard.profileId, setLogId, {
     ...input,
     notes: input.notes ?? null,
+    painLocation: input.painLocation ?? null,
   });
 
   if (!updated) {

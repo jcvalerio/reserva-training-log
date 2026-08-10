@@ -189,9 +189,11 @@ export default async function GuiaPage({
               entrenado menos. Una semana de descanso sí cuenta — bajó tu dosis semanal de verdad.
             </p>
             <p className="rounded-xl bg-zinc-950 p-3 text-xs leading-5 text-zinc-400 ring-1 ring-zinc-800">
-              <span className="font-semibold text-zinc-100">Sobre las articulaciones:</span> la app registra un valor
-              de dolor por serie, pero no dónde te duele. Lo que ves agrupado por articulación es el dolor que
-              anotaste en ejercicios que cargan esa articulación — una pista para revisar, no un diagnóstico.
+              <span className="font-semibold text-zinc-100">Sobre el dolor:</span> cuando registras dolor por encima
+              de 0, la app te pregunta dónde. Eso separa las agujetas del dolor articular, que no son lo mismo: las
+              primeras son parte de entrenar, el segundo es la señal a vigilar. Las series anteriores a esa pregunta
+              aparecen marcadas como <span className="italic">estimado</span>, porque ahí sólo se puede repartir el
+              dolor entre las articulaciones que carga el ejercicio. Nada de esto es un diagnóstico.
             </p>
           </div>
         </details>

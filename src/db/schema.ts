@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
-
   integer,
   jsonb,
   index,
@@ -14,7 +13,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-import { muscleGroups, type JointLoad, type MovementPattern } from "@/training/muscle-taxonomy";
+import { muscleGroups, painLocations, type JointLoad, type MovementPattern } from "@/training/muscle-taxonomy";
 
 export const localeEnum = pgEnum("locale", ["es", "en"]);
 export const unitsEnum = pgEnum("units", ["metric"]);
@@ -52,6 +51,9 @@ export const planShareInviteStatusEnum = pgEnum("plan_share_invite_status", ["pe
 // nothing, and a typo'd 'gluteous' would silently create a 14th bucket that
 // every weekly-volume report would then under-count against.
 export const muscleGroupEnum = pgEnum("muscle_group", muscleGroups);
+// Where the athlete says it hurts. Values come from muscle-taxonomy.ts so the
+// enum cannot drift from the TS union.
+export const painLocationEnum = pgEnum("pain_location", painLocations);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -577,6 +579,21 @@ export const setLog = pgTable(
     rir: integer("rir"),
     actualDurationSeconds: integer("actual_duration_seconds"),
     painScore: integer("pain_score").notNull(),
+    // Where it hurt. Nullable by design, and in two distinct senses: sets
+    // logged before this column existed have none, and a pain-free set has
+    // nothing to locate — the input only appears once painScore > 0, so it
+    // costs nothing on a normal set.
+    //
+    // Replaces an inference. Before this, the pain-by-joint report attributed
+    // a set's pain to every joint its exercise loads, which would report
+    // "hombro" for someone whose wrist hurt; that fallback still runs for
+    // historical rows, and the UI says which is which.
+    //
+    // Deliberately does NOT feed the progression thresholds yet — "muscular"
+    // (ordinary soreness) still blocks aggressive progression exactly like
+    // joint pain does. Loosening a safety rule wants real logged evidence,
+    // and every set logged to date carries pain 0.
+    painLocation: painLocationEnum("pain_location"),
     notes: text("notes"),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
     // Deliberately NOT the shared updatedAtColumn() helper used by

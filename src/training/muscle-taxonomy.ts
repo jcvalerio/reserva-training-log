@@ -152,15 +152,16 @@ export const movementPatternLabelsEs: Record<MovementPattern, string> = {
 };
 
 /**
- * Which joints an exercise loads. The physio half of the taxonomy: a pain
- * score is written on every single set but is currently only ever visible per
- * exercise, so "¿cómo va mi hombro?" is unanswerable today.
+ * Which joints an exercise loads. The physio half of the taxonomy — it makes
+ * "¿cómo va mi hombro?" answerable across every exercise, which a per-set pain
+ * score alone never could.
  *
- * Important limit, which the UI must honour: setLog has no pain LOCATION
- * field. Attributing a set's pain to every joint its exercise loads is an
- * inference, not a measurement — someone whose wrist hurts during a press
- * would have it reported under "hombro". Report these as "articulaciones
- * cargadas cuando reportaste dolor", never as "dolor de hombro".
+ * Since 2026-08-09 this is the FALLBACK, not the primary source:
+ * setLog.painLocation records where it actually hurt. These tags are still
+ * used for sets logged before that column existed, where all the app can do is
+ * attribute a set's pain to every joint its exercise loads — an inference that
+ * would confidently report "hombro" for someone whose wrist hurt. The UI must
+ * keep distinguishing the two: reported location is a measurement, this is not.
  */
 export const jointLoads = [
   "hombro",
@@ -173,6 +174,45 @@ export const jointLoads = [
 ] as const;
 
 export type JointLoad = (typeof jointLoads)[number];
+
+/**
+ * Where the athlete says it hurts, recorded per set alongside the pain score.
+ *
+ * Supersedes the inference this app had to make before 2026-08-09: with no
+ * location field, a set's pain was attributed to every joint its exercise
+ * loads, which would confidently report "hombro" for someone whose wrist hurt.
+ * Historical sets have no location and still fall back to that inference — the
+ * UI has to keep saying which is which.
+ *
+ * "muscular" is the clinically important addition, not a filler option. A
+ * physio reads ordinary muscle soreness after a hard session completely
+ * differently from joint pain, and until now the app could not tell them
+ * apart. Note it does NOT yet change the progression thresholds: pain > 2 still
+ * blocks aggressive progression regardless of where it is. Loosening a safety
+ * rule needs real logged evidence first, and there is none — every set logged
+ * to date carries pain 0.
+ */
+export const painLocations = [...jointLoads, "muscular", "otro"] as const;
+
+export type PainLocation = (typeof painLocations)[number];
+
+export const painLocationLabelsEs: Record<PainLocation, string> = {
+  hombro: "Hombro",
+  codo: "Codo",
+  muneca: "Muñeca",
+  columna_lumbar: "Zona lumbar",
+  cadera: "Cadera",
+  rodilla: "Rodilla",
+  tobillo: "Tobillo",
+  muscular: "Muscular (agujetas)",
+  otro: "Otro",
+};
+
+/** True for a location that is a joint, i.e. one the pain-by-joint report can
+ *  attribute directly rather than by inference. */
+export function isJointLocation(location: PainLocation): location is JointLoad {
+  return (jointLoads as readonly string[]).includes(location);
+}
 
 export const jointLoadLabelsEs: Record<JointLoad, string> = {
   hombro: "Hombro",

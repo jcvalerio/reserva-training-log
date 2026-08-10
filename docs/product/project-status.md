@@ -25,7 +25,7 @@ A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building
 1. **Profile** (`/perfil`) — goals, limitations, muscle priorities, target training days.
 2. **Plan** — activate one of four hardcoded templates (`/plan/templates`) or build one by hand (`/plan/builder`). Plans can be shared to another account by email invite, which clones them.
 3. **Train** (`/entrenar`) — run a session, log every set with weight/reps/RIR/pain, get a pain-aware progression suggestion prefilled, log bonus sets past the target, correct or delete a logged set, and substitute an exercise mid-session when a machine is busy or something feels wrong.
-4. **Progress** (`/progreso`) — weekly effective sets per muscle group over four selectable periods, a front/back body map, balance ratios, pain by joint, exercises grouped by muscle group with per-exercise progression charts, recent improvements, weekly consistency, and body-measurement trends.
+4. **Progress** (`/progreso`) — weekly effective sets per muscle group over four selectable periods, a front/back body map, balance ratios, pain grouped by where it hurt, exercises grouped by muscle group with per-exercise progression charts, recent improvements, weekly consistency, and body-measurement trends.
 5. **Guide** (`/guia`) — what RIR means, AMRAP, the progression math, and how sets per muscle group are counted.
 
 All five items of the 2026-08 user-feedback batch are shipped. Milestone M6's dashboard deliverable is done; its remaining acceptance criteria are field-validation, not code.
@@ -50,7 +50,7 @@ Four rules there are load-bearing. Each was arrived at by getting it wrong first
 Each of these has cost real rework at least once.
 
 - **Spanish-first.** All UI copy in Spanish. `exerciseNameEn` / `notesEn` / `locale: "en"` exist and are unused — do not remove them.
-- **Pain is never just another metric.** `pain > 2` blocks aggressive progression, `> 3` means reduce or modify, `>= 7` means stop and seek guidance. See `progression-rules.md`.
+- **Pain is never just another metric.** `pain > 2` blocks aggressive progression, `> 3` means reduce or modify, `>= 7` means stop and seek guidance. See `progression-rules.md`. Since 2026-08-09 a set can also carry *where* it hurt (`setLog.painLocation`), which distinguishes ordinary soreness from joint pain — but the thresholds still treat both identically, on purpose, until there is logged evidence to justify loosening a safety rule.
 - **Colour is reserved for pain.** Emerald is the accent, violet the secondary series, zinc the neutral ramp. A below-target bar is grey, not red — a five-day rotation with two-set accessories genuinely lands under most reference bands, and painting that as failure nudges toward junk volume.
 - **The type scale is raised deliberately** for readability at 47+: `text-xs` is 14px and `text-sm` is 16px (`@theme` in `globals.css`). Do not shrink type to fit dense labels; that constraint is why the volume chart uses HTML text rather than SVG `<text>`.
 - **Charts are hand-rolled inline SVG.** A charting library was evaluated on 2026-08-09 and declined: Recharts pulls Redux Toolkit and d3 transitively into a mobile app, and adopting it means rewriting five working, tested charts. Revisit only if a chart genuinely needs stacking, brushing or many series.
@@ -97,7 +97,7 @@ Do not deploy while a session may be in progress — check `status = 'active'` f
 
 Nothing is urgent. In rough order of value:
 
-1. **`setLog` has no pain location.** Pain-by-joint currently attributes a set's pain to every joint its exercise loads, which is an inference — the UI says so ("articulaciones cargadas cuando reportaste dolor"). A `painLocation` column would make it a measurement. This is the single biggest honesty gap in the reporting.
+1. ~~`setLog` has no pain location.~~ **Done 2026-08-09** — `setLog.painLocation` records where it hurt, prompted only when pain goes above 0. Reported locations are stated plainly; sets predating the column still fall back to the joint inference and are labelled "estimado". It deliberately does **not** yet affect the progression thresholds: "muscular" (ordinary soreness) still blocks aggressive progression exactly like joint pain. Revisit once there is real logged pain — every set to date carries pain 0.
 2. **Let real weeks accumulate, then re-read the reference bands.** If the averages feel like a scolding after a month of genuine data, change the copy around the band, not the numbers.
 3. **A trend chart was evaluated and declined** (2026-08-09): per-muscle weekly volume swings on which training days you hit, so a line would plot the calendar while looking like it plots progress. Revisit only if the 4-week average proves insufficient.
 4. **`workoutSession.notes` and `musclePriority` are written but never read.** Real gaps, small.

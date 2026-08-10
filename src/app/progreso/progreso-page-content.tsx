@@ -6,7 +6,7 @@ import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
-import { jointLoadLabelsEs } from "@/training/muscle-taxonomy";
+import { painLocationLabelsEs } from "@/training/muscle-taxonomy";
 import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
@@ -116,19 +116,24 @@ export function ProgresoPageContent({
             </div>
           ) : null}
 
-          {muscleVolumeSummary.painByJoint.length > 0 ? (
+          {muscleVolumeSummary.painByLocation.length > 0 ? (
             <div className="mt-3 border-t border-zinc-800 pt-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                Articulaciones cargadas cuando reportaste dolor
+                {muscleVolumeSummary.painByLocation.every((row) => !row.isInferred)
+                  ? "Dónde te ha dolido"
+                  : "Dónde te ha dolido (algunas series son estimadas)"}
               </p>
-              {/* Deliberately not titled "dolor de hombro": setLog records a
-                  pain score but no location, so this attributes a set's pain to
-                  every joint its exercise loads. That is an inference, and the
-                  wording has to say so. */}
+              {/* Rows the athlete actually located are stated plainly. Rows
+                  inferred from the joints an exercise loads keep hedging —
+                  that path would happily report "hombro" for a hurting wrist,
+                  and it still runs for sets logged before painLocation
+                  existed. Never present the two identically. */}
               <ul className="mt-2 grid gap-1">
-                {muscleVolumeSummary.painByJoint.map((row) => (
-                  <li key={row.jointLoad} className="text-sm leading-6 text-zinc-300">
-                    {jointLoadLabelsEs[row.jointLoad]} — dolor máx. {row.maxPainScore}
+                {muscleVolumeSummary.painByLocation.map((row) => (
+                  <li key={row.location} className="text-sm leading-6 text-zinc-300">
+                    {painLocationLabelsEs[row.location]}
+                    {row.isInferred ? <span className="text-zinc-500"> (estimado)</span> : null} — dolor máx.{" "}
+                    {row.maxPainScore}
                     {row.setsAboveThreshold > 0 ? (
                       <span className="text-zinc-400">
                         {" "}
@@ -140,8 +145,10 @@ export function ProgresoPageContent({
                 ))}
               </ul>
               <p className="mt-2 text-xs leading-5 text-zinc-400">
-                Es el dolor que registraste en ejercicios que cargan esa articulación, no un diagnóstico. Con dolor
-                sobre 2 no conviene progresar; sobre 3, reduce o modifica el ejercicio.
+                Lo marcado como <span className="italic">estimado</span> viene de series registradas antes de que la
+                app preguntara dónde dolía: ahí sólo puede repartir el dolor entre las articulaciones que carga el
+                ejercicio. El resto es lo que anotaste tú. En ningún caso es un diagnóstico. Con dolor sobre 2 no
+                conviene progresar; sobre 3, reduce o modifica el ejercicio.
               </p>
             </div>
           ) : null}

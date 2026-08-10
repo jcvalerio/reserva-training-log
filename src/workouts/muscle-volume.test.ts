@@ -13,8 +13,13 @@ import type { CompletedSessionSummary } from "./workout-repository";
 const NOW = new Date("2026-08-09T12:00:00");
 const IN_WEEK = new Date("2026-08-05T12:00:00"); // Wednesday of the same week
 
-function buildSets(count: number, side: VolumeSetInput["side"] = "bilateral", painScore = 0): VolumeSetInput[] {
-  return Array.from({ length: count }, (_, index) => ({ setNumber: index + 1, side, painScore }));
+function buildSets(
+  count: number,
+  side: VolumeSetInput["side"] = "bilateral",
+  painScore = 0,
+  painLocation: VolumeSetInput["painLocation"] = null,
+): VolumeSetInput[] {
+  return Array.from({ length: count }, (_, index) => ({ setNumber: index + 1, side, painScore, painLocation }));
 }
 
 function buildInstance(overrides: Partial<VolumeExerciseInstance> = {}): VolumeExerciseInstance {
@@ -50,12 +55,12 @@ describe("effectiveSetCount", () => {
     const instance = buildInstance({
       isUnilateral: true,
       sets: [
-        { setNumber: 1, side: "left", painScore: 0 },
-        { setNumber: 2, side: "right", painScore: 0 },
-        { setNumber: 3, side: "left", painScore: 0 },
-        { setNumber: 4, side: "right", painScore: 0 },
-        { setNumber: 5, side: "left", painScore: 0 },
-        { setNumber: 6, side: "right", painScore: 0 },
+        { setNumber: 1, side: "left", painScore: 0, painLocation: null },
+        { setNumber: 2, side: "right", painScore: 0, painLocation: null },
+        { setNumber: 3, side: "left", painScore: 0, painLocation: null },
+        { setNumber: 4, side: "right", painScore: 0, painLocation: null },
+        { setNumber: 5, side: "left", painScore: 0, painLocation: null },
+        { setNumber: 6, side: "right", painScore: 0, painLocation: null },
       ],
     });
     expect(effectiveSetCount(instance)).toBe(3);
@@ -201,7 +206,7 @@ describe("buildMuscleVolumeSummary — ratios", () => {
   });
 });
 
-describe("buildMuscleVolumeSummary — pain by joint", () => {
+describe("buildMuscleVolumeSummary — pain by location", () => {
   it("reports max pain and sets above the >2 threshold, with the exercises", () => {
     const summary = buildMuscleVolumeSummary(
       [
@@ -209,15 +214,15 @@ describe("buildMuscleVolumeSummary — pain by joint", () => {
           exerciseNameEs: "Press de pecho en máquina",
           jointLoads: ["hombro", "codo"],
           sets: [
-            { setNumber: 1, side: "bilateral", painScore: 1 },
-            { setNumber: 2, side: "bilateral", painScore: 4 },
-            { setNumber: 3, side: "bilateral", painScore: 3 },
+            { setNumber: 1, side: "bilateral", painScore: 1, painLocation: null },
+            { setNumber: 2, side: "bilateral", painScore: 4, painLocation: null },
+            { setNumber: 3, side: "bilateral", painScore: 3, painLocation: null },
           ],
         }),
       ],
       { now: NOW },
     );
-    const hombro = summary.painByJoint.find((row) => row.jointLoad === "hombro");
+    const hombro = summary.painByLocation.find((row) => row.location === "hombro");
     expect(hombro?.maxPainScore).toBe(4);
     // An average would dilute exactly the signal this app is built around.
     expect(hombro?.setsAboveThreshold).toBe(2);
@@ -226,7 +231,7 @@ describe("buildMuscleVolumeSummary — pain by joint", () => {
 
   it("omits joints that never carried pain", () => {
     const summary = buildMuscleVolumeSummary([buildInstance({ jointLoads: ["hombro"] })], { now: NOW });
-    expect(summary.painByJoint).toEqual([]);
+    expect(summary.painByLocation).toEqual([]);
   });
 });
 
@@ -377,5 +382,70 @@ describe("buildMuscleVolumeSummary — period views", () => {
     // 6 sets actually performed in that one week.
     expect(allTime.weeksCounted).toBeGreaterThan(1);
     expect(gluteos).toBeLessThan(6);
+  });
+});
+
+describe("pain location — reported vs inferred", () => {
+  it("uses the reported location and stops hedging", () => {
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({
+          // The exercise loads shoulder AND elbow, but the athlete said wrist.
+          jointLoads: ["hombro", "codo"],
+          sets: buildSets(2, "bilateral", 4, "muneca"),
+        }),
+      ],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation.map((row) => row.location)).toEqual(["muneca"]);
+    expect(summary.painByLocation[0]!.isInferred).toBe(false);
+    // The joints the exercise happens to load are NOT blamed — that was the
+    // whole failure mode the column exists to remove.
+    expect(summary.painByLocation.some((row) => row.location === "hombro")).toBe(false);
+  });
+
+  it("falls back to the exercise's joints for sets logged before the column existed", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ jointLoads: ["hombro", "codo"], sets: buildSets(2, "bilateral", 4, null) })],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation.map((row) => row.location).sort()).toEqual(["codo", "hombro"]);
+    expect(summary.painByLocation.every((row) => row.isInferred)).toBe(true);
+  });
+
+  it("lets a single reported set clear the inferred flag for that location", () => {
+    // One measurement beats any number of inferences.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ jointLoads: ["hombro"], sets: buildSets(3, "bilateral", 3, null) }),
+        buildInstance({ jointLoads: ["hombro"], sets: buildSets(1, "bilateral", 5, "hombro") }),
+      ],
+      { now: NOW },
+    );
+
+    const hombro = summary.painByLocation.find((row) => row.location === "hombro")!;
+    expect(hombro.isInferred).toBe(false);
+    expect(hombro.maxPainScore).toBe(5);
+    expect(hombro.setCount).toBe(4);
+  });
+
+  it("records muscle soreness as its own location, not as a joint", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ jointLoads: ["rodilla"], sets: buildSets(2, "bilateral", 3, "muscular") })],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation.map((row) => row.location)).toEqual(["muscular"]);
+  });
+
+  it("ignores pain-free sets entirely", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ jointLoads: ["hombro"], sets: buildSets(3, "bilateral", 0, null) })],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation).toEqual([]);
   });
 });

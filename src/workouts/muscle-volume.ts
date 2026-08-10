@@ -11,6 +11,7 @@ import {
   regionForMuscleGroup,
   type JointLoad,
   type MuscleGroup,
+  type PainLocation,
 } from "@/training/muscle-taxonomy";
 
 import { startOfWeek } from "./consistency";
@@ -37,6 +38,9 @@ export type VolumeSetInput = {
   setNumber: number;
   side: "bilateral" | "left" | "right";
   painScore: number;
+  /** Where the athlete said it hurt. Null on sets logged before the column
+   *  existed, and on pain-free sets. */
+  painLocation: PainLocation | null;
 };
 
 export type VolumeExerciseInstance = {
@@ -66,13 +70,23 @@ export type WeeklyMuscleVolume = {
   totalEffectiveSets: number;
 };
 
-export type JointPainSummary = {
-  jointLoad: JointLoad;
+export type PainLocationSummary = {
+  location: PainLocation;
   maxPainScore: number;
   /** Sets logged above the app's own >2 threshold. */
   setsAboveThreshold: number;
   setCount: number;
   exerciseNamesEs: string[];
+  /**
+   * False when the athlete actually told us where it hurt, true when this was
+   * inferred from the joints the exercise loads.
+   *
+   * The UI must not present the two identically. A reported location is a
+   * measurement; an inferred one would happily say "hombro" for someone whose
+   * wrist hurt, which is why the inferred wording has to hedge and the
+   * reported wording does not.
+   */
+  isInferred: boolean;
 };
 
 export type VolumeViewKey = "week" | "previous_week" | "four_weeks" | "all_time";
@@ -122,7 +136,7 @@ export type MuscleVolumeSummary = {
   /** Null when either side is zero — a ratio against nothing is not a ratio. */
   pushPullRatio: number | null;
   quadHamstringRatio: number | null;
-  painByJoint: JointPainSummary[];
+  painByLocation: PainLocationSummary[];
   /** Current week, trailing 4 completed weeks, and all completed history. */
   views: VolumeView[];
 };
@@ -264,7 +278,7 @@ export function buildMuscleVolumeSummary(
   }
 
   const unclassifiedNames = new Set<string>();
-  const painByJointKey = new Map<JointLoad, JointPainSummary>();
+  const painByLocationKey = new Map<PainLocation, PainLocationSummary>();
 
   for (const instance of instances) {
     if (!instance.completedAt || !countsTowardVolume(instance) || instance.sets.length === 0) {
@@ -295,25 +309,43 @@ export function buildMuscleVolumeSummary(
 
     // Pain is aggregated across the whole window, not per week: the question
     // it answers ("has this joint been complaining?") is not a weekly one.
-    for (const jointLoad of instance.jointLoads) {
-      const existing = painByJointKey.get(jointLoad) ?? {
-        jointLoad,
-        maxPainScore: 0,
-        setsAboveThreshold: 0,
-        setCount: 0,
-        exerciseNamesEs: [],
-      };
-      for (const set of instance.sets) {
+    //
+    // Per SET, not per instance, because location is now a per-set fact: the
+    // same exercise can hurt the shoulder on one set and nowhere on the next.
+    for (const set of instance.sets) {
+      if (set.painScore <= 0) {
+        continue;
+      }
+      // Reported location wins outright. Only when a set predates the column
+      // do we fall back to blaming every joint the exercise loads.
+      const locations: PainLocation[] = set.painLocation ? [set.painLocation] : instance.jointLoads;
+      const isInferred = !set.painLocation;
+
+      for (const location of locations) {
+        const existing = painByLocationKey.get(location) ?? {
+          location,
+          maxPainScore: 0,
+          setsAboveThreshold: 0,
+          setCount: 0,
+          exerciseNamesEs: [],
+          // Sticky: once any set reported this location directly, the entry
+          // stops hedging. A single measured set is better evidence than any
+          // number of inferred ones.
+          isInferred: true,
+        };
         existing.maxPainScore = Math.max(existing.maxPainScore, set.painScore);
         existing.setCount += 1;
+        if (!isInferred) {
+          existing.isInferred = false;
+        }
         if (set.painScore > PAIN_THRESHOLD) {
           existing.setsAboveThreshold += 1;
-          if (!existing.exerciseNamesEs.includes(instance.exerciseNameEs)) {
-            existing.exerciseNamesEs.push(instance.exerciseNameEs);
-          }
         }
+        if (!existing.exerciseNamesEs.includes(instance.exerciseNameEs)) {
+          existing.exerciseNamesEs.push(instance.exerciseNameEs);
+        }
+        painByLocationKey.set(location, existing);
       }
-      painByJointKey.set(jointLoad, existing);
     }
   }
 
@@ -376,8 +408,8 @@ export function buildMuscleVolumeSummary(
     pushPullRatio: ratio(sumRegion(currentWeek, "empuje"), sumRegion(currentWeek, "tiron")),
     quadHamstringRatio: ratio(setsFor(currentWeek, "cuadriceps"), setsFor(currentWeek, "femorales")),
     views,
-    painByJoint: [...painByJointKey.values()]
-      .filter((row) => row.maxPainScore > 0)
-      .sort((a, b) => b.maxPainScore - a.maxPainScore || b.setsAboveThreshold - a.setsAboveThreshold),
+    painByLocation: [...painByLocationKey.values()].sort(
+      (a, b) => b.maxPainScore - a.maxPainScore || b.setsAboveThreshold - a.setsAboveThreshold,
+    ),
   };
 }

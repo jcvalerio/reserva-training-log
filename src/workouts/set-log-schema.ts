@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { painLocations } from "@/training/muscle-taxonomy";
+
 const sideSchema = z.enum(["bilateral", "left", "right"]);
 const prescriptionTypeSchema = z.enum(["strength", "duration"]);
 
@@ -24,6 +26,12 @@ const optionalTrimmedString = z.preprocess(
 const commonSetLogFields = {
   side: sideSchema,
   painScore: requiredNumber("dolor", 0, 10).pipe(z.number().int()),
+  // Optional: the input only appears once pain is above 0, and a pain-free
+  // set has nothing to locate.
+  painLocation: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : undefined),
+    z.enum(painLocations).optional(),
+  ),
   notes: optionalTrimmedString,
 };
 
@@ -61,6 +69,7 @@ export function parseSetLogFormData(formData: FormData): SetLogInput {
     rir: formData.get("rir"),
     actualDurationSeconds: formData.get("actualDurationSeconds"),
     painScore: formData.get("painScore"),
+    painLocation: formData.get("painLocation"),
     notes: formData.get("notes") || undefined,
   });
 }

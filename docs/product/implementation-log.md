@@ -2,6 +2,28 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — setLog.painLocation: pain by location becomes a measurement instead of an inference
+
+Status: code complete, `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Migration `drizzle/0021_quiet_onslaught.sql` generated **and applied to the dev DB** — purely additive: one enum, one nullable column, no backfill.
+
+Closes the gap this project's own docs called the biggest honesty problem in the reporting. Until now `setLog` recorded *how much* it hurt but never *where*, so the pain report attributed a set's pain to every joint its exercise loads — which would confidently report "hombro" for someone whose wrist hurt. The UI had to hedge in its own heading to stay truthful.
+
+**Grounded before designing.** Every one of the 58 real logged sets carries `pain_score = 0` — the user has never recorded pain above zero. That settled the interaction: the location select appears **only once pain goes above 0**, so it costs nothing in the normal flow while capturing real signal on the rare occasion it matters.
+
+**Confirmed via `AskUserQuestion`.** The vocabulary is the seven existing joints plus **`muscular`** and `otro`. `muscular` is the clinically important addition rather than a filler: a physio reads ordinary soreness after a hard session completely differently from joint pain, and the app could not previously tell them apart.
+
+**Deliberately does NOT change the progression thresholds.** `pain > 2` still blocks aggressive progression regardless of where it is, including "muscular". Loosening a pain-aware safety rule wants real logged evidence, and there is none — every set to date is pain 0. The user chose reporting-only on that explicitly; revisit when there is data.
+
+**Reported beats inferred, and the two are never presented identically.** Aggregation moved from per-instance to per-set, because location is a per-set fact — the same exercise can hurt on one set and not the next. A set with a reported location contributes only to that location; a set without one still falls back to the exercise's joint tags and is flagged `isInferred`. The flag is sticky in one direction: a single reported set clears it for that location, because one measurement beats any number of inferences. `/progreso` labels inferred rows "(estimado)" and explains why; rows the athlete located are stated plainly.
+
+Correcting a set back down to pain 0 clears the stored location, so a pain-free set can never keep a stale one the report would still count.
+
+**Verified live** against the dev DB with the throwaway-then-clean-up pattern: the enum has its 9 values, a row round-tripped `pain_location = 'muneca'`, and a follow-up query confirmed zero residue. 123 existing sets carry NULL, as expected — no backfill, they keep the inference path.
+
+Files touched: `src/training/muscle-taxonomy.ts`, `src/db/schema.ts`, `drizzle/0021_quiet_onslaught.sql` (new), `src/workouts/set-log-schema.ts`, `src/workouts/workout-repository.ts`, `src/workouts/muscle-volume.ts` (+5 tests), `src/app/entrenar/actions.ts`, `src/app/entrenar/[sessionId]/session-runner.tsx`, `src/app/progreso/progreso-page-content.tsx`, `src/app/guia/page.tsx`, `docs/architecture/data-model.md`, `docs/product/project-status.md`, plus `painLocation: null` added to SetLog fixtures in five test files.
+
+Next iteration: deploy when asked. Then, once real pain is actually logged, revisit whether "muscular" should stop blocking aggressive progression — that is the decision this column exists to make answerable with evidence.
+
 ## 2026-08-09 — Documented where the project stands, and gave the three docs one job each
 
 Status: docs only, no code change. `lint`/`test` (429) still green. Not deployed (nothing to deploy); committed.

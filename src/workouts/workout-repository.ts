@@ -5,7 +5,12 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
-import { findCatalogEntryByName, type JointLoad, type MuscleGroup } from "@/training/muscle-taxonomy";
+import {
+  findCatalogEntryByName,
+  type JointLoad,
+  type MuscleGroup,
+  type PainLocation,
+} from "@/training/muscle-taxonomy";
 import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-repository";
 
 import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
@@ -286,6 +291,7 @@ export async function getPreviousExercisePerformance(
 export type UpdateSetInput = {
   side: "bilateral" | "left" | "right";
   painScore: number;
+  painLocation: PainLocation | null;
   notes: string | null;
 } & (
   | { prescriptionType: "strength"; actualWeightKg: string; actualReps: number; rir: number }
@@ -313,6 +319,7 @@ export async function saveSetForSession(input: SaveSetInput): Promise<{ setNumbe
     rir: input.prescriptionType === "strength" ? input.rir : null,
     actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
     painScore: input.painScore,
+    painLocation: input.painScore > 0 ? input.painLocation : null,
     notes: input.notes,
   });
 
@@ -369,6 +376,9 @@ export async function updateSetForSession(
       rir: input.prescriptionType === "strength" ? input.rir : null,
       actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
       painScore: input.painScore,
+      // Cleared when a correction drops the pain back to 0 — a pain-free set
+      // must not keep a stale location that the report would still count.
+      painLocation: input.painScore > 0 ? input.painLocation : null,
       notes: input.notes,
       updatedAt: new Date(),
     })

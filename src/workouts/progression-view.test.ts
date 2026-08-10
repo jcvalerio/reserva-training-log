@@ -14,6 +14,7 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
     rir: 2,
     actualDurationSeconds: null,
     painScore: 0,
+    painLocation: null,
     notes: null,
     completedAt: new Date("2026-07-20T12:00:00Z"),
     updatedAt: null,
