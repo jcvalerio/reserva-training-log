@@ -4,7 +4,9 @@ Living checkpoint for small iterations. Update this after every task iteration s
 
 ## 2026-08-09 — Period views on Series por grupo muscular (esta semana / 4 semanas / todo)
 
-Status: code complete, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. No migration. Not yet deployed/committed.
+Status: shipped. Committed as `4afb2d6` on `main` (`feat: add period views to Series por grupo muscular`) — 11 files, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, and the new "Esta semana, 4 semanas y Todo" copy confirmed in the production `/guia` HTML).
+
+**No migration and no data change in this deploy**, which is why it went out without the usual active-session check being conclusive: production sessions cannot be queried since `DATABASE_URL` became Sensitive in Vercel, but a code-only deploy can at worst hand an in-progress session a new bundle on its next navigation. Dev showed zero active sessions.
 
 The user asked whether the section could cover more than the current week — "all time, current month" — to get more value from the chart. Evaluated first rather than built, because there is a real trap in it.
 
@@ -22,7 +24,7 @@ Averaging starts at the first week that actually contains training. The trailing
 
 Files touched: `src/workouts/muscle-volume.ts` (+6 tests), `src/app/progreso/muscle-volume-section.tsx` (new), `src/app/progreso/muscle-volume-chart.tsx` (+test), `src/app/progreso/body-map.tsx` (+test), `src/app/progreso/progreso-page-content.tsx`, `src/app/progreso/page.tsx`, `src/app/guia/page.tsx`.
 
-Next iteration: deploy when asked. Then let a few real weeks accumulate before revisiting whether a trend chart is worth it — the 4-week average may already answer what a trend line would have.
+Next iteration: let a few real weeks accumulate before revisiting whether a trend chart is worth it — the 4-week average may already answer what a trend line would have. Worth checking with real production data whether any muscle group's reference band reads as discouraging once the averages have a few weeks behind them.
 
 ## 2026-08-09 — Deployed and committed the exercise taxonomy and the rebuilt /progreso
 
