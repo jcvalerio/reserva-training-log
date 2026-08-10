@@ -2,6 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-09 — Deployed a "Semana pasada" period, and moved the delta baseline onto the view
+
+Status: shipped. Committed as `6fb8006` on `main` (`feat: add a "Semana pasada" period to Series por grupo muscular`), `lint`/`typecheck`/`test` (429 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth). No migration, no data change.
+
+The user's report, and it is a real gap the period views created rather than closed: *"this week is empty if I want to see how was my last week of work right now is not possible."* Early in a week the current-week view holds one session or none, and the 4-week and all-time views average the last week away instead of showing it — so the most natural question on a Monday had no answer.
+
+**A refactor came with it, and it is the more interesting half.** `MuscleVolumeChart` took a separate `previousWeek` prop that was only meaningful for one of the pills, so the caller had to remember to blank it for the others — `activeView.key === "week" ? summary.previousWeek : null` sat in the section wrapper. Adding a second week-shaped view would have made that conditional worse. Each `VolumeView` now carries its own `comparison` (or null), so a period cannot be rendered against a baseline that does not belong to it, and the caption names the baseline ("compara con la semana anterior") rather than assuming it is always last week. The chart's props shrank to a single `view`.
+
+The previous-week view gets its own delta against the week before it, so it is not the one pill that silently has none. Averages carry `comparison: null` by construction rather than by the caller remembering.
+
+**The pill appears as soon as any completed week exists**, even when last week itself was empty — "you trained nothing last week" is a real answer and being able to ask is the whole point, so the empty state says exactly that ("No registraste series la semana pasada.") rather than reusing the current-week copy.
+
+Files touched: `src/workouts/muscle-volume.ts` (+4 tests), `src/app/progreso/muscle-volume-chart.tsx` (+test), `src/app/progreso/muscle-volume-section.tsx`, `src/app/progreso/body-map.test.tsx`.
+
+Next iteration: nothing outstanding. Let real weeks accumulate, then revisit whether the reference-band copy reads as discouraging with genuine data, and whether a trend chart adds anything the 4-week average does not.
+
 ## 2026-08-09 — Period views on Series por grupo muscular (esta semana / 4 semanas / todo)
 
 Status: shipped. Committed as `4afb2d6` on `main` (`feat: add period views to Series por grupo muscular`) — 11 files, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, and the new "Esta semana, 4 semanas y Todo" copy confirmed in the production `/guia` HTML).

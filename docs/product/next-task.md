@@ -1,8 +1,8 @@
 # Next Task
 
-## Status: period views on Series por grupo muscular — shipped, deployed and committed (`4afb2d6`).
+## Status: period views on Series por grupo muscular — shipped, deployed and committed (`4afb2d6`, `6fb8006`).
 
-`/progreso`'s volume section now has three pills: **Esta semana · 4 semanas · Todo**. The multi-week views show the **average sets per week**, not a period total — a total sits several times above the weekly reference band and would read as healthy while you were undertrained. On the dev data, pecho reads 6 this week but averages 1.5/week against a 10–20 band; that gap is the reason the selector exists, and it is invisible from the weekly number alone. The body map follows the same period as the bars.
+`/progreso`'s volume section now has four pills: **Esta semana · Semana pasada · 4 semanas · Todo**. "Semana pasada" exists because early in a week the current view is nearly empty and the averages smooth the last week away — there was no way to see how the week you just finished actually went. The multi-week views show the **average sets per week**, not a period total — a total sits several times above the weekly reference band and would read as healthy while you were undertrained. On the dev data, pecho reads 6 this week but averages 1.5/week against a 10–20 band; that gap is the reason the selector exists, and it is invisible from the weekly number alone. The body map follows the same period as the bars.
 
 ## Prior status: the exercise taxonomy and a rebuilt `/progreso` — shipped, deployed and committed (`bfdd8fb`).
 
