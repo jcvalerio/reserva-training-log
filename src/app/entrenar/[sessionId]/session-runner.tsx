@@ -340,27 +340,30 @@ export function SessionRunner({
           />
         ) : null}
 
-        {currentExercise.loggedSets.length > 0 ? (
-          <div className="mt-4 grid gap-2">
-            {currentExercise.loggedSets.map((set) => (
-              // Keyed on updatedAt so a saved correction remounts the row
-              // closed with fresh values, while a rejected one stays open
-              // showing its error.
-              <EditableSetRow
-                key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
-                set={set}
-                edit={{
-                  sessionId: session.id,
-                  isUnilateral,
-                  prescriptionType: currentExercise.prescriptionType,
-                  targetRir: currentExercise.targetRir,
-                  updateSetAction,
-                  deleteSetAction,
-                }}
-              />
-            ))}
-          </div>
-        ) : null}
+        <LoggedSetsList
+          sets={currentExercise.loggedSets}
+          isUnilateral={isUnilateral}
+          targetSets={currentExercise.targetSets}
+          className="mt-4 grid gap-2"
+          renderRow={(set, displayNumber) => (
+            // Keyed on updatedAt so a saved correction remounts the row
+            // closed with fresh values, while a rejected one stays open
+            // showing its error.
+            <EditableSetRow
+              key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
+              set={set}
+              displayNumber={displayNumber}
+              edit={{
+                sessionId: session.id,
+                isUnilateral,
+                prescriptionType: currentExercise.prescriptionType,
+                targetRir: currentExercise.targetRir,
+                updateSetAction,
+                deleteSetAction,
+              }}
+            />
+          )}
+        />
 
         {previousPerformance && previousSuggestion ? (
           <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
@@ -379,6 +382,29 @@ export function SessionRunner({
                 </p>
               )}
             </div>
+
+            {previousPerformance.sets.length > 0 ? (
+              // Keyed on the exercise so moving to "Siguiente ejercicio"
+              // always remounts this closed, instead of carrying an earlier
+              // exercise's expanded state onto one nobody asked to see yet.
+              <details key={currentExercise.id} className="mt-3 rounded-xl bg-zinc-900/60 ring-1 ring-sky-300/20">
+                <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+                  {previousPerformance.sets.length === 1
+                    ? "Ver la serie de la vez pasada"
+                    : `Ver las ${previousPerformance.sets.length} series de la vez pasada`}
+                </summary>
+                <LoggedSetsList
+                  sets={previousPerformance.sets}
+                  isUnilateral={previousPerformance.isUnilateral}
+                  targetSets={previousPerformance.targetSets}
+                  className="grid gap-2 px-3 pb-3 pt-2"
+                  renderRow={(set, displayNumber) => (
+                    <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
+                  )}
+                />
+              </details>
+            ) : null}
+
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
                 {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
@@ -689,11 +715,16 @@ function CompletedSessionSummary({
             {exercise.loggedSets.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-400">Sin series registradas.</p>
             ) : (
-              <div className="mt-2 grid gap-2 text-sm text-zinc-300">
-                {exercise.loggedSets.map((set) => (
+              <LoggedSetsList
+                sets={exercise.loggedSets}
+                isUnilateral={exercise.isUnilateral}
+                targetSets={exercise.targetSets}
+                className="mt-2 grid gap-2 text-sm text-zinc-300"
+                renderRow={(set, displayNumber) => (
                   <EditableSetRow
                     key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
                     set={set}
+                    displayNumber={displayNumber}
                     edit={{
                       sessionId: session.id,
                       isUnilateral: exercise.isUnilateral,
@@ -703,8 +734,8 @@ function CompletedSessionSummary({
                       deleteSetAction,
                     }}
                   />
-                ))}
-              </div>
+                )}
+              />
             )}
           </article>
         ))}
@@ -915,16 +946,27 @@ type EditSetProps = {
  * closed with fresh values, while a validation error keeps it open with the
  * message — no extra open/closed state machine needed.
  */
-function EditableSetRow({ set, edit }: { set: SetLog; edit: EditSetProps }) {
+function EditableSetRow({
+  set,
+  edit,
+  displayNumber,
+}: {
+  set: SetLog;
+  edit: EditSetProps;
+  displayNumber?: number;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [updateState, updateFormAction] = useActionState(edit.updateSetAction, initialEditSetState);
   const [deleteState, deleteFormAction] = useActionState(edit.deleteSetAction, initialEditSetState);
+  const shownNumber = displayNumber ?? set.setNumber;
 
   if (!isOpen) {
     return (
       <LoggedSetRow
         set={set}
+        targetRir={edit.targetRir}
+        displayNumber={displayNumber}
         action={
           <button
             type="button"
@@ -954,7 +996,7 @@ function EditableSetRow({ set, edit }: { set: SetLog; edit: EditSetProps }) {
       <input type="hidden" name="setLogId" value={set.id} />
       <input type="hidden" name="prescriptionType" value={edit.prescriptionType} />
 
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Corregir set {set.setNumber}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Corregir set {shownNumber}</p>
 
       {edit.isUnilateral ? (
         <div className="grid grid-cols-2 gap-2">
@@ -1032,7 +1074,7 @@ function EditableSetRow({ set, edit }: { set: SetLog; edit: EditSetProps }) {
       {isConfirmingDelete ? (
         <div className="grid gap-2 rounded-xl bg-zinc-900 p-3 ring-1 ring-amber-200/30">
           <p className="text-xs leading-5 text-amber-200">
-            ¿Borrar el set {set.setNumber}? Las series siguientes se renumeran. Si lo registraste en el ejercicio
+            ¿Borrar el set {shownNumber}? Las series siguientes se renumeran. Si lo registraste en el ejercicio
             equivocado, bórralo aquí y vuelve a registrarlo en el correcto.
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -1068,14 +1110,41 @@ function EditableSetRow({ set, edit }: { set: SetLog; edit: EditSetProps }) {
   );
 }
 
-function LoggedSetRow({ set, action }: { set: SetLog; action?: React.ReactNode }) {
+function LoggedSetRow({
+  set,
+  targetRir,
+  displayNumber,
+  action,
+}: {
+  set: SetLog;
+  // Only meaningful for a strength set with a real target to compare
+  // against — omitted entirely by callers with nothing sensible to compare
+  // (e.g. the single "Última vez" reference row, whose target may not match
+  // today's).
+  targetRir?: number | null;
+  // Overrides the shown set number for a row grouped into a per-side list
+  // (position within that side, not the shared/global setNumber, which
+  // interleaves both sides and would otherwise read as skipping numbers —
+  // e.g. "Set 1, Set 3" in the left column). Falls back to the stored
+  // setNumber when omitted.
+  displayNumber?: number;
+  action?: React.ReactNode;
+}) {
   const sideLabel = set.side !== "bilateral" ? ` · ${set.side === "left" ? "Izq" : "Der"}` : "";
+  const showRirTarget =
+    set.actualDurationSeconds === null && set.rir !== null && targetRir !== undefined && targetRir !== null;
+  const rirMismatch = showRirTarget && set.rir !== targetRir;
+  // RIR counts down to failure (0 = failed the set, 4+ = easy), so an actual
+  // *below* target means the set was harder than prescribed — the direction
+  // worth a second look. Actual above target (more left in the tank) isn't a
+  // caution, so it stays the same neutral color as every other number here.
+  const rirHarderThanTarget = rirMismatch && (set.rir as number) < (targetRir as number);
 
   return (
     <div className="rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-zinc-300">
-          Set {set.setNumber}
+          Set {displayNumber ?? set.setNumber}
           {sideLabel}
           {set.updatedAt !== null ? <span className="ml-1 text-xs text-zinc-500">· editado</span> : null}
         </span>
@@ -1087,8 +1156,12 @@ function LoggedSetRow({ set, action }: { set: SetLog; action?: React.ReactNode }
               </>
             ) : (
               <>
-                {formatKg(set.actualWeightKg!, 2)} × {set.actualReps} · RIR {formatStoredRir(set.rir ?? 0)} · dolor{" "}
-                {set.painScore}
+                {formatKg(set.actualWeightKg!, 2)} × {set.actualReps} · RIR{" "}
+                <span className={rirHarderThanTarget ? "text-amber-200" : undefined}>
+                  {formatStoredRir(set.rir ?? 0)}
+                  {rirMismatch ? ` (obj. ${formatStoredRir(targetRir as number)})` : ""}
+                </span>{" "}
+                · dolor {set.painScore}
               </>
             )}
           </span>
@@ -1096,6 +1169,62 @@ function LoggedSetRow({ set, action }: { set: SetLog; action?: React.ReactNode }
         </span>
       </div>
       {set.notes ? <p className="mt-1 text-xs leading-5 text-zinc-400">{set.notes}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * Renders a set list either flat (bilateral) or split into two labeled,
+ * independently-numbered groups (unilateral) — one component so the live
+ * session list, the completed-session summary, and the "última vez" history
+ * all group the same way instead of drifting into three slightly different
+ * layouts. Side groups are derived here at render time via a plain filter
+ * (mirroring how leftCount/rightCount are already computed above) rather
+ * than persisted anywhere, so nothing downstream that depends on the
+ * original setNumber-ordered array is affected.
+ */
+function LoggedSetsList({
+  sets,
+  isUnilateral,
+  targetSets,
+  className,
+  renderRow,
+}: {
+  sets: SetLog[];
+  isUnilateral: boolean;
+  targetSets: number;
+  className: string;
+  renderRow: (set: SetLog, displayNumber?: number) => React.ReactNode;
+}) {
+  if (sets.length === 0) {
+    return null;
+  }
+
+  if (!isUnilateral) {
+    return <div className={className}>{sets.map((set) => renderRow(set))}</div>;
+  }
+
+  const leftSets = sets.filter((set) => set.side === "left");
+  const rightSets = sets.filter((set) => set.side === "right");
+
+  return (
+    <div className={className}>
+      {leftSets.length > 0 ? (
+        <div className="grid gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Izquierda · {leftSets.length}/{targetSets}
+          </p>
+          {leftSets.map((set, index) => renderRow(set, index + 1))}
+        </div>
+      ) : null}
+      {rightSets.length > 0 ? (
+        <div className="grid gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Derecha · {rightSets.length}/{targetSets}
+          </p>
+          {rightSets.map((set, index) => renderRow(set, index + 1))}
+        </div>
+      ) : null}
     </div>
   );
 }

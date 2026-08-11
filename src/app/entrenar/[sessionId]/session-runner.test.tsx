@@ -34,6 +34,29 @@ const template: PlanSessionTemplate = {
   mobilityNotesEs: "Movilidad.",
 };
 
+// LoggedSetRow wraps the RIR digit in its own <span> (so a harder-than-target
+// set can be colored independently), which splits what used to be one text
+// node across an element boundary — getByText's default matcher only looks
+// at an element's own direct text, so a plain regex stops matching across
+// that boundary. This matches on the full normalized textContent instead,
+// same fix testing-library's own error message for "text broken up by
+// multiple elements" recommends.
+function byNormalizedText(expected: RegExp) {
+  return (_content: string, element: Element | null) => {
+    if (!element) {
+      return false;
+    }
+    const normalized = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (!expected.test(normalized)) {
+      return false;
+    }
+    return Array.from(element.children).every((child) => {
+      const childText = child.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      return !expected.test(childText);
+    });
+  };
+}
+
 function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
   return {
     id: "session-1",
@@ -218,7 +241,9 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText(/82\.5kg × 9 · RIR 1 · dolor 2/)).toBeVisible();
+    // rir: 1 against the exercise's default targetRir of 2 is harder than
+    // prescribed, so the row now shows the target alongside the actual.
+    expect(screen.getByText(byNormalizedText(/82\.5kg × 9 · RIR 1 \(obj\. 2\) · dolor 2/))).toBeVisible();
     expect(screen.getByText("Hombro un poco inestable en la última rep.")).toBeVisible();
     expect(screen.getByText("Series objetivo completadas para este ejercicio.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Guardar set/ })).toBeNull();
@@ -365,7 +390,10 @@ describe("SessionRunner", () => {
     renderRunner({ exercises: [exercise] });
 
     expect(screen.getByText(/Última vez/)).toBeVisible();
-    expect(screen.getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(1);
+    // One as the single "Última vez · Set 1" reference row, plus both prior
+    // sets again inside the (collapsed-by-default) "ver todas las series"
+    // history — see the dedicated test below for that disclosure itself.
+    expect(screen.getAllByText(byNormalizedText(/80kg × 12 · RIR 2 · dolor 0/))).toHaveLength(3);
     expect(screen.getByText(/Sube carga/)).toBeVisible();
     expect(screen.getByText(/84kg/)).toBeVisible();
 
@@ -376,6 +404,117 @@ describe("SessionRunner", () => {
       "href",
       "/guia?open=matematica",
     );
+  });
+
+  it("flags a logged set's RIR against target — amber only when it came in harder than prescribed", () => {
+    const exercise = buildExercise({
+      targetSets: 3,
+      targetRir: 2,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1, actualReps: 6, rir: 1 }), // harder than target
+        buildSet({ id: "s2", setNumber: 2, actualReps: 7, rir: 3 }), // easier than target
+        buildSet({ id: "s3", setNumber: 3, actualReps: 8, rir: 2 }), // on target
+      ],
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    expect(screen.getByText("1 (obj. 2)")).toHaveClass("text-amber-200");
+    expect(screen.getByText("3 (obj. 2)")).not.toHaveClass("text-amber-200");
+    expect(screen.getByText("2")).not.toHaveClass("text-amber-200");
+  });
+
+  it("groups a unilateral exercise's logged sets by side with a running tally, numbered within each side", () => {
+    const exercise = buildExercise({
+      isUnilateral: true,
+      targetSets: 3,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1, side: "left" }),
+        buildSet({ id: "s2", setNumber: 2, side: "right" }),
+        buildSet({ id: "s3", setNumber: 3, side: "left" }),
+      ],
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    expect(screen.getByText("Izquierda · 2/3")).toBeVisible();
+    expect(screen.getByText("Derecha · 1/3")).toBeVisible();
+
+    // Numbered by position within its own side (1, 2), not the shared/global
+    // setNumber (1, 3) — a flat "Set 1, Set 3" in one column would read as a
+    // skipped set even though nothing is missing.
+    expect(screen.getByText(/^Set 1 · Izq$/)).toBeVisible();
+    expect(screen.getByText(/^Set 2 · Izq$/)).toBeVisible();
+    expect(screen.getByText(/^Set 1 · Der$/)).toBeVisible();
+    expect(screen.queryByText(/Set 3 · Izq/)).toBeNull();
+  });
+
+  it("keeps the full 'última vez' history collapsed by default, present in the DOM either way", () => {
+    const exercise = buildExercise({
+      targetSets: 2,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 12, rir: 2 }),
+          buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "82.50", actualReps: 10, rir: 1 }),
+        ],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    const summary = screen.getByText("Ver las 2 series de la vez pasada");
+    expect(summary).toBeVisible();
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    // Native <details> keeps its content in the DOM while closed — the
+    // second prior set is findable without opening anything, proving
+    // nothing from the fully-loaded history is being silently dropped.
+    expect(screen.getByText(byNormalizedText(/82\.5kg × 10/))).toBeInTheDocument();
+
+    fireEvent.click(summary);
+
+    expect(summary.closest("details")).toHaveAttribute("open");
+  });
+
+  it("resets the 'última vez' history disclosure to closed when moving to another exercise", () => {
+    const previousPerformance = {
+      sessionId: "session-previous",
+      prescriptionType: "strength" as const,
+      targetRepMax: 12,
+      targetSets: 1,
+      isUnilateral: false,
+      sets: [buildSet({ id: "prev-1", setNumber: 1 })],
+    };
+    const exerciseA = buildExercise({
+      id: "exercise-a",
+      exerciseNameEs: "Prensa de piernas",
+      targetSets: 1,
+      loggedSets: [],
+      previousPerformance,
+    });
+    const exerciseB = buildExercise({
+      id: "exercise-b",
+      exerciseNameEs: "Extensión de piernas",
+      targetSets: 1,
+      loggedSets: [],
+      previousPerformance,
+    });
+
+    renderRunner({ exercises: [exerciseA, exerciseB] });
+
+    const summaryOnA = screen.getByText("Ver la serie de la vez pasada");
+    fireEvent.click(summaryOnA);
+    expect(summaryOnA.closest("details")).toHaveAttribute("open");
+
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente ejercicio" }));
+
+    const summaryOnB = screen.getByText("Ver la serie de la vez pasada");
+    expect(summaryOnB.closest("details")).not.toHaveAttribute("open");
   });
 
   it("shows a risk-flag badge when the previous set's notes flag technique or discomfort", () => {
