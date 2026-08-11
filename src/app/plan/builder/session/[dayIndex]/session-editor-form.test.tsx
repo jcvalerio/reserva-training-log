@@ -58,8 +58,20 @@ describe("SessionEditorForm", () => {
 
     expect(screen.getByDisplayValue("Pierna")).toBeVisible();
     expect(screen.getByDisplayValue("Cuádriceps")).toBeVisible();
-    expect(screen.getByDisplayValue("Prensa de piernas")).toBeVisible();
-    expect(screen.getByDisplayValue("Máquina equivalente")).toBeVisible();
+
+    // An exercise that already has a name starts collapsed (see the `open`
+    // comment on ExerciseRowFields) — its name still reads at a glance from
+    // the closed row's summary line, without opening it...
+    // { selector: "span" } disambiguates from the identically-named catalog
+    // entry that also renders as "Prensa de piernas" inside the (hidden)
+    // Grupo muscular <option> further down this same collapsed card.
+    expect(screen.getByText("Prensa de piernas", { selector: "span" })).toBeVisible();
+    // ...while a field further down (inside the nested "Clasificación y
+    // notas" disclosure) is present and correctly value-carrying, just not
+    // currently on screen. Native <details> keeps hidden content in the DOM
+    // — it still submits with the form — so this only needs `toBeInTheDocument`,
+    // not `toBeVisible`.
+    expect(screen.getByDisplayValue("Máquina equivalente")).toBeInTheDocument();
   });
 
   it("switches between strength and duration fields when the exercise type changes", () => {
@@ -262,6 +274,121 @@ describe("SessionEditorForm", () => {
     fireEvent.change(screen.getByLabelText("Nombre del ejercicio"), { target: { value: "Ejercicio inventado" } });
     fireEvent.blur(screen.getByLabelText("Nombre del ejercicio"));
     expect(screen.getByLabelText("Series")).toHaveValue(4);
+  });
+
+  it("starts an already-named exercise collapsed, expanding it on tap", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs="Pierna"
+        initialFocus="Cuádriceps"
+        initialExercises={[
+          {
+            exerciseId: null,
+            exerciseNameEs: "Prensa de piernas",
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 4,
+            targetRepMin: 8,
+            targetRepMax: 12,
+            targetRir: 2,
+            durationSeconds: null,
+            restSeconds: 150,
+            notesEs: "",
+            painSensitive: false,
+            substitutionOptionsEs: [],
+            loadMechanism: null,
+            isCompound: null,
+          },
+        ]}
+        knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
+      />,
+    );
+
+    // The collapsed summary line composes from the row's own values without
+    // opening it.
+    expect(screen.getByText("Fuerza · 4×8-12")).toBeVisible();
+    expect(screen.getByDisplayValue("Prensa de piernas")).not.toBeVisible();
+
+    fireEvent.click(screen.getByText("Prensa de piernas", { selector: "span" }));
+
+    expect(screen.getByDisplayValue("Prensa de piernas")).toBeVisible();
+  });
+
+  it("does not expand a collapsed card when clicking its reorder buttons", () => {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[
+          {
+            exerciseId: null,
+            exerciseNameEs: "Primero",
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 3,
+            targetRepMin: 8,
+            targetRepMax: 12,
+            targetRir: 2,
+            durationSeconds: null,
+            restSeconds: 90,
+            notesEs: "",
+            painSensitive: false,
+            substitutionOptionsEs: [],
+            loadMechanism: null,
+            isCompound: null,
+          },
+          {
+            exerciseId: null,
+            exerciseNameEs: "Segundo",
+            phase: "main",
+            isUnilateral: false,
+            prescriptionType: "strength",
+            targetSets: 3,
+            targetRepMin: 8,
+            targetRepMax: 12,
+            targetRir: 2,
+            durationSeconds: null,
+            restSeconds: 90,
+            notesEs: "",
+            painSensitive: false,
+            substitutionOptionsEs: [],
+            loadMechanism: null,
+            isCompound: null,
+          },
+        ]}
+        knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("Primero")).not.toBeVisible();
+
+    // Both reorder buttons and the delete button live inside the same
+    // clickable <summary> as the toggle — this checks their onClick handlers
+    // actually call preventDefault so a tap on them reorders/removes without
+    // also popping the card open as a side effect.
+    fireEvent.click(screen.getAllByRole("button", { name: "Mover abajo" })[0] as HTMLElement);
+
+    expect(
+      screen.getAllByLabelText("Nombre del ejercicio").map((input) => (input as HTMLInputElement).value),
+    ).toEqual(["Segundo", "Primero"]);
+    expect(screen.getByDisplayValue("Primero")).not.toBeVisible();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[0] as HTMLElement);
+
+    expect(screen.getAllByLabelText("Nombre del ejercicio").map((input) => (input as HTMLInputElement).value)).toEqual([
+      "Primero",
+    ]);
+    expect(screen.getByDisplayValue("Primero")).not.toBeVisible();
   });
 
   it("reorders exercise rows with the up/down buttons", () => {
