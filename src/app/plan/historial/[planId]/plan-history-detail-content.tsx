@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { formatShortDateEs } from "@/lib/format";
 import { PLAN_STATUS_LABEL_ES, PLAN_STATUS_PILL_CLASS } from "@/plans/plan-history";
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
@@ -37,6 +39,29 @@ export function PlanHistoryDetailContent({
         <StatTile label="Sesiones" value={String(stats.sessionCount)} />
         <StatTile label="Días/sem" value={String(plan.daysPerWeek)} />
       </section>
+
+      {/* "Tus planes" lists the draft, so this detail page is where you land
+          looking for it — but every action that can clear a draft lives in
+          the builder, and nothing here used to point there. That dead end is
+          why an unfinished draft could silently block editing the active
+          plan with no visible way out. */}
+      {plan.status === "draft" ? (
+        <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-sky-300/30" aria-labelledby="draft-actions-title">
+          <p id="draft-actions-title" className="text-sm font-semibold text-sky-200">
+            Este plan es un borrador
+          </p>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">
+            Mientras exista, no puedes editar ni duplicar tu plan activo. Termínalo y actívalo, o descártalo, desde el
+            editor.
+          </p>
+          <Link
+            href="/plan/builder"
+            className="mt-4 block rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+          >
+            Ir al editor
+          </Link>
+        </section>
+      ) : null}
 
       <div className="mt-3 grid gap-1 text-xs text-zinc-400">
         {stats.firstSessionAt ? (

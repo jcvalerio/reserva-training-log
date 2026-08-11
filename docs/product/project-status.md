@@ -57,6 +57,7 @@ Each of these has cost real rework at least once.
 - **Icons come from `lucide-react`** (added 2026-08-09, when the previous no-icon-library rule was lifted).
 - **The body-map artwork is vendored, not depended on** (`body-map-geometry.ts`, MIT, notice retained). Anatomy is static, the upstream package is stale, and no library expresses the lateral-vs-posterior deltoid split the taxonomy needs.
 - **`targetSets` means sets per side** for unilateral exercises, not a shared total.
+- **There is one draft plan at a time, and that constraint must always be visible where it bites.** A draft blocks both editing and duplicating the active plan (`revertActivePlanToDraft`, `cloneWorkoutPlanToDraft` both refuse). On 2026-08-10 this stranded a real user for weeks: the refusal redirected to a `?error=` that `/plan` never rendered, and the builder that could clear the draft was only ever linked as "Crear mi propio plan". If a server action can refuse, the page it returns to must say so and link to the way out — a silent redirect back to an identical page is indistinguishable from a broken button.
 - **No new dependency without asking.**
 
 ## Where things live

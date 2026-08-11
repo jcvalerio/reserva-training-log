@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { cloneWorkoutPlanToDraft, revertActivePlanToDraft } from "@/plans/plan-builder-repository";
+import {
+  cloneWorkoutPlanToDraft,
+  getDraftPlanForProfile,
+  revertActivePlanToDraft,
+} from "@/plans/plan-builder-repository";
 import { activateSeededPlanForProfile, getActivePlanForProfile } from "@/plans/plan-repository";
 import { isPlanTemplateId } from "@/plans/plan-templates";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
@@ -37,6 +41,16 @@ export async function editActivePlanAction() {
     redirect("/perfil");
   }
 
+  // Checked up front rather than left to revertActivePlanToDraft's throw, so
+  // /plan can name the one blocker that is both common and recoverable — a
+  // leftover draft — instead of showing the same dead-end message for every
+  // failure. An already-open draft is the reason this button does nothing
+  // until the draft is finished or discarded.
+  const existingDraft = await getDraftPlanForProfile(profile.id);
+  if (existingDraft) {
+    redirect("/plan?error=draft_exists");
+  }
+
   try {
     await revertActivePlanToDraft(profile.id);
   } catch {
@@ -60,6 +74,13 @@ export async function cloneActivePlanAction() {
   const active = await getActivePlanForProfile(profile.id);
   if (!active) {
     redirect("/plan");
+  }
+
+  // Same leftover-draft blocker as editActivePlanAction, same reason to name
+  // it explicitly — cloneWorkoutPlanToDraft refuses for exactly this case too.
+  const existingDraft = await getDraftPlanForProfile(profile.id);
+  if (existingDraft) {
+    redirect("/plan?error=draft_exists");
   }
 
   try {

@@ -9,6 +9,8 @@ import { FormStatusBanner } from "../form-status-banner";
 import { SubmitButton } from "../submit-button";
 import { YoutubeTechniqueLink } from "../youtube-technique-link";
 
+export type PlanActionErrorType = "draft_exists" | "edit_active" | "duplicate_active";
+
 export function PlanPageContent({
   readiness,
   gate,
@@ -17,6 +19,8 @@ export function PlanPageContent({
   activePlanError,
   activatedAt,
   justSaved,
+  errorType,
+  draftName,
   editActivePlanAction,
   cloneActivePlanAction,
 }: {
@@ -27,6 +31,8 @@ export function PlanPageContent({
   activePlanError: boolean;
   activatedAt: Date | null;
   justSaved: boolean;
+  errorType: PlanActionErrorType | null;
+  draftName: string | null;
   editActivePlanAction: () => Promise<void>;
   cloneActivePlanAction: () => Promise<void>;
 }) {
@@ -59,6 +65,8 @@ export function PlanPageContent({
         error={false}
         savedMessage="Tu plan quedó activado. Puedes revisarlo aquí cuando quieras."
       />
+
+      {errorType ? <PlanActionErrorNotice errorType={errorType} /> : null}
 
       {hasActivePlan ? null : (
         <>
@@ -114,11 +122,17 @@ export function PlanPageContent({
         ) : activePlanError ? (
           <ActivePlanErrorNotice editActivePlanAction={editActivePlanAction} />
         ) : showStartFork ? (
-          <StartPlanFork />
+          <StartPlanFork draftName={draftName} />
         ) : null}
 
-        {activePlanError || showStartFork ? null : (
-          <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} />
+        {/* A draft has to stay reachable even in the states that otherwise
+            hide the builder entry, since it is what blocks editing above. */}
+        {activePlanError || showStartFork ? (
+          draftName ? (
+            <DraftInProgressEntry draftName={draftName} />
+          ) : null
+        ) : (
+          <CustomPlanBuilderEntry hasActivePlan={Boolean(activePlanPreview)} draftName={draftName} />
         )}
 
         <Link
@@ -176,11 +190,11 @@ function PlanChecklistItem({ step }: { step: M1ReadinessStep }) {
   );
 }
 
-function StartPlanFork() {
+function StartPlanFork({ draftName }: { draftName: string | null }) {
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-labelledby="start-plan-fork-title">
       <p id="start-plan-fork-title" className="text-sm font-semibold text-zinc-100">
-        ¿Cómo quieres empezar?
+        {draftName ? "Retoma tu borrador o empieza de otra forma" : "¿Cómo quieres empezar?"}
       </p>
       <p className="mt-2 text-sm leading-6 text-zinc-300">
         Elige una plantilla lista para usar o crea tu propia rutina desde cero. Ambas opciones son solo lectura hasta
@@ -197,9 +211,65 @@ function StartPlanFork() {
           href="/plan/builder"
           className="block rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
         >
-          Crear mi propio plan
+          {draftName ? "Continuar mi borrador" : "Crear mi propio plan"}
         </Link>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Standalone route back to the draft for the two states that render neither
+ * the start fork's nor CustomPlanBuilderEntry's link — without it, a broken
+ * active plan plus a draft leaves no labelled way to reach the builder at
+ * all, and the builder is the only screen that can discard or activate it.
+ */
+function DraftInProgressEntry({ draftName }: { draftName: string }) {
+  return (
+    <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-sky-300/30" aria-labelledby="draft-in-progress-title">
+      <p id="draft-in-progress-title" className="text-sm font-semibold text-sky-200">
+        Borrador en progreso
+      </p>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        Tienes «{draftName}» sin terminar. Actívalo o descártalo desde el editor.
+      </p>
+      <Link
+        href="/plan/builder"
+        className="mt-4 block rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        Continuar mi borrador
+      </Link>
+    </section>
+  );
+}
+
+// "Editar mi plan" and "Duplicar como borrador" both redirect back here with
+// an ?error= on failure. Until this rendered, /plan ignored that param
+// entirely and the redirect landed on a page identical to the one you left —
+// so a blocked edit looked exactly like a dead button, every single time.
+function PlanActionErrorNotice({ errorType }: { errorType: PlanActionErrorType }) {
+  const isDraftBlocked = errorType === "draft_exists";
+
+  return (
+    <section role="alert" className="mt-6 rounded-3xl bg-amber-300/10 p-4 ring-1 ring-amber-300/30">
+      <p className="text-sm font-semibold text-amber-200">
+        {isDraftBlocked ? "Ya tienes un borrador en progreso" : "No se pudo abrir tu plan"}
+      </p>
+      <p className="mt-1 text-sm leading-6 text-zinc-300">
+        {isDraftBlocked
+          ? "Solo puede haber un borrador a la vez. Actívalo o descártalo desde el editor y vuelve a intentar."
+          : errorType === "duplicate_active"
+            ? "No se pudo duplicar tu plan activo. Vuelve a intentar."
+            : "No se pudo pasar tu plan activo a borrador. Vuelve a intentar."}
+      </p>
+      {isDraftBlocked ? (
+        <Link
+          href="/plan/builder"
+          className="mt-4 block rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+        >
+          Ir a mi borrador
+        </Link>
+      ) : null}
     </section>
   );
 }
@@ -223,7 +293,13 @@ function ActivePlanErrorNotice({ editActivePlanAction }: { editActivePlanAction:
   );
 }
 
-function CustomPlanBuilderEntry({ hasActivePlan }: { hasActivePlan: boolean }) {
+function CustomPlanBuilderEntry({ hasActivePlan, draftName }: { hasActivePlan: boolean; draftName: string | null }) {
+  // An unfinished draft outranks the generic "build your own" pitch: it is
+  // the thing standing between her and editing her active plan.
+  if (draftName) {
+    return <DraftInProgressEntry draftName={draftName} />;
+  }
+
   return (
     <section className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-labelledby="custom-plan-builder-title">
       <p id="custom-plan-builder-title" className="text-sm font-semibold text-zinc-100">

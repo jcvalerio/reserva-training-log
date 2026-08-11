@@ -1,15 +1,16 @@
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getM1Readiness } from "@/onboarding/readiness";
+import { getDraftPlanForProfile } from "@/plans/plan-builder-repository";
 import { getNonAiPlanGate } from "@/plans/plan-gate";
 import { getPlanPreviewSummary } from "@/plans/plan-preview";
 import { getActivePlanForProfile, toGeneratedWorkoutPlan } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 import { cloneActivePlanAction, editActivePlanAction } from "./actions";
-import { PlanPageContent } from "./plan-page-content";
+import { PlanPageContent, type PlanActionErrorType } from "./plan-page-content";
 
 type PlanPageProps = {
-  searchParams?: Promise<{ saved?: string }>;
+  searchParams?: Promise<{ saved?: string; error?: string }>;
 };
 
 export default async function PlanPage({ searchParams }: PlanPageProps) {
@@ -18,6 +19,11 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
   const params = searchParams ? await searchParams : {};
 
   const activePlan = profile ? await getActivePlanForProfile(profile.id) : null;
+  // A draft blocks both "Editar mi plan" and "Duplicar como borrador", so
+  // /plan has to say one exists. Until it did, the only entry point to the
+  // builder was labelled "Crear mi propio plan" — which reads as starting
+  // something new, not as resuming the draft that is holding everything up.
+  const draftPlan = profile ? await getDraftPlanForProfile(profile.id) : null;
 
   const readiness = getM1Readiness({ hasProfile: Boolean(profile), hasActivePlan: Boolean(activePlan) });
   const gate = getNonAiPlanGate(readiness);
@@ -38,6 +44,11 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
     }
   }
 
+  const errorType: PlanActionErrorType | null =
+    params.error === "draft_exists" || params.error === "edit_active" || params.error === "duplicate_active"
+      ? params.error
+      : null;
+
   return (
     <PlanPageContent
       readiness={readiness}
@@ -47,6 +58,8 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
       activePlanError={activePlanError}
       activatedAt={activePlan?.plan.activatedAt ?? null}
       justSaved={params.saved === "1"}
+      errorType={errorType}
+      draftName={draftPlan?.plan.nameEs ?? null}
       editActivePlanAction={editActivePlanAction}
       cloneActivePlanAction={cloneActivePlanAction}
     />

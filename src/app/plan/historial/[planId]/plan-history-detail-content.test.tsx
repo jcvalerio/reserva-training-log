@@ -89,4 +89,28 @@ describe("PlanHistoryDetailContent", () => {
 
     expect(screen.getByRole("link", { name: "← Volver a Tus planes" })).toHaveAttribute("href", "/plan/historial");
   });
+
+  it("routes a draft to the builder, the only screen that can activate or discard it", () => {
+    render(
+      <PlanHistoryDetailContent
+        plan={buildPlan({ status: "draft", activatedAt: null })}
+        stats={buildStats({ sessionCount: 0, firstSessionAt: null, lastSessionAt: null })}
+        preview={preview}
+        previewError={false}
+      />,
+    );
+
+    // "Tus planes" links a draft here, so this was the screen you reached
+    // hunting for a way to discard one — and it offered no action at all,
+    // stranding the draft that blocks editing the active plan.
+    expect(screen.getByText("Este plan es un borrador")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ir al editor" })).toHaveAttribute("href", "/plan/builder");
+  });
+
+  it("does not offer the builder route for plans that are not drafts", () => {
+    render(<PlanHistoryDetailContent plan={buildPlan()} stats={buildStats()} preview={preview} previewError={false} />);
+
+    expect(screen.queryByText("Este plan es un borrador")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Ir al editor" })).toBeNull();
+  });
 });

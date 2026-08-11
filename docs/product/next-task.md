@@ -2,7 +2,15 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: `setLog.painLocation` — shipped, deployed and committed (`5217545`).
+## Status: plan editing unblocked — shipped and deployed.
+
+**Editar mi plan** silently did nothing in production for whoever had a leftover draft, because a draft blocks the edit and nothing on any screen said so — `/plan` dropped the `?error=` on the floor, and the only route to the builder that could clear the draft was labelled "Crear mi propio plan". `/plan` now names the draft, links to it, and reports why the action failed; `/plan/historial/[planId]` no longer dead-ends on a draft.
+
+Note for whoever hits something like this again: the discard button already existed at `/plan/builder` the whole time. The bug was navigation and silence, not capability — reaching that URL directly was the fix on the pre-deploy build.
+
+Open decision: should **Editar mi plan** *adopt* an existing draft instead of refusing? Left as a refusal on purpose — auto-discarding someone's unfinished work to unstick a button is data loss, and adopting it is a product call. The refusal is at least visible now.
+
+## Prior status: `setLog.painLocation` — shipped, deployed and committed (`5217545`).
 
 Logging a set with pain above 0 now asks **where it hurts**: the seven joints, plus "Muscular (agujetas)" and "Otro". Below 0 pain nothing appears, so the normal flow is unchanged. `/progreso` states located pain plainly and marks older sets "(estimado)", since those can only be inferred from the joints an exercise loads.
 

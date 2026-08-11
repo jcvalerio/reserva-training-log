@@ -2,6 +2,33 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-10 — "Editar mi plan" did nothing: a draft nobody could reach blocked editing, silently
+
+Status: shipped. Deployed via `npx vercel deploy --prod --yes` (`dpl_CWf55H9zZL1TUvgnwBzoLX6XxGCP`, aliased to `gym.jcvalerio.com`, `/plan` 307-to-auth confirmed live) before committing, `lint`/`typecheck`/`test` (441 passing, +7 new)/`build` all green. No migration — UI and navigation only. Zero active sessions before deploying.
+
+Reported from real use: Athlete B could not edit her active plan in production, and had been unable to for some time. Tapping **Editar mi plan** appeared to do nothing at all.
+
+**Two independent bugs stacked into one invisible wall.** Neither alone would have been more than an annoyance.
+
+1. **The failure was silenced.** `editActivePlanAction` catches any throw from `revertActivePlanToDraft` and redirects to `/plan?error=edit_active` — but `/plan/page.tsx` destructured only `saved` from `searchParams`, and `plan-page-content.tsx` passed a hardcoded `error={false}` into `FormStatusBanner`. The redirect therefore landed on a page byte-identical to the one you left. A blocked action was indistinguishable from a dead button. `cloneActivePlanAction` had the identical bug via `duplicate_active`.
+2. **The blocker was unreachable.** `revertActivePlanToDraft` refuses while a draft exists (one draft at a time, enforced at app level). She had one. Every screen that could clear it lives in `/plan/builder` — which already shipped a working **Descartar borrador** and **Activar este plan** — but *nothing linked there in a way that said so*. `/plan`'s only route to the builder was labelled "Crear mi propio plan", which reads as starting over, not as resuming the thing holding everything up. `/plan/historial` lists the draft, and its detail page (`/plan/historial/[planId]`) is where you land hunting for a discard button — and it was entirely read-only, offering no action whatsoever.
+
+So the draft was visible, permanent, and unactionable, and the button it blocked failed without a word. Diagnosed from the `303` → `/plan?error=edit_active` the user captured from the live server action; the production DB still cannot be queried directly (`DATABASE_URL` is Sensitive in Vercel), so the leftover draft was confirmed by the user observing it in the UI rather than by query.
+
+**The capability was never missing — only the signage.** Worth remembering before writing new code next time: the fix that actually unblocked her on the *old* production build was navigating to `/plan/builder` by URL. Everything below exists so nobody has to be told that.
+
+What changed:
+
+- `/plan` now reads `?error=` and renders a `role="alert"` notice. The common, recoverable case gets its own code — `draft_exists`, checked up front in both actions rather than collapsed into a generic catch — so the page can name the blocker and link straight to it instead of showing one dead-end message for every failure.
+- `/plan` fetches the draft and, when one exists, replaces the generic "¿Prefieres tu propia rutina?" pitch with **Borrador en progreso**, naming the draft and linking to the builder. A standalone entry covers the two states that render neither the start fork nor the builder pitch — notably a broken active plan plus a draft, which otherwise had no labelled route to the builder at all.
+- `/plan/historial/[planId]` routes a draft to the editor, ending the read-only dead end.
+
+**Deliberately did NOT auto-discard the blocking draft** to make Editar "just work". That draft may be real unfinished work; silently deleting it to unstick a button trades a visible bug for invisible data loss. Adopting the existing draft instead of blocking is a reasonable future call, but it is a product decision, not a bug fix.
+
+Files touched: `src/app/plan/actions.ts`, `src/app/plan/page.tsx`, `src/app/plan/plan-page-content.tsx` (+5 tests), `src/app/plan/historial/[planId]/plan-history-detail-content.tsx` (+2 tests), plus `errorType`/`draftName` added to the seven existing `PlanPageContent` fixtures.
+
+Next iteration: decide whether **Editar mi plan** should adopt an existing draft rather than refuse — now answerable, because the refusal is finally visible to the person hitting it.
+
 ## 2026-08-09 — setLog.painLocation: pain by location becomes a measurement instead of an inference
 
 Status: shipped. Committed as `5217545` on `main` (`feat: record where it hurts, not just how much`), `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, new `/guia` pain copy confirmed in the production HTML). Zero active sessions before deploying.

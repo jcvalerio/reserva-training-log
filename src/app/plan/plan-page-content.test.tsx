@@ -28,6 +28,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={null}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -65,6 +67,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={null}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -95,6 +99,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={true}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -127,6 +133,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -153,6 +161,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -179,6 +189,8 @@ describe("PlanPageContent", () => {
         activePlanError={false}
         activatedAt={new Date("2026-07-20T12:00:00Z")}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -206,6 +218,8 @@ describe("PlanPageContent", () => {
         activePlanError={true}
         activatedAt={null}
         justSaved={false}
+        errorType={null}
+        draftName={null}
         editActivePlanAction={noopEditActivePlanAction}
         cloneActivePlanAction={noopCloneActivePlanAction}
       />,
@@ -218,5 +232,138 @@ describe("PlanPageContent", () => {
     // The pre-plan gate/checklist is onboarding-only; an active-but-broken
     // plan is a different state, already communicated by the notice above.
     expect(screen.queryByText("Estado seguro")).toBeNull();
+  });
+
+  it("explains why editing did nothing when a leftover draft blocks it, and links to that draft", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        errorType="draft_exists"
+        draftName="Rutina de Ana"
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    // The regression this guards: /plan used to drop ?error= on the floor, so
+    // "Editar mi plan" redirected back to an identical page and read as a
+    // broken button rather than a blocked action with a way out.
+    expect(screen.getByRole("alert")).toHaveTextContent("Ya tienes un borrador en progreso");
+    expect(screen.getByRole("link", { name: "Ir a mi borrador" })).toHaveAttribute("href", "/plan/builder");
+  });
+
+  it("reports a failed edit or duplicate without offering a draft link there is no draft for", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        errorType="duplicate_active"
+        draftName={null}
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo duplicar tu plan activo");
+    expect(screen.queryByRole("link", { name: "Ir a mi borrador" })).toBeNull();
+  });
+
+  it("surfaces an unfinished draft as its own entry point instead of a generic build-your-own pitch", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        errorType={null}
+        draftName="Rutina de Ana"
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    // The dead end this guards: the draft blocks "Editar mi plan", but the
+    // only route to the builder that can clear it was labelled "Crear mi
+    // propio plan" — which reads as starting over, not as resuming.
+    expect(screen.getByText("Borrador en progreso")).toBeVisible();
+    expect(screen.getByText(/Rutina de Ana/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Continuar mi borrador" })).toHaveAttribute("href", "/plan/builder");
+    expect(screen.queryByRole("link", { name: "Crear mi propio plan" })).toBeNull();
+  });
+
+  it("keeps the draft reachable even when the active plan is too broken to render", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+    const gate = getNonAiPlanGate(readiness);
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={null}
+        activePlanError={true}
+        activatedAt={null}
+        justSaved={false}
+        errorType={null}
+        draftName="Rutina de Ana"
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    // This state renders neither the start fork nor CustomPlanBuilderEntry,
+    // so without a standalone entry there is no labelled way to the builder.
+    expect(screen.getByRole("link", { name: "Continuar mi borrador" })).toHaveAttribute("href", "/plan/builder");
+  });
+
+  it("still shows the plain build-your-own entry when there is no draft", () => {
+    const readiness = getM1Readiness({ hasProfile: true, hasActivePlan: true });
+    const gate = getNonAiPlanGate(readiness);
+    const activePlanPreview = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(
+      <PlanPageContent
+        readiness={readiness}
+        gate={gate}
+        showStartFork={false}
+        activePlanPreview={activePlanPreview}
+        activePlanError={false}
+        activatedAt={new Date("2026-07-20T12:00:00Z")}
+        justSaved={false}
+        errorType={null}
+        draftName={null}
+        editActivePlanAction={noopEditActivePlanAction}
+        cloneActivePlanAction={noopCloneActivePlanAction}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Crear mi propio plan" })).toHaveAttribute("href", "/plan/builder");
+    expect(screen.queryByText("Borrador en progreso")).toBeNull();
   });
 });
