@@ -2,6 +2,34 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-10 — `/entrenar`: compare logged RIR to target, group unilateral sets by side, expose full last-time history
+
+Status: shipped. Committed as `d2099fa` on `main`, `lint`/`typecheck`/`test` (447 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_CE7Ec1jfQht6gR89YnTFHfZDWVNG`, aliased to `gym.jcvalerio.com`; `/` and `/guia` 200, `/entrenar` and `/plan/builder` 307-to-auth confirmed live). No migration — presentation only. Held for an active workout session before deploying; re-checked and it had ended.
+
+Reported live, mid-workout: "I only see the first set and I'm unable to see if I was able to do the suggested RIR"; "when the exercise is unilateral the app only shows me the first set for one leg"; and a request to tap something like "last time" and see all of that session's sets, not just one. All three turned out to be a presentation gap, not a data gap — `getPreviousExercisePerformance` already fetched every prior set, and per-side counts already existed for the radio-button logic. Confirmed by two independent reviews (UX/UI and mobile engineering, same process as the plan-builder pass below) that converged on the same three fixes.
+
+- `LoggedSetRow` takes an optional `targetRir` and shows a mismatch inline (`RIR 1 (obj. 2)`), amber only when the actual RIR came in *below* target. RIR counts down to failure, so undershooting is the direction worth a second look; overshooting (more left in the tank) stays neutral-colored — both reviews flagged that a naive same-color-for-any-mismatch treatment would have gotten this backwards.
+- A new `LoggedSetsList` groups a unilateral exercise's sets into Izquierda/Derecha sections, each with its own `n/target` tally, numbered within that side rather than the shared global `setNumber` (which interleaves both sides and would otherwise print "Set 1, Set 3" in one column). One component, reused by the live session list, the completed-session summary, and the new last-time history.
+- "Última vez" gained a collapsed-by-default "ver todas las series" disclosure over the full `previousPerformance.sets` array, keyed on the exercise id so paging to the next exercise doesn't carry an earlier one's expanded state forward.
+
+Files touched: `src/app/entrenar/[sessionId]/session-runner.tsx` (+4 tests in `session-runner.test.tsx`).
+
+Next iteration: none flagged — this closes the three complaints as reported.
+
+## 2026-08-10 — Plan builder: collapsed exercise cards and labeled reorder buttons
+
+Status: shipped. Committed as `1e1ded3` on `main`, `lint`/`typecheck`/`test` (443 passing, +2 new)/`build` all green. Deployed together with the `/entrenar` fixes above via the same `npx vercel deploy --prod --yes`. No migration — presentation only.
+
+Reported with a screenshot: two unlabeled `↑`/`↓` arrow buttons next to "Eliminar" with no visible affordance, and a form that "gets lost scrolling up and down" through every field of every exercise plus three permanent helper paragraphs, always expanded. Reviewed the same way as the fix above — independent UX/UI and mobile-engineering passes, written blind to each other, which converged on the same recommendation from different angles (UX: reuses an established idiom and solves both complaints directly; engineering: zero new dependencies, the only proposal that left the uncontrolled-fields/single-submit form architecture untouched).
+
+- Each exercise now collapses to a summary line (name, sets×reps, muscle group) via the native `<details>/<summary>` accordion already used one screen up in this same builder flow. A blank row, or one just auto-filled from exercise history, opens automatically; an existing named exercise starts collapsed.
+- Reorder buttons became labeled `lucide-react` icons with real spacing before "Eliminar" — the two were previously adjacent with no gap, one mis-tap from an irreversible delete.
+- The three permanent helper paragraphs became tap-to-reveal disclosures; classification fields (muscle group, load mechanism, substitutions, notes, pain flag) nest into a secondary "Clasificación y notas" disclosure.
+
+Files touched: `src/app/plan/builder/session/[dayIndex]/session-editor-form.tsx` (+2 tests in `session-editor-form.test.tsx`).
+
+Next iteration: real drag-to-reorder was deliberately deferred — it would be this codebase's first drag-and-drop implementation, for a problem the icon relabel already solves without it. Revisit only if real use still shows reorder friction.
+
 ## 2026-08-10 — "Editar mi plan" did nothing: a draft nobody could reach blocked editing, silently
 
 Status: shipped. Deployed via `npx vercel deploy --prod --yes` (`dpl_CWf55H9zZL1TUvgnwBzoLX6XxGCP`, aliased to `gym.jcvalerio.com`, `/plan` 307-to-auth confirmed live) before committing, `lint`/`typecheck`/`test` (441 passing, +7 new)/`build` all green. No migration — UI and navigation only. Zero active sessions before deploying.

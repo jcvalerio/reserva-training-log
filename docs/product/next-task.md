@@ -2,7 +2,13 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: plan editing unblocked — shipped and deployed.
+## Status: `/entrenar` set-logging fixes and the plan builder redesign — both shipped and deployed.
+
+Three complaints reported live, mid-workout: on `/entrenar`, logging a set gave no way to tell whether you'd hit the suggested RIR, unilateral exercises read as showing only one leg, and "última vez" only ever surfaced one set from a fully-loaded prior-session history. On `/plan/builder`, the reorder arrows had no visible label next to a destructive "Eliminar", and every field of every exercise stayed expanded with three permanent helper paragraphs, so editing a session meant scrolling through a wall of text. Both were fixed the same way: an independent UX/UI review and a Principal-Mobile-Engineer review, written blind to each other, then a synthesis and implementation once they converged. Full detail in `implementation-log.md`.
+
+Deploy was held for roughly 15 minutes for an in-progress workout session before going out, per the constraint below.
+
+## Prior status: plan editing unblocked — shipped and deployed.
 
 **Editar mi plan** silently did nothing in production for whoever had a leftover draft, because a draft blocks the edit and nothing on any screen said so — `/plan` dropped the `?error=` on the floor, and the only route to the builder that could clear the draft was labelled "Crear mi propio plan". `/plan` now names the draft, links to it, and reports why the action failed; `/plan/historial/[planId]` no longer dead-ends on a draft.
 
