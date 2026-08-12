@@ -2,11 +2,22 @@
 
 import { useState } from "react";
 
+import { SessionMuscleThumbnail } from "@/app/plan/builder/session-muscle-thumbnail";
 import type { PlanPreviewSessionSummary } from "@/plans/plan-preview";
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { PlanExerciseCard } from "./plan-page-content";
 
-export function PlanDayPager({ sessions }: { sessions: PlanPreviewSessionSummary[] }) {
+export function PlanDayPager({
+  sessions,
+  muscleGroupsByDayIndex,
+}: {
+  sessions: PlanPreviewSessionSummary[];
+  /** Only /plan/rutina (the active plan) wires real classification through
+   *  today; omitted for other PlanDayPager callers (historial, templates)
+   *  rather than shown as an always-empty/inert thumbnail. */
+  muscleGroupsByDayIndex?: ReadonlyMap<number, MuscleGroup[]>;
+}) {
   const [dayIndex, setDayIndex] = useState(0);
   const session = sessions[dayIndex]!;
 
@@ -32,9 +43,16 @@ export function PlanDayPager({ sessions }: { sessions: PlanPreviewSessionSummary
       </div>
 
       <section className="mt-4 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Día {session.dayIndex}</p>
-        <h2 className="mt-1 text-xl font-semibold text-zinc-100">{session.nameEs}</h2>
-        <p className="mt-1 text-sm leading-5 text-zinc-400">{session.focus}</p>
+        <div className="flex items-start gap-3">
+          {muscleGroupsByDayIndex ? (
+            <SessionMuscleThumbnail muscleGroups={muscleGroupsByDayIndex.get(session.dayIndex) ?? []} />
+          ) : null}
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Día {session.dayIndex}</p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-100">{session.nameEs}</h2>
+            <p className="mt-1 text-sm leading-5 text-zinc-400">{session.focus}</p>
+          </div>
+        </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
           <span className="rounded-full bg-zinc-950 px-2 py-1 text-zinc-300 ring-1 ring-zinc-800">
             {session.exerciseCount} ejercicios

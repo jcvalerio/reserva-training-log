@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { exercisePrescription, planSessionTemplate, workoutPlan, workoutSession } from "@/db/schema";
-import { findCatalogEntryByName } from "@/training/muscle-taxonomy";
+import { exercise, exercisePrescription, planSessionTemplate, workoutPlan, workoutSession } from "@/db/schema";
+import { findCatalogEntryByName, type MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { generatedWorkoutPlanSchema, type GeneratedWorkoutPlan } from "./generated-plan-schema";
 import type { PlanHistoryRow } from "./plan-history";
@@ -79,6 +79,27 @@ export async function getActivePlanForProfile(athleteProfileId: string): Promise
       exercises: exercisesByTemplateId.get(template.id) ?? [],
     })),
   };
+}
+
+/**
+ * The catalog-link half of classifySessionMuscleGroups' resolution order,
+ * for the plan-builder and full-plan-view body-map thumbnails — batched
+ * across every exercise in a plan in one query rather than N+1 per
+ * prescription.
+ */
+export async function getPrimaryMuscleGroupsByExerciseIds(
+  exerciseIds: string[],
+): Promise<Map<string, MuscleGroup | null>> {
+  if (exerciseIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({ id: exercise.id, primaryMuscleGroup: exercise.primaryMuscleGroup })
+    .from(exercise)
+    .where(inArray(exercise.id, exerciseIds));
+
+  return new Map(rows.map((row) => [row.id, row.primaryMuscleGroup]));
 }
 
 /** Ownership-scoped lookup for the plan-history detail page — any status. */

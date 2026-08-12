@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutPlan } from "@/db/schema";
-import { findCatalogEntryByName, type MuscleGroup } from "@/training/muscle-taxonomy";
+import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutPlan } from "@/db/schema";
+import { findCatalogEntryByName } from "@/training/muscle-taxonomy";
 
 import type {
   PlanBuilderExerciseInput,
@@ -167,26 +167,6 @@ export async function getDraftPlanSessions(planRow: WorkoutPlan): Promise<DraftP
       exercises: exercisesByTemplateId.get(template.id) ?? [],
     })),
   };
-}
-
-/**
- * The catalog-link half of classifySessionMuscleGroups' resolution order,
- * for the plan-builder body-map thumbnail — batched across every exercise in
- * the draft in one query rather than N+1 per prescription.
- */
-export async function getPrimaryMuscleGroupsByExerciseIds(
-  exerciseIds: string[],
-): Promise<Map<string, MuscleGroup | null>> {
-  if (exerciseIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await db
-    .select({ id: exercise.id, primaryMuscleGroup: exercise.primaryMuscleGroup })
-    .from(exercise)
-    .where(inArray(exercise.id, exerciseIds));
-
-  return new Map(rows.map((row) => [row.id, row.primaryMuscleGroup]));
 }
 
 export async function createDraftPlan(

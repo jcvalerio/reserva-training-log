@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getDraftPlanForProfile, getPrimaryMuscleGroupsByExerciseIds } from "@/plans/plan-builder-repository";
+import { getDraftPlanForProfile } from "@/plans/plan-builder-repository";
+import { getPrimaryMuscleGroupsByExerciseIds } from "@/plans/plan-repository";
 import { classifySessionMuscleGroups } from "@/plans/session-muscle-groups";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 

@@ -46,4 +46,29 @@ describe("PlanDetailContent", () => {
     expect(screen.getByRole("heading", { name: summary.sessions[1]!.nameEs })).toBeVisible();
     expect(screen.getByRole("button", { name: "Anterior" })).not.toBeDisabled();
   });
+
+  it("shows no body-map thumbnail when the caller hasn't wired real classification", () => {
+    const summary = getPlanPreviewSummary(createSeededHypertrophyPlan());
+
+    render(<PlanDetailContent summary={summary} />);
+
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("shows the day's body-map thumbnail and swaps it when the day changes", () => {
+    const summary = getPlanPreviewSummary(createSeededHypertrophyPlan());
+    const [firstDay, secondDay] = summary.sessions;
+    const muscleGroupsByDayIndex = new Map([
+      [firstDay!.dayIndex, ["pecho" as const]],
+      [secondDay!.dayIndex, ["cuadriceps" as const]],
+    ]);
+
+    render(<PlanDetailContent summary={summary} muscleGroupsByDayIndex={muscleGroupsByDayIndex} />);
+
+    expect(screen.getByRole("img", { name: "Entrena Pecho" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: `Día ${secondDay!.dayIndex}` }));
+
+    expect(screen.getByRole("img", { name: "Entrena Cuádriceps" })).toBeVisible();
+  });
 });
