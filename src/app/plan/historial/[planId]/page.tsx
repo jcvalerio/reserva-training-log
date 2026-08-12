@@ -3,8 +3,15 @@ import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getDraftPlanSessions } from "@/plans/plan-builder-repository";
 import { getPlanPreviewSummary, type PlanPreviewSummary } from "@/plans/plan-preview";
-import { getPlanForProfile, getPlanSessionStats, toGeneratedWorkoutPlan } from "@/plans/plan-repository";
+import {
+  getPlanForProfile,
+  getPlanSessionStats,
+  getPrimaryMuscleGroupsByExerciseIds,
+  toGeneratedWorkoutPlan,
+} from "@/plans/plan-repository";
+import { classifySessionMuscleGroups } from "@/plans/session-muscle-groups";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { PlanHistoryDetailContent } from "./plan-history-detail-content";
 
@@ -30,13 +37,32 @@ export default async function PlanHistorialDetailPage({ params }: PlanHistorialD
 
   let preview: PlanPreviewSummary | null = null;
   let previewError = false;
+  let muscleGroupsByDayIndex: Map<number, MuscleGroup[]> | undefined;
   if (sessions.length > 0) {
     try {
       preview = getPlanPreviewSummary(toGeneratedWorkoutPlan({ plan, sessions }));
+      const exerciseIds = sessions.flatMap((session) =>
+        session.exercises.flatMap((prescription) => (prescription.exerciseId ? [prescription.exerciseId] : [])),
+      );
+      const linkedMuscleGroupByExerciseId = await getPrimaryMuscleGroupsByExerciseIds(exerciseIds);
+      muscleGroupsByDayIndex = new Map(
+        sessions.map((session) => [
+          session.template.dayIndex,
+          classifySessionMuscleGroups(session.exercises, linkedMuscleGroupByExerciseId),
+        ]),
+      );
     } catch {
       previewError = true;
     }
   }
 
-  return <PlanHistoryDetailContent plan={plan} stats={stats} preview={preview} previewError={previewError} />;
+  return (
+    <PlanHistoryDetailContent
+      plan={plan}
+      stats={stats}
+      preview={preview}
+      previewError={previewError}
+      muscleGroupsByDayIndex={muscleGroupsByDayIndex}
+    />
+  );
 }

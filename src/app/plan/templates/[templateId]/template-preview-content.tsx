@@ -1,4 +1,5 @@
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { AppShell } from "../../../app-shell";
 import { PlanDayPager } from "../../plan-day-pager";
@@ -9,11 +10,13 @@ export function TemplatePreviewContent({
   templateId,
   objectiveEs,
   summary,
+  muscleGroupsByDayIndex,
   activatePlanAction,
 }: {
   templateId: string;
   objectiveEs: string;
   summary: PlanPreviewSummary;
+  muscleGroupsByDayIndex?: ReadonlyMap<number, MuscleGroup[]>;
   activatePlanAction: (formData: FormData) => Promise<void>;
 }) {
   return (
@@ -68,7 +71,7 @@ export function TemplatePreviewContent({
         </div>
 
         <div className="mt-4">
-          <PlanDayPager sessions={summary.sessions} />
+          <PlanDayPager sessions={summary.sessions} muscleGroupsByDayIndex={muscleGroupsByDayIndex} />
         </div>
 
         <form action={activatePlanAction} className="mt-4">

@@ -72,6 +72,28 @@ describe("PlanHistoryDetailContent", () => {
     expect(screen.getByRole("tablist", { name: "Días del plan" })).toBeVisible();
   });
 
+  it("shows the body-map thumbnail when muscleGroupsByDayIndex is passed", () => {
+    const muscleGroupsByDayIndex = new Map([[preview.sessions[0]!.dayIndex, ["pecho" as const]]]);
+
+    render(
+      <PlanHistoryDetailContent
+        plan={buildPlan()}
+        stats={buildStats()}
+        preview={preview}
+        previewError={false}
+        muscleGroupsByDayIndex={muscleGroupsByDayIndex}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Entrena Pecho" })).toBeVisible();
+  });
+
+  it("shows no body-map thumbnail when muscleGroupsByDayIndex is not passed", () => {
+    render(<PlanHistoryDetailContent plan={buildPlan()} stats={buildStats()} preview={preview} previewError={false} />);
+
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
   it("shows an error message when the plan failed to preview instead of crashing", () => {
     render(<PlanHistoryDetailContent plan={buildPlan()} stats={buildStats()} preview={null} previewError={true} />);
 

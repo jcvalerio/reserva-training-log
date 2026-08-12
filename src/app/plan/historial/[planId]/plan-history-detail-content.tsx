@@ -4,6 +4,7 @@ import { formatShortDateEs } from "@/lib/format";
 import { PLAN_STATUS_LABEL_ES, PLAN_STATUS_PILL_CLASS } from "@/plans/plan-history";
 import type { PlanPreviewSummary } from "@/plans/plan-preview";
 import type { PlanSessionStats, WorkoutPlan } from "@/plans/plan-repository";
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { AppShell } from "../../../app-shell";
 import { PlanDayPager } from "../../plan-day-pager";
@@ -13,11 +14,13 @@ export function PlanHistoryDetailContent({
   stats,
   preview,
   previewError,
+  muscleGroupsByDayIndex,
 }: {
   plan: WorkoutPlan;
   stats: PlanSessionStats;
   preview: PlanPreviewSummary | null;
   previewError: boolean;
+  muscleGroupsByDayIndex?: ReadonlyMap<number, MuscleGroup[]>;
 }) {
   return (
     <AppShell activeHref="/plan" backTo={{ href: "/plan/historial", label: "Tus planes" }}>
@@ -82,7 +85,7 @@ export function PlanHistoryDetailContent({
 
       <div className="mt-6 pb-10">
         {preview && preview.sessions.length > 0 ? (
-          <PlanDayPager sessions={preview.sessions} />
+          <PlanDayPager sessions={preview.sessions} muscleGroupsByDayIndex={muscleGroupsByDayIndex} />
         ) : previewError ? (
           <p className="text-sm leading-6 text-zinc-400">
             No se pudo mostrar el detalle día por día de este plan (algún día no cumple los requisitos mínimos).
