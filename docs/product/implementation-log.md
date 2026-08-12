@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — The body-map thumbnail now also shows on "Ver plan completo" (/plan/rutina)
+
+Status: shipped. Committed as `6656715` on `main`, `lint`/`typecheck`/`test` (474 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4MG66mmRsfQWPitJoshfonVSEyVU`, aliased to `gym.jcvalerio.com`; `/plan/rutina` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Feedback right after the plan-builder thumbnail shipped: "only visible during the plan editor, would be nice to see during the ver plan completo." `/plan/rutina` (that link's actual target) renders through the shared `PlanDayPager`, also used by `/plan/historial/[planId]` and `/plan/templates/[templateId]` — so `PlanDayPager` gained an optional `muscleGroupsByDayIndex` prop rather than a hardcoded thumbnail, and only `/plan/rutina/page.tsx` computes and passes real classification. The other two callers pass nothing and render exactly as before; wiring them is unscoped, no request for it yet, and templates in particular would need a different data path since they're not backed by real `exercisePrescription`/`exercise` rows the same way.
+
+Moved `getPrimaryMuscleGroupsByExerciseIds` out of `plan-builder-repository.ts` into `plan-repository.ts` — it was never actually draft-specific, and `/plan/rutina` needed the same batched exerciseId→primaryMuscleGroup lookup `getActivePlanForProfile` naturally produces the input for. `/plan/rutina/page.tsx` also mirrors `toGeneratedWorkoutPlan`'s existing "week 1 is the only meaningful week" filter before building the per-dayIndex map, since a plan activated before the weekly-repeat model existed can carry real weekNumber 2-4 template rows that would otherwise collide with week 1's dayIndex keys.
+
+Verified in a real browser via a throwaway preview route rendering the seeded hypertrophy plan through the real pager: day 1 ("Pierna") shaded both leg views, paging to day 2 ("Torso — empuje seguro") correctly swapped the thumbnail to chest/shoulder/triceps, no console errors, no layout regression at 390px.
+
+Files touched: `src/plans/plan-repository.ts` (+`getPrimaryMuscleGroupsByExerciseIds`, moved from `plan-builder-repository.ts`), `src/app/plan/rutina/page.tsx`, `src/app/plan/rutina/plan-detail-content.tsx` (+test), `src/app/plan/plan-day-pager.tsx`, `src/app/plan/builder/page.tsx` (import path only).
+
+Next iteration: none flagged. `/plan/historial` and `/plan/templates` could get the same treatment later if asked.
+
 ## 2026-08-11 — Plan builder: a body-map thumbnail on each day card — the third and last Hevy-inspired idea, shipped
 
 Status: shipped. Committed as `e84c6d4` on `main`, `lint`/`typecheck`/`test` (472 passing, +10 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4irw9qxcfFirhR1E33ajp2c64E3h`, aliased to `gym.jcvalerio.com`; `/plan/builder` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
