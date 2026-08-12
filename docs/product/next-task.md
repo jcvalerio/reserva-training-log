@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: a third progreso layout fix (long muscle-group labels wrapping) shipped and deployed, plus a Hevy-inspired design-ideas proposal for plan builder and progreso — awaiting your pick of which idea to build first.
+## Status: plan builder's collapsed exercise summary no longer truncates or gets squeezed — shipped and deployed. Still awaiting your pick of which Hevy-inspired idea to build first (see below).
+
+Reorder/delete buttons now only share a row with the small eyebrow label; the exercise name and stats line each get the card's full width on their own line. Full detail in `implementation-log.md`.
+
+## Prior status: a third progreso layout fix (long muscle-group labels wrapping) shipped and deployed, plus a Hevy-inspired design-ideas proposal for plan builder and progreso — awaiting your pick of which idea to build first.
 
 The label fix: same row as the delta-wrapping fix, different cause — a fixed 112px column couldn't fit "Abductores y aductores." Moved the label to its own line above the bar. The design proposal (published as an artifact) recommends, in order: a Top Exercises list replacing the emptiest KPI tile, E1RM as a third progression-chart metric, and a body-map thumbnail on plan-builder day cards — all three reuse data/components already in the codebase, no new dependencies. Skip list: achievements/badges, half-point RIR, exercise-thumbnail carousel. Full detail in `implementation-log.md`.
 

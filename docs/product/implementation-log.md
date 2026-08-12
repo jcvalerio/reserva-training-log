@@ -2,6 +2,18 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Plan builder: collapsed exercise name/stats were truncated and squeezed to half the card
+
+Status: shipped. Committed as `884819e` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_8FqU21vePGR9MF7HCsPhKW3zTuuX`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+
+Reported with a screenshot: "Prensa unilat...", "Fuerza · 3x6-10 · P..." — the collapsed summary line was unreadable. Two stacked problems, not one. Removing `truncate` alone (first pass) only let the text wrap instead of clip — it was still confined to whatever width was left beside the reorder/delete button cluster, because the name and stats lines shared one flex row with that cluster for their *entire* height, not just the first line. Flagged directly, mid-fix: "use all the space and not only 50% or less."
+
+Restructured the summary into two tiers: the reorder/delete buttons now share a row with only the small "Ejercicio N" eyebrow label and its chevron, and the exercise name plus stats line each get their own full-width line below — no longer sharing horizontal space with the button cluster at all. Verified in a real browser with the exact names from the report ("Prensa unilateral de pierna (pies bajos)", "Extensión de cuádriceps unilateral") rendering in full, and confirmed no horizontal-overflow regression against the `grid-cols-1` fix shipped earlier the same day.
+
+Files touched: `src/app/plan/builder/session/[dayIndex]/session-editor-form.tsx`.
+
+Next iteration: none flagged.
+
 ## 2026-08-11 — Progreso: long muscle-group labels wrapped and crowded the volume bar
 
 Status: shipped. Committed as `6ee2ddf` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G19xi7v76ddiXeuggtxoFnRCT5AW`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
