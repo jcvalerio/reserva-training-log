@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: `/entrenar` set-logging fixes and the plan builder redesign — both shipped and deployed.
+## Status: plan builder crash fixed — shipped and deployed.
+
+Deleting an exercise with real logged history in `/plan/builder` and saving threw a bare HTTP 500, reported from production minutes after it happened. `saveDraftSession` already refused the delete and already had a readable message for it — the message just never reached the user because `saveSessionAction` didn't catch it. Now redirects to a clear banner instead. Root cause was reproduced directly against the dev DB, not just read from code, before writing the fix. Full detail in `implementation-log.md`.
+
+## Prior status: `/entrenar` set-logging fixes and the plan builder redesign — both shipped and deployed.
 
 Three complaints reported live, mid-workout: on `/entrenar`, logging a set gave no way to tell whether you'd hit the suggested RIR, unilateral exercises read as showing only one leg, and "última vez" only ever surfaced one set from a fully-loaded prior-session history. On `/plan/builder`, the reorder arrows had no visible label next to a destructive "Eliminar", and every field of every exercise stayed expanded with three permanent helper paragraphs, so editing a session meant scrolling through a wall of text. Both were fixed the same way: an independent UX/UI review and a Principal-Mobile-Engineer review, written blind to each other, then a synthesis and implementation once they converged. Full detail in `implementation-log.md`.
 

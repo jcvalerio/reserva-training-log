@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Plan builder: deleting an exercise with logged history crashed instead of explaining why
+
+Status: shipped. Committed as `6f3f100` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G6vcdsqujYd51X2GjdMLFiLYKxjK`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
+
+Reported from production, minutes after happening: deleting an exercise in `/plan/builder/session/[dayIndex]` and saving threw a bare HTTP 500 (digest-only, no message). Root cause confirmed by direct reproduction against the dev DB, not just code reading: `saveDraftSession` already refuses to hard-delete an `exercisePrescription` row once real sets are logged against it — `exerciseLog.exercisePrescriptionId` is FK-`restrict` on purpose, to protect history — and already converts that into a readable `Error`. But `saveSessionAction` only wrapped the two form-parse calls in `try/catch`, not the `saveDraftSession` call itself, so that Error went uncaught straight into Next.js's generic error page instead of the `?error=` redirect pattern this file uses everywhere else.
+
+Fix is the same three-line shape already proven elsewhere in this exact file (`activateDraftPlanAction`): wrap the call, redirect to `?error=cannot_remove` on catch. The message is deliberately specific about what actually happened — `saveDraftSession` isn't transactional, so by the time the final delete fails, every other edit (other exercises, session name/focus) already committed; only the one exercise with history is left in place, not deleted. Saying "the whole save failed" would have been wrong.
+
+This was a latent gap, not something newly broken — it needed both a real athlete with logged history *and* someone editing that specific session's exercise list to surface, which is exactly what `a04edcc` (unblocking `/plan` → `/plan/builder` for an already-active plan) made possible for the first time.
+
+Files touched: `src/app/plan/builder/actions.ts`, `src/app/plan/builder/session/[dayIndex]/page.tsx`.
+
+Next iteration: none flagged — this closes the crash. The underlying restriction (can't remove a logged exercise) is an intentional, already-documented product decision, not something this fix revisits.
+
 ## 2026-08-10 — `/entrenar`: compare logged RIR to target, group unilateral sets by side, expose full last-time history
 
 Status: shipped. Committed as `d2099fa` on `main`, `lint`/`typecheck`/`test` (447 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_CE7Ec1jfQht6gR89YnTFHfZDWVNG`, aliased to `gym.jcvalerio.com`; `/` and `/guia` 200, `/entrenar` and `/plan/builder` 307-to-auth confirmed live). No migration — presentation only. Held for an active workout session before deploying; re-checked and it had ended.
