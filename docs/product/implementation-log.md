@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Plan builder: a body-map thumbnail on each day card — the third and last Hevy-inspired idea, shipped
+
+Status: shipped. Committed as `e84c6d4` on `main`, `lint`/`typecheck`/`test` (472 passing, +10 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4irw9qxcfFirhR1E33ajp2c64E3h`, aliased to `gym.jcvalerio.com`; `/plan/builder` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Third and last of the three prioritized ideas from the design-ideas proposal — all three are now shipped. Each `/plan/builder` day card gets a tiny front/back silhouette next to the day info, shaded to show which muscle groups that day's exercises train, so "what does this day actually hit" reads at a glance before tapping in to the exercise list.
+
+Deliberately reused rather than reimplemented: the front/back polygon artwork already vendored for `/progreso`'s `BodyMap` (`body-map-geometry.ts`, imported across the `app/progreso` → `app/plan/builder` boundary rather than duplicated), and the same catalog-link-then-free-text-name classification order the rest of the app already uses (`exercisePrescription.exerciseId` → `exercise.primaryMuscleGroup` first, `findCatalogEntryByName` as fallback, silently unclassified last). The one real difference from `BodyMap`: this is binary (a muscle is trained or it isn't), not shaded by weekly-volume reference range — a draft session has no logged sets to weigh a shade against, only the set of muscle groups its prescriptions resolve to. New pure function `classifySessionMuscleGroups` (in `src/plans/`, matching the "pure function + test" convention) does the resolution and returns groups in `muscleGroups`' own anatomical order; a new batched repository query (`getPrimaryMuscleGroupsByExerciseIds`) avoids N+1 catalog-link lookups across a whole draft plan.
+
+Verified in a real browser via a throwaway preview route with a full 4-day draft (Empuje/Tirón/Pierna/Core) plus one undefined day: each thumbnail's shading matched its day's actual exercises (Empuje lit pecho/deltoides lateral/tríceps; Tirón lit the back regions plus bíceps; Pierna lit both views' leg regions), the undefined day rendered a fully inert gray silhouette rather than breaking the row layout, accessible names read correctly (`role="img"`, e.g. "Entrena Pecho, Hombro lateral, Tríceps"), and no console errors or horizontal-overflow regression at 390px.
+
+Files touched: `src/plans/session-muscle-groups.ts` (new, +test), `src/plans/plan-builder-repository.ts` (+`getPrimaryMuscleGroupsByExerciseIds`), `src/app/plan/builder/session-muscle-thumbnail.tsx` (new, +test), `src/app/plan/builder/builder-page-content.tsx` (+test), `src/app/plan/builder/page.tsx`.
+
+Next iteration: none flagged — this closes the three-idea design proposal. No further work queued from it.
+
 ## 2026-08-11 — Progreso: estimated 1RM as a third progression-chart metric — the second Hevy-inspired idea, shipped
 
 Status: shipped. Committed as `aeb898c` on `main`, `lint`/`typecheck`/`test` (462 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_6RUVgZixLgEPHGBT6hYn3wwnBjGD`, aliased to `gym.jcvalerio.com`; `/progreso` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.

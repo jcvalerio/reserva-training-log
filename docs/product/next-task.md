@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: estimated 1RM shipped as a third progression-chart metric — the second of the three Hevy-inspired ideas. Next up: the plan-builder body-map thumbnail.
+## Status: plan-builder body-map thumbnail shipped — the third and last of the three Hevy-inspired ideas. All three are now live.
+
+Each day card in `/plan/builder` now carries a tiny front/back silhouette showing which muscle groups that day's exercises train, shaded binary (trained/not) rather than by volume — a draft day has no logged sets to weigh by. Reuses `/progreso`'s vendored body-map artwork and its catalog-link-then-name classification order rather than a second implementation. Full detail in `implementation-log.md`.
+
+## Prior status: estimated 1RM shipped as a third progression-chart metric — the second of the three Hevy-inspired ideas.
 
 Reused the existing RIR-adjusted Epley estimate (already computed for "Mejoras recientes") per-instance so `/progreso`'s per-exercise chart can plot it alongside Peso/Volumen. A session where every set falls outside the reliable rep range is a real gap (skipped in the line, or an explanatory message when no instance qualifies at all) — never plotted as zero. Full detail in `implementation-log.md`.
 
