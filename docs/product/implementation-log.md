@@ -2,6 +2,21 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — The body-map thumbnail now also shows on /plan/historial and /plan/templates
+
+Status: shipped. Committed as `3bf3df5` on `main`, `lint`/`typecheck`/`test` (478 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_9CLN8djAyEmwG4xSp9u2sgahit4q`, aliased to `gym.jcvalerio.com`; `/plan/historial` and `/plan/templates` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Follow-up request after wiring `/plan/rutina`: the other two `PlanDayPager` callers, explicitly flagged as unscoped at the time. Both now pass real `muscleGroupsByDayIndex` through the same optional prop, each sourcing classification differently:
+
+- **`/plan/historial/[planId]`** — a historical plan's sessions are real `ExercisePrescription` rows (via `getDraftPlanSessions`, the same query the builder uses regardless of the plan's status), so this mirrors `/plan/rutina` exactly: batch the catalog-link lookup, then `classifySessionMuscleGroups`.
+- **`/plan/templates/[templateId]`** — templates are static, in-memory `GeneratedWorkoutPlan`s built by a pure `template.build()` function, before any athlete profile (and its own seeded `exercise` rows) exists. `exerciseId` is never populated on a template's exercises, so classification always falls through to the free-text name — no DB query needed at all here, just `classifySessionMuscleGroups(..., new Map())`.
+
+Verified in a real browser via two throwaway preview routes: the leg-priority template's "Cuádriceps y pantorrillas" day thumbnail matched its exercises, and the historial preview (seeded hypertrophy plan, status "Archivado") rendered identically to `/plan/rutina`'s. No console errors, no layout regression at 390px.
+
+Files touched: `src/app/plan/historial/[planId]/page.tsx`, `src/app/plan/historial/[planId]/plan-history-detail-content.tsx` (+test), `src/app/plan/templates/[templateId]/page.tsx`, `src/app/plan/templates/[templateId]/template-preview-content.tsx` (+test).
+
+Next iteration: none flagged. Every `PlanDayPager` caller now shows the thumbnail.
+
 ## 2026-08-11 — The body-map thumbnail now also shows on "Ver plan completo" (/plan/rutina)
 
 Status: shipped. Committed as `6656715` on `main`, `lint`/`typecheck`/`test` (474 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4MG66mmRsfQWPitJoshfonVSEyVU`, aliased to `gym.jcvalerio.com`; `/plan/rutina` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.

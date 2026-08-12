@@ -2,9 +2,9 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the body-map thumbnail now shows on "Ver plan completo" (`/plan/rutina`) too, not just the plan editor.
+## Status: the body-map thumbnail now shows everywhere `PlanDayPager` renders — `/plan/builder`, `/plan/rutina`, `/plan/historial`, and `/plan/templates`.
 
-Direct feedback right after the plan-builder thumbnail shipped. `PlanDayPager` (shared with `/plan/historial` and `/plan/templates`) gained an optional `muscleGroupsByDayIndex` prop; only `/plan/rutina` computes and passes real data today, so the other two callers render unchanged. Full detail in `implementation-log.md`.
+`/plan/historial` classifies the same way `/plan/rutina` does (real `ExercisePrescription` rows, catalog-link-then-name). `/plan/templates` classifies by name only — templates are static in-memory plan definitions with no `exerciseId` link, so there's nothing to batch-query. Full detail in `implementation-log.md`.
 
 ## Prior status: plan-builder body-map thumbnail shipped — the third and last of the three Hevy-inspired ideas. All three are now live.
 
