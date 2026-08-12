@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: "Ejercicios que más mejoraron" shipped and deployed — the first of the three Hevy-inspired ideas. Next up: E1RM as a third progression-chart metric, then the plan-builder body-map thumbnail.
+## Status: estimated 1RM shipped as a third progression-chart metric — the second of the three Hevy-inspired ideas. Next up: the plan-builder body-map thumbnail.
+
+Reused the existing RIR-adjusted Epley estimate (already computed for "Mejoras recientes") per-instance so `/progreso`'s per-exercise chart can plot it alongside Peso/Volumen. A session where every set falls outside the reliable rep range is a real gap (skipped in the line, or an explanatory message when no instance qualifies at all) — never plotted as zero. Full detail in `implementation-log.md`.
+
+## Prior status: "Ejercicios que más mejoraron" shipped and deployed — the first of the three Hevy-inspired ideas.
 
 A ranked list of improved exercises with a real percentage, above the KPI row. Along the way, found and fixed the same grid-track-overflow bug class (from earlier today) recurring in four more places on `/progreso` — same pattern confirmed in ~17 other files app-wide, flagged as an unscheduled follow-up rather than fixed opportunistically. Full detail in `implementation-log.md`.
 

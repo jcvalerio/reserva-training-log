@@ -2,6 +2,18 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Progreso: estimated 1RM as a third progression-chart metric — the second Hevy-inspired idea, shipped
+
+Status: shipped. Committed as `aeb898c` on `main`, `lint`/`typecheck`/`test` (462 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_6RUVgZixLgEPHGBT6hYn3wwnBjGD`, aliased to `gym.jcvalerio.com`; `/progreso` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Second of the three prioritized ideas from the design-ideas proposal. `improvement.ts` already computed a RIR-adjusted Epley 1RM estimate for the "Mejoras recientes" before/after pair — `bestEstimated1Rm` and its `ONE_RM_MAX_REPS` gate (sets past 15 reps are excluded, Epley degrades badly outside a low-to-moderate rep range) were exported rather than reimplemented, and reused per-instance in `exercise-series.ts` to populate a new `best1RmKg`/`leftBest1RmKg`/`rightBest1RmKg` on every `ExerciseSeriesPoint`. `exercise-progression-chart.tsx` gained a third toggle ("1RM") alongside Peso/Volumen, generic over the existing `LEFT_METRIC`/`RIGHT_METRIC`/dual-chart machinery.
+
+The one real design decision: a session where every set exceeded `ONE_RM_MAX_REPS` (a pure high-rep/endurance day) is a genuine gap, not a zero. `best1RmKg` is `null` for those points; `buildSinglePoints` skips null points rather than plotting them, and when an exercise has *no* instance with a usable estimate at all, the chart shows an explanatory message ("Ninguna serie registrada tiene 15 repeticiones o menos...") instead of rendering blank. Verified in a real browser via a throwaway preview route with a deliberate gap in the middle of a series (confirmed the line skips straight past it rather than dipping to zero), the all-gap empty state, and the unilateral split-by-side case — no console errors, no layout regression.
+
+Files touched: `src/workouts/improvement.ts` (export `ONE_RM_MAX_REPS`, `bestEstimated1Rm`), `src/workouts/exercise-series.ts` (+test), `src/app/progreso/exercise-progression-chart.tsx` (+test), `src/app/progreso/progreso-page-content.test.tsx` (fixture update only).
+
+Next iteration: the third proposal idea — a body-map thumbnail on plan-builder day cards — is still queued.
+
 ## 2026-08-11 — Progreso: "Ejercicios que más mejoraron" — the first Hevy-inspired idea, shipped
 
 Status: shipped. Committed as `9b1fedd` on `main`, `lint`/`typecheck`/`test` (456 passing, +7 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_APt3JCTV4SUoiyaJxGdiHT7FEpe3`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
