@@ -158,58 +158,66 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
                   type="button"
                   onPointerDown={() => setActiveKey(isActive ? null : row.key)}
                   aria-expanded={isActive}
-                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 active:bg-zinc-800/40"
+                  className="flex min-h-11 w-full flex-col justify-center gap-1 rounded-lg px-1 py-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 active:bg-zinc-800/40"
                 >
-                  <span className="w-28 shrink-0 text-xs leading-5 text-zinc-300">{row.labelEs}</span>
-                  <svg
-                    viewBox={`0 0 ${BAR_VIEW_WIDTH} ${BAR_VIEW_HEIGHT}`}
-                    className="h-2.5 w-full touch-none"
-                    preserveAspectRatio="none"
-                    aria-hidden="true"
-                  >
-                    {row.referenceRange ? (
+                  {/* Own line rather than a fixed-width column beside the bar
+                      — "Abductores y aductores" (the longest real label, 22
+                      characters) has nowhere near enough room next to a bar
+                      in a ~360px card, and squeezing it in there either wraps
+                      unevenly row-to-row or truncates it, when the point of
+                      this line is to say which muscle group this is. */}
+                  <span className="block text-xs leading-5 text-zinc-300">{row.labelEs}</span>
+                  <span className="flex items-center gap-2">
+                    <svg
+                      viewBox={`0 0 ${BAR_VIEW_WIDTH} ${BAR_VIEW_HEIGHT}`}
+                      className="h-2.5 w-full touch-none"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      {row.referenceRange ? (
+                        <rect
+                          x={toX(row.referenceRange.min)}
+                          y={0}
+                          width={Math.max(0, toX(row.referenceRange.max) - toX(row.referenceRange.min))}
+                          height={BAR_VIEW_HEIGHT}
+                          className="fill-zinc-700/40"
+                        />
+                      ) : null}
                       <rect
-                        x={toX(row.referenceRange.min)}
-                        y={0}
-                        width={Math.max(0, toX(row.referenceRange.max) - toX(row.referenceRange.min))}
-                        height={BAR_VIEW_HEIGHT}
-                        className="fill-zinc-700/40"
+                        x={0}
+                        y={1}
+                        width={Math.max(1, toX(row.effectiveSets))}
+                        height={BAR_VIEW_HEIGHT - 2}
+                        rx={BAR_RADIUS}
+                        // No warning colour for a below-range row. A five-day
+                        // rotation with two-set accessories genuinely lands under
+                        // most bands, and painting that red would both demotivate
+                        // and nudge toward junk volume. Colour is reserved for pain.
+                        className={belowRange ? "fill-zinc-500" : "fill-emerald-300"}
                       />
-                    ) : null}
-                    <rect
-                      x={0}
-                      y={1}
-                      width={Math.max(1, toX(row.effectiveSets))}
-                      height={BAR_VIEW_HEIGHT - 2}
-                      rx={BAR_RADIUS}
-                      // No warning colour for a below-range row. A five-day
-                      // rotation with two-set accessories genuinely lands under
-                      // most bands, and painting that red would both demotivate
-                      // and nudge toward junk volume. Colour is reserved for pain.
-                      className={belowRange ? "fill-zinc-500" : "fill-emerald-300"}
+                    </svg>
+                    <span className="w-8 shrink-0 text-right text-xs tabular-nums text-zinc-300">
+                      {formatSets(row.effectiveSets)}
+                    </span>
+                    {(() => {
+                      const delta = weekOverWeekDelta(view.comparison, row.key, row.effectiveSets);
+                      // zinc, never green/red: colour here is reserved for pain,
+                      // and "fewer sets" is not a warning.
+                      return delta === null ? (
+                        <span className="w-14 shrink-0" />
+                      ) : (
+                        <span className="w-14 shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-zinc-400">
+                          {formatDelta(delta)}
+                        </span>
+                      );
+                    })()}
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
+                        isActive ? "rotate-180 text-zinc-300" : "text-zinc-500"
+                      }`}
                     />
-                  </svg>
-                  <span className="w-8 shrink-0 text-right text-xs tabular-nums text-zinc-300">
-                    {formatSets(row.effectiveSets)}
                   </span>
-                  {(() => {
-                    const delta = weekOverWeekDelta(view.comparison, row.key, row.effectiveSets);
-                    // zinc, never green/red: colour here is reserved for pain,
-                    // and "fewer sets" is not a warning.
-                    return delta === null ? (
-                      <span className="w-14 shrink-0" />
-                    ) : (
-                      <span className="w-14 shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-zinc-400">
-                        {formatDelta(delta)}
-                      </span>
-                    );
-                  })()}
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
-                      isActive ? "rotate-180 text-zinc-300" : "text-zinc-500"
-                    }`}
-                  />
                 </button>
                 {isActive ? (
                   <p className="px-1 pb-2 text-xs leading-5 text-zinc-400">
