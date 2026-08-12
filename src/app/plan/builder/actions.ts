@@ -6,9 +6,11 @@ import { redirect } from "next/navigation";
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
 import {
   activateDraftPlan,
+  CannotRemoveLoggedExerciseError,
   createDraftPlan,
   deleteDraftSession,
   discardDraftPlan,
+  forceRemoveExercisePrescriptionWithHistory,
   getDraftPlanForProfile,
   saveDraftSession,
   updateDraftPlanDetails,
@@ -108,17 +110,55 @@ export async function saveSessionAction(formData: FormData) {
   // position rather than delete-and-reinsert specifically so logged history
   // survives an edit — but removing a row that already has real sets logged
   // against it still hits exerciseLog's onDelete:"restrict" the moment that
-  // row becomes a genuine leftover to delete. The repository already turns
-  // that into a readable message; this catch is what actually gets it in
-  // front of the person who hit it instead of a bare 500.
+  // row becomes a genuine leftover to delete. The repository reports exactly
+  // which exercise(s) blocked it; that's threaded through the redirect so
+  // the page can offer a real confirm-and-delete action instead of a dead
+  // end, rather than just a bare 500.
   try {
     await saveDraftSession(draftPlanId, dayIndex, sessionInfo, exercises);
-  } catch {
+  } catch (error) {
+    if (error instanceof CannotRemoveLoggedExerciseError) {
+      const blocked = encodeURIComponent(JSON.stringify(error.blocked));
+      redirect(`/plan/builder/session/${dayIndex}?error=cannot_remove&blocked=${blocked}`);
+    }
     redirect(`/plan/builder/session/${dayIndex}?error=cannot_remove`);
   }
 
   revalidatePath("/plan/builder");
   redirect("/plan/builder?saved=1");
+}
+
+/**
+ * The confirmed, explicit counterpart to the block above — permanently
+ * deletes one exercise's logged history so it can actually be removed from
+ * the plan. Only reachable from the "cannot_remove" confirm screen, which
+ * only exists because saveSessionAction just refused to do this silently.
+ */
+export async function forceRemoveExerciseAction(formData: FormData) {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    redirect("/perfil");
+  }
+
+  const draftPlanId = formData.get("draftPlanId");
+  const dayIndex = parseDayIndex(formData.get("dayIndex"));
+  const exercisePrescriptionId = formData.get("exercisePrescriptionId");
+
+  if (typeof draftPlanId !== "string" || dayIndex === null || typeof exercisePrescriptionId !== "string") {
+    redirect("/plan/builder");
+  }
+
+  const draft = await getDraftPlanForProfile(profile.id);
+  if (!draft || draft.plan.id !== draftPlanId) {
+    redirect("/plan/builder");
+  }
+
+  await forceRemoveExercisePrescriptionWithHistory(draftPlanId, dayIndex, exercisePrescriptionId);
+
+  revalidatePath("/plan/builder");
+  redirect(`/plan/builder/session/${dayIndex}?saved=1`);
 }
 
 export async function deleteSessionAction(formData: FormData) {

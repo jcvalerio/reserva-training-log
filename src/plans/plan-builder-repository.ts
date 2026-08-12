@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { exercisePrescription, planSessionTemplate, workoutPlan } from "@/db/schema";
+import { exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutPlan } from "@/db/schema";
 import { findCatalogEntryByName } from "@/training/muscle-taxonomy";
 
 import type {
@@ -224,6 +224,74 @@ export async function updateDraftPlanDetails(
     );
 }
 
+export type BlockedExerciseRemoval = {
+  id: string;
+  exerciseNameEs: string;
+  loggedSetCount: number;
+};
+
+/**
+ * Thrown instead of a raw FK violation when saveDraftSession would need to
+ * remove an exercisePrescription that already has logged history —
+ * exerciseLog.exercisePrescriptionId is restrict on purpose. Carries enough
+ * structure (which exercise, how many sets) for the caller to offer a real
+ * confirm-and-delete action instead of just reporting failure.
+ */
+export class CannotRemoveLoggedExerciseError extends Error {
+  blocked: BlockedExerciseRemoval[];
+
+  constructor(blocked: BlockedExerciseRemoval[]) {
+    const names = blocked.map((exercise) => exercise.exerciseNameEs).join(", ");
+    super(
+      `No se pudo quitar ${blocked.length > 1 ? "estos ejercicios" : "este ejercicio"} (${names}) porque ya tiene${blocked.length > 1 ? "n" : ""} series registradas.`,
+    );
+    this.name = "CannotRemoveLoggedExerciseError";
+    this.blocked = blocked;
+  }
+}
+
+/**
+ * Explicit, confirmed deletion of one exercise's full logged history so it
+ * can actually be removed from the plan — saveDraftSession refuses this on
+ * its own (see CannotRemoveLoggedExerciseError) because it's permanent.
+ * Deleting a set only ever removes its setLog row (see deleteSetForSession
+ * in workout-repository.ts), never the parent exerciseLog — that shell is
+ * what actually blocks the exercisePrescription delete, so no amount of
+ * deleting individual sets from /entrenar can unblock this on its own.
+ *
+ * Scoped to the given draft plan + day (joined through planSessionTemplate)
+ * so a caller can't delete history belonging to a different plan by guessing
+ * an id — the action layer still owns checking the profile owns this draft.
+ */
+export async function forceRemoveExercisePrescriptionWithHistory(
+  draftPlanId: string,
+  dayIndex: number,
+  exercisePrescriptionId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: exercisePrescription.id })
+    .from(exercisePrescription)
+    .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
+    .where(
+      and(
+        eq(exercisePrescription.id, exercisePrescriptionId),
+        eq(planSessionTemplate.workoutPlanId, draftPlanId),
+        eq(planSessionTemplate.dayIndex, dayIndex),
+      ),
+    );
+
+  if (!row) {
+    return false;
+  }
+
+  // setLog cascades from exerciseLog, so deleting the log rows here also
+  // clears every set logged under them before the prescription itself goes.
+  await db.delete(exerciseLog).where(eq(exerciseLog.exercisePrescriptionId, exercisePrescriptionId));
+  await db.delete(exercisePrescription).where(eq(exercisePrescription.id, exercisePrescriptionId));
+
+  return true;
+}
+
 export async function saveDraftSession(
   draftPlanId: string,
   dayIndex: number,
@@ -323,20 +391,41 @@ export async function saveDraftSession(
 
   if (existingExercises.length > updateCount) {
     const leftoverRows = existingExercises.slice(updateCount);
-    try {
-      await db.delete(exercisePrescription).where(
-        inArray(
-          exercisePrescription.id,
-          leftoverRows.map((row) => row.id),
-        ),
-      );
-    } catch (error) {
-      const names = leftoverRows.map((row) => row.exerciseNameEs).join(", ");
-      throw new Error(
-        `No se pudo quitar ${leftoverRows.length > 1 ? "estos ejercicios" : "este ejercicio"} (${names}) porque ya tiene${leftoverRows.length > 1 ? "n" : ""} sets registrados. Consérva${leftoverRows.length > 1 ? "los" : "lo"} en la sesión en vez de eliminarlo.`,
-        { cause: error },
-      );
+    const leftoverIds = leftoverRows.map((row) => row.id);
+
+    // Check for blocking history up front rather than letting the delete
+    // below fail, so the caller gets a precise, structured list instead of a
+    // raw constraint violation. count(set_log.id) can legitimately be 0 and
+    // still block: deleting a set only removes its setLog row, never the
+    // parent exerciseLog shell (see forceRemoveExercisePrescriptionWithHistory),
+    // so an exercise can end up logged with zero remaining sets and still be
+    // unremovable — the left join + group by below reflects that on purpose.
+    const historyRows = await db
+      .select({
+        exercisePrescriptionId: exerciseLog.exercisePrescriptionId,
+        loggedSetCount: sql<number>`count(${setLog.id})`,
+      })
+      .from(exerciseLog)
+      .leftJoin(setLog, eq(setLog.exerciseLogId, exerciseLog.id))
+      .where(inArray(exerciseLog.exercisePrescriptionId, leftoverIds))
+      .groupBy(exerciseLog.exercisePrescriptionId);
+
+    const loggedSetCountById = new Map(
+      historyRows.map((row) => [row.exercisePrescriptionId, Number(row.loggedSetCount)]),
+    );
+    const blocked: BlockedExerciseRemoval[] = leftoverRows
+      .filter((row) => loggedSetCountById.has(row.id))
+      .map((row) => ({
+        id: row.id,
+        exerciseNameEs: row.exerciseNameEs,
+        loggedSetCount: loggedSetCountById.get(row.id) ?? 0,
+      }));
+
+    if (blocked.length > 0) {
+      throw new CannotRemoveLoggedExerciseError(blocked);
     }
+
+    await db.delete(exercisePrescription).where(inArray(exercisePrescription.id, leftoverIds));
   }
 }
 
