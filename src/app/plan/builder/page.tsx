@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getDraftPlanForProfile } from "@/plans/plan-builder-repository";
+import { getDraftPlanForProfile, getPrimaryMuscleGroupsByExerciseIds } from "@/plans/plan-builder-repository";
+import { classifySessionMuscleGroups } from "@/plans/session-muscle-groups";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 
 import {
@@ -27,18 +28,24 @@ export default async function PlanBuilderPage({ searchParams }: BuilderPageProps
   }
 
   const draftPlan = await getDraftPlanForProfile(profile.id);
-  const draft: DraftPlanSummary | null = draftPlan
-    ? {
-        id: draftPlan.plan.id,
-        nameEs: draftPlan.plan.nameEs,
-        daysPerWeek: draftPlan.plan.daysPerWeek,
-        sessions: draftPlan.sessions.map((session) => ({
-          dayIndex: session.template.dayIndex,
-          nameEs: session.template.nameEs,
-          exerciseCount: session.exercises.length,
-        })),
-      }
-    : null;
+  let draft: DraftPlanSummary | null = null;
+  if (draftPlan) {
+    const exerciseIds = draftPlan.sessions.flatMap((session) =>
+      session.exercises.flatMap((prescription) => (prescription.exerciseId ? [prescription.exerciseId] : [])),
+    );
+    const linkedMuscleGroupByExerciseId = await getPrimaryMuscleGroupsByExerciseIds(exerciseIds);
+    draft = {
+      id: draftPlan.plan.id,
+      nameEs: draftPlan.plan.nameEs,
+      daysPerWeek: draftPlan.plan.daysPerWeek,
+      sessions: draftPlan.sessions.map((session) => ({
+        dayIndex: session.template.dayIndex,
+        nameEs: session.template.nameEs,
+        exerciseCount: session.exercises.length,
+        muscleGroups: classifySessionMuscleGroups(session.exercises, linkedMuscleGroupByExerciseId),
+      })),
+    };
+  }
 
   const errorType =
     params.error === "validation" || params.error === "incomplete" || params.error === "activation"

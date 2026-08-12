@@ -34,8 +34,8 @@ describe("BuilderPageContent", () => {
       nameEs: "Mi rutina",
       daysPerWeek: 3,
       sessions: [
-        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4 },
-        { dayIndex: 2, nameEs: "Torso", exerciseCount: 3 },
+        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4, muscleGroups: ["cuadriceps"] },
+        { dayIndex: 2, nameEs: "Torso", exerciseCount: 3, muscleGroups: ["pecho"] },
       ],
     };
 
@@ -56,6 +56,12 @@ describe("BuilderPageContent", () => {
     expect(screen.getByText("Pierna")).toBeVisible();
     expect(screen.getByText("Torso")).toBeVisible();
     expect(screen.getByText("Sin definir")).toBeVisible();
+    // A body-map thumbnail per day: the two defined days' actual muscle
+    // groups, plus a third, not-yet-classified thumbnail for the undefined
+    // day 3 — one per row, not just for the defined ones.
+    expect(screen.getByRole("img", { name: "Entrena Cuádriceps" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Entrena Pecho" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Sin ejercicios clasificados todavía" })).toBeVisible();
     expect(screen.getAllByRole("link", { name: "Editar" })).toHaveLength(2);
     expect(screen.getByRole("link", { name: "+ Agregar" })).toHaveAttribute("href", "/plan/builder/session/3");
     expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(2);
@@ -97,8 +103,8 @@ describe("BuilderPageContent", () => {
       nameEs: "Mi rutina",
       daysPerWeek: 2,
       sessions: [
-        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4 },
-        { dayIndex: 2, nameEs: "Torso", exerciseCount: 2 },
+        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4, muscleGroups: ["cuadriceps"] },
+        { dayIndex: 2, nameEs: "Torso", exerciseCount: 2, muscleGroups: ["pecho"] },
       ],
     };
 
@@ -125,8 +131,8 @@ describe("BuilderPageContent", () => {
       nameEs: "Mi rutina",
       daysPerWeek: 2,
       sessions: [
-        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4 },
-        { dayIndex: 2, nameEs: "Torso", exerciseCount: 3 },
+        { dayIndex: 1, nameEs: "Pierna", exerciseCount: 4, muscleGroups: ["cuadriceps"] },
+        { dayIndex: 2, nameEs: "Torso", exerciseCount: 3, muscleGroups: ["pecho"] },
       ],
     };
 

@@ -1,15 +1,18 @@
 import Link from "next/link";
 
 import { MIN_SESSION_EXERCISES } from "@/plans/generated-plan-schema";
+import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { AppShell } from "../../app-shell";
 import { FormStatusBanner } from "../../form-status-banner";
 import { SubmitButton } from "../../submit-button";
+import { SessionMuscleThumbnail } from "./session-muscle-thumbnail";
 
 export type DraftSessionSummary = {
   dayIndex: number;
   nameEs: string;
   exerciseCount: number;
+  muscleGroups: MuscleGroup[];
 };
 
 export type DraftPlanSummary = {
@@ -166,9 +169,10 @@ export function BuilderPageContent({
           return (
             <article
               key={dayIndex}
-              className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
+              className="flex items-center gap-3 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
             >
-              <div className="min-w-0">
+              <SessionMuscleThumbnail muscleGroups={session?.muscleGroups ?? []} />
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Día {dayIndex}</p>
                 {session ? (
                   <>
