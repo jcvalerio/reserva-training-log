@@ -2,6 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Plan builder: a blocked exercise removal can now actually resolve, and the error toast floats
+
+Status: shipped. Committed as `e5924ca` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_B69VXVmxRCBrvuG2n9bqBfCgAyvT`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
+
+Two follow-ups from the crash fix a few hours earlier. First: she could see the error now, but it rendered inline at the top of a long, scrollable form while the save button and bottom nav sit far below — easy to miss. `FormStatusBanner` gained an opt-in `floating` prop that fixed-positions it just above the bottom nav instead, like a toast. Every other page using this shared component (`perfil`, `plan`, `plan/compartir`, `builder-page-content`, `entrenar`, `mediciones`) is unchanged — `floating` defaults to `false`.
+
+Second, and the real problem: she went to `/entrenar` to delete the logged sets for what she thought was the blocking exercise, had two identically-named entries to guess between, tried both, and kept hitting the same error regardless. Reproduced why directly against the dev DB before writing anything: `deleteSetForSession` only ever removes a `setLog` row — it never touches the parent `exerciseLog` row, which is what's actually FK-restricted against `exercisePrescription`. No amount of deleting individual sets could have unblocked this. Worse, the `exerciseLog` shell survives at zero sets, so `saveDraftSession`'s old approach (inferring history from a delete failure) and any count based on `setLog` alone would have missed exactly this case — confirmed by reproducing her exact state (an exercise with a real `exerciseLog` row and zero remaining `setLog` rows) and checking it's still correctly flagged as blocked.
+
+`saveDraftSession` now checks for blocking `exerciseLog` rows up front and throws a structured `CannotRemoveLoggedExerciseError` (which exercise, how many sets) instead of inferring failure from a caught constraint violation. That's threaded through the redirect so the session editor renders a real confirm-and-delete card per blocked exercise — naming each one specifically, which is what actually resolves the "same name, can't tell which" confusion — with its own "Eliminar de todas formas" action wired to a new `forceRemoveExercisePrescriptionWithHistory`, scoped to the owning draft plan and day so it can't be pointed at another plan's history by a guessed id.
+
+Verified end-to-end against the dev DB (15 assertions): two identically-named exercises, one with real logged sets and one with the orphaned zero-set `exerciseLog` shell — both correctly detected and individually resolvable; a mismatched-scope force-remove call correctly refused and left the row untouched; cascade-delete of `setLog` via `exerciseLog` confirmed; a normal save succeeding once both are cleared.
+
+Files touched: `src/plans/plan-builder-repository.ts`, `src/app/plan/builder/actions.ts`, `src/app/plan/builder/session/[dayIndex]/page.tsx`, `src/app/form-status-banner.tsx`.
+
+Next iteration: none flagged — this closes the loop the crash fix opened. Worth remembering: `deleteSetForSession` leaving an orphaned `exerciseLog` shell behind is itself arguably worth a look someday (should deleting the last set of an exercise also clean up the shell?), but it isn't blocking anything now that the plan builder correctly accounts for it either way.
+
 ## 2026-08-11 — Plan builder: deleting an exercise with logged history crashed instead of explaining why
 
 Status: shipped. Committed as `6f3f100` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G6vcdsqujYd51X2GjdMLFiLYKxjK`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
