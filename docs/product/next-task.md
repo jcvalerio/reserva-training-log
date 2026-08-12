@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: plan builder's collapsed exercise summary no longer truncates or gets squeezed — shipped and deployed. Still awaiting your pick of which Hevy-inspired idea to build first (see below).
+## Status: "Ejercicios que más mejoraron" shipped and deployed — the first of the three Hevy-inspired ideas. Next up: E1RM as a third progression-chart metric, then the plan-builder body-map thumbnail.
+
+A ranked list of improved exercises with a real percentage, above the KPI row. Along the way, found and fixed the same grid-track-overflow bug class (from earlier today) recurring in four more places on `/progreso` — same pattern confirmed in ~17 other files app-wide, flagged as an unscheduled follow-up rather than fixed opportunistically. Full detail in `implementation-log.md`.
+
+## Prior status: plan builder's collapsed exercise summary no longer truncates or gets squeezed — shipped and deployed.
 
 Reorder/delete buttons now only share a row with the small eyebrow label; the exercise name and stats line each get the card's full width on their own line. Full detail in `implementation-log.md`.
 

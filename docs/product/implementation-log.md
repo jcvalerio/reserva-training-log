@@ -2,6 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Progreso: "Ejercicios que más mejoraron" — the first Hevy-inspired idea, shipped
+
+Status: shipped. Committed as `9b1fedd` on `main`, `lint`/`typecheck`/`test` (456 passing, +7 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_APt3JCTV4SUoiyaJxGdiHT7FEpe3`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+
+First of the three prioritized ideas from the design-ideas proposal (`2026-08-11` "Hevy-inspired design ideas" artifact) — a ranked, scannable list of improved exercises with a real percentage, sitting above the KPI row's bare "Mejorando 4/5" count. Exactly the reformatting the proposal called for: `computeExerciseImprovement` already computed every delta needed, so this is a new small component (`top-exercises-list.tsx`) plus wiring, not a new query or schema change.
+
+Each row picks one headline signal per exercise when more than one fired — `1RM estimado > Peso > Reps > Volumen > Asimetría > Dolor`, most strength-relevant first — and shows a real percentage, always positive by construction since a growth signal only ever fires after `computeExerciseImprovement`'s 5%-or-better gate already passed. Asimetría shows % of the gap closed; Dolor shows a point drop rather than a percentage, since pain is an ordinal 0–10 score, not a ratio. Ranked by each row's own magnitude, capped to 5.
+
+**Found and fixed a second, pre-existing bug while visually verifying this against realistic exercise names** ("Sentadilla trasera (Back Squat)", "Extensión de cuádriceps unilateral"): several `grid gap-*` containers on `/progreso` — the existing "Mejoras recientes" list, two chart list wrappers in `muscle-volume-chart.tsx`/`exercise-group-list.tsx`, and the session-history list — had no explicit `grid-template-columns`, so the browser's "auto" track sizing grew the track to fit whichever child's *un-truncated* max-content width was largest. `truncate` only reduces an element's automatic minimum size, not the max-content contribution grid track sizing actually reads, so it didn't prevent this — the same underlying mechanism as the plan-builder overflow fixed earlier the same day, just triggered via `truncate` instead of `content-visibility`. Confirmed in a real browser (390px viewport, 414px `scrollWidth`) with the exact repro that flushed it out, then fixed with `grid-cols-1` (Tailwind's `minmax(0,1fr)` tracks cap at available width) everywhere on this page, including the new component's own list.
+
+**The same bare-`grid` pattern exists in ~17 other files across the app** (`grep -rln 'grid gap' src/app`) — confirmed widespread, deliberately left alone as out of scope for this change. Worth a dedicated audit pass rather than fixing opportunistically file-by-file.
+
+Files touched: `src/app/progreso/top-exercises-list.tsx` (new, +test), `progreso-page-content.tsx` (+test), `muscle-volume-chart.tsx`, `exercise-group-list.tsx`.
+
+Next iteration: the second and third proposal ideas (E1RM as a third progression-chart metric; a body-map thumbnail on plan-builder day cards) are still queued, in that order. The `grid gap-*` audit across the other ~17 files is a separate, unscheduled follow-up.
+
 ## 2026-08-11 — Plan builder: collapsed exercise name/stats were truncated and squeezed to half the card
 
 Status: shipped. Committed as `884819e` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_8FqU21vePGR9MF7HCsPhKW3zTuuX`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
