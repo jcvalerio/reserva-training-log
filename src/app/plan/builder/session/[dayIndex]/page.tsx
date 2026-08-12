@@ -75,8 +75,12 @@ export default async function SessionEditorPage({ params, searchParams }: Sessio
 
       <FormStatusBanner
         saved={false}
-        error={search.error === "validation"}
-        errorMessage="Revisa cada ejercicio: nombre, series, rango de reps y RIR son obligatorios."
+        error={search.error === "validation" || search.error === "cannot_remove"}
+        errorMessage={
+          search.error === "cannot_remove"
+            ? "Se guardaron los demás cambios, pero un ejercicio que quitaste ya tiene series registradas y no se puede eliminar sin perder ese historial — sigue apareciendo abajo. Puedes dejarlo en la sesión."
+            : "Revisa cada ejercicio: nombre, series, rango de reps y RIR son obligatorios."
+        }
       />
 
       <SessionEditorForm

@@ -104,7 +104,18 @@ export async function saveSessionAction(formData: FormData) {
     redirect(`/plan/builder/session/${dayIndex}?error=validation`);
   }
 
-  await saveDraftSession(draftPlanId, dayIndex, sessionInfo, exercises);
+  // saveDraftSession updates existing exercisePrescription rows in place by
+  // position rather than delete-and-reinsert specifically so logged history
+  // survives an edit — but removing a row that already has real sets logged
+  // against it still hits exerciseLog's onDelete:"restrict" the moment that
+  // row becomes a genuine leftover to delete. The repository already turns
+  // that into a readable message; this catch is what actually gets it in
+  // front of the person who hit it instead of a bare 500.
+  try {
+    await saveDraftSession(draftPlanId, dayIndex, sessionInfo, exercises);
+  } catch {
+    redirect(`/plan/builder/session/${dayIndex}?error=cannot_remove`);
+  }
 
   revalidatePath("/plan/builder");
   redirect("/plan/builder?saved=1");
