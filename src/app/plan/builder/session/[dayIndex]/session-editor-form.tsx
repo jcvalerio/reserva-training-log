@@ -302,60 +302,64 @@ function ExerciseRowFields({
       open={!value.exerciseNameEs || value.prefilledFromHistory}
       className="group rounded-3xl bg-zinc-900 ring-1 ring-zinc-800"
     >
-      <summary className="flex list-none cursor-pointer items-start justify-between gap-2 p-4 [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 flex-1 items-start gap-2.5">
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+      <summary className="flex list-none cursor-pointer flex-col gap-1 p-4 [&::-webkit-details-marker]:hidden">
+        {/* Reorder/delete only share a row with the small eyebrow label, not
+            the name or stats line below — those get the card's full width to
+            themselves instead of being squeezed into whatever's left beside
+            the button cluster for their entire height. */}
+        <span className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
               Ejercicio {index + 1}
             </span>
-            <span className="mt-0.5 block truncate text-base font-semibold text-zinc-100">
-              {summaryName.trim() || "Sin nombre todavía"}
-            </span>
-            <span className="mt-0.5 block truncate text-xs text-zinc-400">{summaryLine}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-150 group-open:rotate-180 group-open:text-zinc-300"
+            />
           </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="mt-1 h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-150 group-open:rotate-180 group-open:text-zinc-300"
-          />
-        </span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              onMoveUp();
-            }}
-            disabled={!canMoveUp}
-            aria-label="Mover arriba"
-            className="rounded-xl bg-zinc-950 p-2.5 text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
-          >
-            <ArrowUp className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              onMoveDown();
-            }}
-            disabled={!canMoveDown}
-            aria-label="Mover abajo"
-            className="rounded-xl bg-zinc-950 p-2.5 text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
-          >
-            <ArrowDown className="h-4 w-4" />
-          </button>
-          {canRemove ? (
+          <span className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={(event) => {
                 event.preventDefault();
-                onRemove();
+                onMoveUp();
               }}
-              className="ml-1.5 rounded-xl bg-zinc-950 px-3 py-2.5 text-xs font-semibold text-amber-200 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              disabled={!canMoveUp}
+              aria-label="Mover arriba"
+              className="rounded-xl bg-zinc-950 p-2.5 text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
             >
-              Eliminar
+              <ArrowUp className="h-4 w-4" />
             </button>
-          ) : null}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                onMoveDown();
+              }}
+              disabled={!canMoveDown}
+              aria-label="Mover abajo"
+              className="rounded-xl bg-zinc-950 p-2.5 text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+            {canRemove ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  onRemove();
+                }}
+                className="ml-1.5 rounded-xl bg-zinc-950 px-3 py-2.5 text-xs font-semibold text-amber-200 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              >
+                Eliminar
+              </button>
+            ) : null}
+          </span>
         </span>
+        <span className="block text-base font-semibold text-zinc-100">
+          {summaryName.trim() || "Sin nombre todavía"}
+        </span>
+        <span className="block text-xs text-zinc-400">{summaryLine}</span>
       </summary>
 
       <div className="border-t border-zinc-800/80 px-4 pb-4 pt-4">
