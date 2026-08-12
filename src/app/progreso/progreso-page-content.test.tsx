@@ -162,10 +162,69 @@ describe("ProgresoPageContent", () => {
 
     renderPage({ improvements });
 
-    expect(screen.getByText("Prensa de piernas")).toBeVisible();
+    // "Prensa de piernas" now legitimately appears twice — once as this
+    // card's own heading, once in "Ejercicios que más mejoraron" above it
+    // (see the dedicated test for that section below) — so the heading role
+    // disambiguates instead of a plain text match.
+    expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
     expect(screen.getByText("Mejora ≥5%")).toBeVisible();
     expect(screen.getByText("Volumen +5%")).toBeVisible();
     expect(screen.getByText(/Peso prom: 80kg → 84kg/)).toBeVisible();
+  });
+
+  it("lists improved exercises in 'Ejercicios que más mejoraron', ranked by their headline signal", () => {
+    const improvements: ExerciseImprovementRow[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
+        improvement: buildImprovement({
+          improved: true,
+          signals: ["volume_load"],
+          latestVolumeLoadKg: 840,
+          previousVolumeLoadKg: 800, // +5%
+        }),
+      },
+      {
+        exerciseNameEs: "Sentadilla",
+        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
+        improvement: buildImprovement({
+          improved: true,
+          signals: ["estimated_1rm"],
+          latestEstimated1RmKg: 120,
+          previousEstimated1RmKg: 100, // +20%, should rank first
+        }),
+      },
+      {
+        exerciseNameEs: "Sin cambios",
+        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
+        improvement: buildImprovement({ improved: false, signals: [] }),
+      },
+    ];
+
+    renderPage({ improvements });
+
+    expect(screen.getByText("Ejercicios que más mejoraron")).toBeVisible();
+    const names = screen
+      .getAllByText(/^(Prensa de piernas|Sentadilla)$/)
+      .filter((el) => el.tagName === "SPAN")
+      .map((el) => el.textContent);
+    expect(names).toEqual(["Sentadilla", "Prensa de piernas"]);
+    expect(screen.getByText("+20.0%")).toBeVisible();
+    expect(screen.getByText("+5.0%")).toBeVisible();
+  });
+
+  it("hides 'Ejercicios que más mejoraron' when nothing improved", () => {
+    const improvements: ExerciseImprovementRow[] = [
+      {
+        exerciseNameEs: "Sin cambios",
+        latestCompletedAt: null,
+        improvement: buildImprovement({ improved: false, signals: [] }),
+      },
+    ];
+
+    renderPage({ improvements });
+
+    expect(screen.queryByText("Ejercicios que más mejoraron")).toBeNull();
   });
 
   it("shows a neutral badge and no signal chips for an exercise with no 5% change", () => {

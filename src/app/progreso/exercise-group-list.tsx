@@ -96,7 +96,7 @@ export function ExerciseGroupList({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       {sections.map((section) => (
         <section key={section.key} aria-labelledby={`group-${section.key}`}>
           <p
@@ -105,7 +105,7 @@ export function ExerciseGroupList({
           >
             {section.labelEs}
           </p>
-          <ul className="mt-1 grid gap-0.5">
+          <ul className="mt-1 grid grid-cols-1 gap-0.5">
             {section.exercises.map((group) => {
               const isOpen = openName === group.exerciseNameEs;
               const delta = deltaLabel(group);

@@ -148,7 +148,7 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
       {trainedRows.length === 0 ? (
         <p className="text-xs leading-5 text-zinc-400">{emptyMessageEs(view)}</p>
       ) : (
-        <ul className="grid gap-0.5">
+        <ul className="grid grid-cols-1 gap-0.5">
           {trainedRows.map((row) => {
             const isActive = activeKey === row.key;
             const belowRange = row.referenceRange ? row.effectiveSets < row.referenceRange.min : false;
@@ -244,7 +244,7 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
               {untrainedRows.map((row) => row.labelEs).join(", ")}
             </span>
           </summary>
-          <ul className="mt-1 grid gap-0.5 pl-6">
+          <ul className="mt-1 grid grid-cols-1 gap-0.5 pl-6">
             {untrainedRows.map((row) => (
               <li key={row.key} className="text-xs leading-5 text-zinc-500">
                 {row.labelEs}

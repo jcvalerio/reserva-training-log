@@ -16,6 +16,7 @@ import { BarChart } from "./bar-chart";
 import { ExerciseGroupList } from "./exercise-group-list";
 import { MeasurementSeriesChart } from "./measurement-series-chart";
 import { MuscleVolumeSection } from "./muscle-volume-section";
+import { buildTopExerciseRows, TopExercisesList } from "./top-exercises-list";
 
 export function ProgresoPageContent({
   hasProfile,
@@ -63,6 +64,7 @@ export function ProgresoPageContent({
 
   const recentAverageLoad = averageRecentTrainingLoad(completedSessions);
   const improvedExerciseCount = improvements.filter((row) => row.improvement.improved).length;
+  const topExerciseRows = buildTopExerciseRows(improvements);
 
   return (
     <AppShell activeHref="/progreso" backTo={null}>
@@ -89,6 +91,20 @@ export function ProgresoPageContent({
         />
         <KpiTile label="Carga" value={recentAverageLoad !== null ? `${recentAverageLoad}` : "—"} sublabel="UA reciente" />
       </section>
+
+      {topExerciseRows.length > 0 ? (
+        <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="top-exercises-title">
+          <p id="top-exercises-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+            Ejercicios que más mejoraron
+          </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
+            El indicador que más cambió en cada ejercicio desde tu sesión anterior.
+          </p>
+          <div className="mt-3">
+            <TopExercisesList rows={topExerciseRows} />
+          </div>
+        </section>
+      ) : null}
 
       {muscleVolumeSummary ? (
         <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="muscle-volume-title">
@@ -128,7 +144,7 @@ export function ProgresoPageContent({
                   that path would happily report "hombro" for a hurting wrist,
                   and it still runs for sets logged before painLocation
                   existed. Never present the two identically. */}
-              <ul className="mt-2 grid gap-1">
+              <ul className="mt-2 grid grid-cols-1 gap-1">
                 {muscleVolumeSummary.painByLocation.map((row) => (
                   <li key={row.location} className="text-sm leading-6 text-zinc-300">
                     {painLocationLabelsEs[row.location]}
@@ -168,7 +184,7 @@ export function ProgresoPageContent({
               <p className="mt-1 text-xs leading-5 text-zinc-400">
                 Estas series no se cuentan en ningún grupo muscular. Asigna su grupo al editar el plan.
               </p>
-              <ul className="mt-2 grid gap-1">
+              <ul className="mt-2 grid grid-cols-1 gap-1">
                 {muscleVolumeSummary.unclassifiedExerciseNames.map((name) => (
                   <li key={name} className="text-sm leading-6 text-zinc-300">
                     {name}
@@ -207,7 +223,7 @@ export function ProgresoPageContent({
             Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí.
           </p>
         ) : (
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3">
             {improvements.map((row) => (
               <ImprovementCard key={row.exerciseNameEs} row={row} />
             ))}
@@ -235,11 +251,11 @@ export function ProgresoPageContent({
         <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
       ) : null}
 
-      <section className="mt-6 grid gap-3 pb-10" aria-labelledby="history-title">
+      <section className="mt-6 grid grid-cols-1 gap-3 pb-10" aria-labelledby="history-title">
         <p id="history-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
           Historial de sesiones
         </p>
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {completedSessions.map(({ session, template }) => (
             <Link
               key={session.id}
@@ -297,7 +313,7 @@ function BodyMeasurementTrendCard({
           <div className="mt-3">
             <MeasurementSeriesChart points={measurementSeries} />
           </div>
-          <div className="mt-3 grid gap-1 text-sm leading-6 text-zinc-300">
+          <div className="mt-3 grid grid-cols-1 gap-1 text-sm leading-6 text-zinc-300">
             {trend.bodyWeightKg ? (
               <p>
                 Peso: {trend.bodyWeightKg.firstValue.toFixed(1)}kg → {trend.bodyWeightKg.latestValue.toFixed(1)}kg (
