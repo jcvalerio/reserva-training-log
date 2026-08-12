@@ -2,6 +2,18 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Progreso: long muscle-group labels wrapped and crowded the volume bar
+
+Status: shipped. Committed as `6ee2ddf` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G19xi7v76ddiXeuggtxoFnRCT5AW`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+
+A related follow-up to the same-day delta-wrapping fix, caught in a separate concurrent session working the same file — reviewed and finished here rather than left half-done, since it landed as uncommitted work in this same working tree. "Abductores y aductores" (22 characters, the longest real label in `muscleGroupLabelsEs`) had nowhere near enough room in the fixed `w-28` (112px) column it shared with the bar/value/delta/chevron on one line — it wrapped unevenly and squeezed every row's usable bar width, not just the long row's own.
+
+Moved the label to its own full-width line above the bar row instead of a fixed-width column beside it. Verified in a real browser at 390px with the actual longest catalog label: renders complete on one line, with a wider, more legible bar as a side effect of no longer sharing horizontal space with the label. The row is now two lines tall instead of one — a reasonable trade for legibility, consistent with how the earlier delta fix already widened that same row.
+
+Files touched: `src/app/progreso/muscle-volume-chart.tsx`.
+
+Next iteration: none flagged.
+
 ## 2026-08-11 — Plan builder horizontal scroll, and progreso deltas wrapping to a second line
 
 Status: shipped. Committed as `40902a0` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_EwaRj5bLALJusAX6HFMnWEYboUnM`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
