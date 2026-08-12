@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: plan builder blocked-removal now actually resolves, and the error toast floats — shipped and deployed.
+## Status: two layout bugs fixed (plan builder horizontal scroll, progreso delta wrapping) — shipped and deployed. A broader design review of both screens, using real reference apps, is next.
+
+Root-caused both in a live browser, not just from code: the plan-builder scroll was `content-visibility` (closed `<details>`) leaking width into an unconstrained `grid`'s intrinsic sizing; the progreso delta wrap was a fixed-width span with no `whitespace-nowrap`. Full detail in `implementation-log.md`.
+
+## Prior status: plan builder blocked-removal now actually resolves, and the error toast floats — shipped and deployed.
 
 The crash fix below only made the failure visible; it didn't give her a way through it. She tried working around it via `/entrenar` (deleting the logged sets directly), which turned out to be structurally impossible — deleting a set never touches the `exerciseLog` row that's actually blocking the removal, and that row survives even at zero sets. The session editor now shows exactly which exercise(s) are blocked, with real set counts, and a confirmed "delete anyway" action that removes the history and the exercise together. The error banner also now floats above the bottom nav instead of sitting at the top of a long scrolled-past form. Full detail in `implementation-log.md`.
 

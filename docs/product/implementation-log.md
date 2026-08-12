@@ -2,6 +2,20 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-11 — Plan builder horizontal scroll, and progreso deltas wrapping to a second line
+
+Status: shipped. Committed as `40902a0` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_EwaRj5bLALJusAX6HFMnWEYboUnM`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+
+Two layout bugs from real-phone screenshots, both root-caused empirically in a live browser rather than by reading code alone.
+
+**Plan builder scrolled horizontally.** `document.documentElement.scrollWidth` measured 450px against a 390px viewport. Traced to a genuinely subtle interaction from the collapsed-card redesign a day earlier: a closed `<details>` hides its body via `content-visibility`, which correctly zeroes the body's height contribution to the page (confirmed the outer `<details>` itself renders at exactly its summary's height, 102px) — but does **not** zero its width contribution to an ancestor's intrinsic-size calculation. Both the session form and the exercise list use a bare `grid` with no explicit columns, so the implicit "auto" track sized itself to the max-content width of whatever's inside — including the 70-option muscle-group `<select>` sitting inside a currently-closed card. Switched both to `grid-cols-1` (Tailwind's `minmax(0,1fr)` tracks cap at available width instead of growing to content); confirmed `scrollWidth` back to exactly 390 with every card both open and closed.
+
+**Progreso's week-over-week deltas** ("▼ −1", "▼ −0.5", "▼ −15") wrapped onto a second line under the muscle bar instead of staying inline. The delta `<span>` was a fixed `w-10` (40px) with no `whitespace-nowrap` — too narrow for the raised 14px `text-xs` type scale once the string passed one digit. Widened to `w-14`, added `whitespace-nowrap`; reproduced the exact wrap with the reported values and confirmed it now stays on one line.
+
+Files touched: `src/app/plan/builder/session/[dayIndex]/session-editor-form.tsx`, `src/app/progreso/muscle-volume-chart.tsx`.
+
+Next iteration: none flagged for these two — both are closed. A broader design pass on the plan builder and progreso screens (with reference-app research) is underway separately.
+
 ## 2026-08-11 — Plan builder: a blocked exercise removal can now actually resolve, and the error toast floats
 
 Status: shipped. Committed as `e5924ca` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_B69VXVmxRCBrvuG2n9bqBfCgAyvT`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
