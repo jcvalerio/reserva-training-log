@@ -107,6 +107,43 @@ describe("buildExerciseSeries", () => {
     expect(point!.rightVolumeLoadKg).toBeNull();
   });
 
+  it("computes best1RmKg as the RIR-adjusted Epley estimate of the best qualifying set", () => {
+    const instances: ExerciseInstance[] = [
+      buildInstance({
+        sets: [
+          buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 }), // 80 * (1 + 12/30) = 112
+          buildSet({ actualWeightKg: "60.00", actualReps: 5, rir: 0 }), // 60 * (1 + 5/30) = 70, not the best
+        ],
+      }),
+    ];
+
+    const [point] = buildExerciseSeries(instances);
+
+    expect(point!.best1RmKg).toBe(112);
+  });
+
+  it("returns null for best1RmKg when every set falls outside the reliable rep range", () => {
+    const instances: ExerciseInstance[] = [buildInstance({ sets: [buildSet({ actualReps: 20 })] })]; // past ONE_RM_MAX_REPS (15)
+
+    const [point] = buildExerciseSeries(instances);
+
+    expect(point!.best1RmKg).toBeNull();
+  });
+
+  it("splits best1RmKg by side for a unilateral instance, null for a side with nothing logged", () => {
+    const instances: ExerciseInstance[] = [
+      buildInstance({
+        isUnilateral: true,
+        sets: [buildSet({ side: "left", actualWeightKg: "20.00", actualReps: 10, rir: 2 })], // 20 * 1.4 = 28
+      }),
+    ];
+
+    const [point] = buildExerciseSeries(instances);
+
+    expect(point!.leftBest1RmKg).toBe(28);
+    expect(point!.rightBest1RmKg).toBeNull();
+  });
+
   it("computes avg RIR per side alongside weight/volume", () => {
     const instances: ExerciseInstance[] = [
       buildInstance({

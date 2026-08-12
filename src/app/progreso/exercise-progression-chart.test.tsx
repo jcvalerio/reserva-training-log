@@ -17,10 +17,13 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-13T12:00:00Z"),
         avgWeightKg: 80,
         volumeLoadKg: 1600,
+        best1RmKg: 96,
         leftAvgWeightKg: null,
         rightAvgWeightKg: null,
         leftVolumeLoadKg: null,
         rightVolumeLoadKg: null,
+        leftBest1RmKg: null,
+        rightBest1RmKg: null,
         leftAvgRir: null,
         rightAvgRir: null,
       },
@@ -28,10 +31,15 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-20T12:00:00Z"),
         avgWeightKg: 84,
         volumeLoadKg: 1680,
+        // Deliberately null — every set this instance was past ONE_RM_MAX_REPS,
+        // a real gap the 1RM series must skip rather than plot as zero.
+        best1RmKg: null,
         leftAvgWeightKg: null,
         rightAvgWeightKg: null,
         leftVolumeLoadKg: null,
         rightVolumeLoadKg: null,
+        leftBest1RmKg: null,
+        rightBest1RmKg: null,
         leftAvgRir: null,
         rightAvgRir: null,
       },
@@ -48,10 +56,50 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-20T12:00:00Z"),
         avgWeightKg: 60,
         volumeLoadKg: 600,
+        best1RmKg: 72,
         leftAvgWeightKg: null,
         rightAvgWeightKg: null,
         leftVolumeLoadKg: null,
         rightVolumeLoadKg: null,
+        leftBest1RmKg: null,
+        rightBest1RmKg: null,
+        leftAvgRir: null,
+        rightAvgRir: null,
+      },
+    ],
+  },
+  {
+    exerciseNameEs: "Sentadilla solo alto volumen",
+    isUnilateral: false,
+    primaryMuscleGroup: null,
+    isClassified: false,
+    substitutedForNameEs: null,
+    points: [
+      {
+        completedAt: new Date("2026-07-13T12:00:00Z"),
+        avgWeightKg: 40,
+        volumeLoadKg: 2000,
+        best1RmKg: null,
+        leftAvgWeightKg: null,
+        rightAvgWeightKg: null,
+        leftVolumeLoadKg: null,
+        rightVolumeLoadKg: null,
+        leftBest1RmKg: null,
+        rightBest1RmKg: null,
+        leftAvgRir: null,
+        rightAvgRir: null,
+      },
+      {
+        completedAt: new Date("2026-07-20T12:00:00Z"),
+        avgWeightKg: 42,
+        volumeLoadKg: 2100,
+        best1RmKg: null,
+        leftAvgWeightKg: null,
+        rightAvgWeightKg: null,
+        leftVolumeLoadKg: null,
+        rightVolumeLoadKg: null,
+        leftBest1RmKg: null,
+        rightBest1RmKg: null,
         leftAvgRir: null,
         rightAvgRir: null,
       },
@@ -68,10 +116,13 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-13T12:00:00Z"),
         avgWeightKg: 22.5,
         volumeLoadKg: 900,
+        best1RmKg: 27,
         leftAvgWeightKg: 20,
         rightAvgWeightKg: 25,
         leftVolumeLoadKg: 400,
         rightVolumeLoadKg: 500,
+        leftBest1RmKg: 24,
+        rightBest1RmKg: 30,
         leftAvgRir: 4,
         rightAvgRir: 0,
       },
@@ -79,10 +130,13 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-20T12:00:00Z"),
         avgWeightKg: 23,
         volumeLoadKg: 920,
+        best1RmKg: 27.6,
         leftAvgWeightKg: 21,
         rightAvgWeightKg: 25,
         leftVolumeLoadKg: 420,
         rightVolumeLoadKg: 500,
+        leftBest1RmKg: 25,
+        rightBest1RmKg: 30,
         leftAvgRir: 3,
         rightAvgRir: 1,
       },
@@ -99,10 +153,13 @@ const groups: ExerciseSeriesGroup[] = [
         completedAt: new Date("2026-07-20T12:00:00Z"),
         avgWeightKg: 15,
         volumeLoadKg: 150,
+        best1RmKg: 18,
         leftAvgWeightKg: 15,
         rightAvgWeightKg: null, // only the left side was logged this instance
         leftVolumeLoadKg: 150,
         rightVolumeLoadKg: null,
+        leftBest1RmKg: 18,
+        rightBest1RmKg: null,
         leftAvgRir: 2,
         rightAvgRir: null,
       },
@@ -138,6 +195,37 @@ describe("ExerciseProgressionChart", () => {
     fireEvent.click(screen.getByRole("button", { name: "Volumen" }));
 
     expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Volumen de Prensa de piernas");
+  });
+
+  it("switches to the 1RM series when the 1RM toggle is clicked, skipping the point with no usable set", () => {
+    render(<ExerciseProgressionChart group={groupNamed("Prensa de piernas")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "1RM" }));
+
+    const summary = screen.getByRole("img").getAttribute("aria-label");
+    expect(summary).toContain("1RM estimado de Prensa de piernas");
+    // Only one of the two points has a real best1RmKg — the other is a gap
+    // (every set past ONE_RM_MAX_REPS), which must be skipped, not zeroed.
+    expect(summary).toContain("1 punto");
+  });
+
+  it("shows an explanatory message instead of an empty chart when no instance has a usable 1RM estimate", () => {
+    render(<ExerciseProgressionChart group={groupNamed("Sentadilla solo alto volumen")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "1RM" }));
+
+    expect(
+      screen.getByText(/Ninguna serie registrada tiene 15 repeticiones o menos/),
+    ).toBeVisible();
+    expect(screen.queryByRole("img", { name: /1RM/ })).toBeNull();
+  });
+
+  it("shows the 1RM series split by side for a unilateral exercise", () => {
+    render(<ExerciseProgressionChart group={groupNamed("Prensa unilateral")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "1RM" }));
+
+    expect(screen.getByRole("img", { name: /1RM estimado.*izquierda vs\. derecha/ })).toBeVisible();
   });
 
   it("shows the single-instance hint for an exercise with one logged session", () => {

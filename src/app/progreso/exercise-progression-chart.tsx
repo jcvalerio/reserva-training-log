@@ -4,28 +4,41 @@ import { useState } from "react";
 
 import { formatKg, formatShortDateEs } from "@/lib/format";
 import { buildEffortGapSeries, type ExerciseSeriesGroup } from "@/workouts/exercise-series";
+import { ONE_RM_MAX_REPS } from "@/workouts/improvement";
 
 import { DualLineChart, type DualLineChartPoint } from "./dual-line-chart";
 import { LineChart, type LineChartPoint } from "./line-chart";
 
-type Metric = "avgWeightKg" | "volumeLoadKg";
+type Metric = "avgWeightKg" | "volumeLoadKg" | "best1RmKg";
 
+// Long form, for the chart's own aria-label summary.
 const METRIC_LABEL: Record<Metric, string> = {
   avgWeightKg: "Peso promedio",
   volumeLoadKg: "Volumen",
+  best1RmKg: "1RM estimado",
 };
 
-const LEFT_METRIC: Record<Metric, "leftAvgWeightKg" | "leftVolumeLoadKg"> = {
+// Short form, for the toggle button itself — three of these side by side
+// need to stay compact.
+const METRIC_SHORT_LABEL: Record<Metric, string> = {
+  avgWeightKg: "Peso",
+  volumeLoadKg: "Volumen",
+  best1RmKg: "1RM",
+};
+
+const LEFT_METRIC: Record<Metric, "leftAvgWeightKg" | "leftVolumeLoadKg" | "leftBest1RmKg"> = {
   avgWeightKg: "leftAvgWeightKg",
   volumeLoadKg: "leftVolumeLoadKg",
+  best1RmKg: "leftBest1RmKg",
 };
-const RIGHT_METRIC: Record<Metric, "rightAvgWeightKg" | "rightVolumeLoadKg"> = {
+const RIGHT_METRIC: Record<Metric, "rightAvgWeightKg" | "rightVolumeLoadKg" | "rightBest1RmKg"> = {
   avgWeightKg: "rightAvgWeightKg",
   volumeLoadKg: "rightVolumeLoadKg",
+  best1RmKg: "rightBest1RmKg",
 };
 
 function formatMetricValue(metric: Metric, value: number): string {
-  return metric === "avgWeightKg" ? formatKg(value, 1) : formatKg(value, 0);
+  return metric === "volumeLoadKg" ? formatKg(value, 0) : formatKg(value, 1);
 }
 
 function formatSignedRir(value: number): string {
@@ -42,6 +55,18 @@ function formatSignedRir(value: number): string {
 export function ExerciseProgressionChart({ group: selectedGroup }: { group: ExerciseSeriesGroup }) {
   const [metric, setMetric] = useState<Metric>("avgWeightKg");
 
+  const dualPoints = selectedGroup.isUnilateral ? buildDualPoints(selectedGroup, metric) : [];
+  const singlePoints = selectedGroup.isUnilateral ? [] : buildSinglePoints(selectedGroup, metric);
+  const hasAnyPlottedPoint = selectedGroup.isUnilateral
+    ? dualPoints.some((point) => point.left !== null || point.right !== null)
+    : singlePoints.length > 0;
+  // For weight/volume this is always false — every logged instance has both.
+  // Only 1RM can leave real data on the page with nothing to plot: every set
+  // in every instance falling outside the rep range Epley is trustworthy for
+  // (ONE_RM_MAX_REPS) is a genuine gap, not the "only one instance ever"
+  // case the message below already covers.
+  const metricHasNoUsablePoints = selectedGroup.points.length > 0 && !hasAnyPlottedPoint;
+
   return (
     <div>
       <div className="flex items-center justify-end gap-2">
@@ -55,7 +80,7 @@ export function ExerciseProgressionChart({ group: selectedGroup }: { group: Exer
                 metric === option ? "bg-emerald-300 text-zinc-950" : "bg-zinc-800 text-zinc-300"
               }`}
             >
-              {option === "avgWeightKg" ? "Peso" : "Volumen"}
+              {METRIC_SHORT_LABEL[option]}
             </button>
           ))}
         </div>
@@ -66,13 +91,18 @@ export function ExerciseProgressionChart({ group: selectedGroup }: { group: Exer
       ) : null}
 
       <div className="mt-3">
-        {selectedGroup.isUnilateral ? (
+        {metricHasNoUsablePoints ? (
+          <p className="text-xs leading-5 text-zinc-400">
+            Ninguna serie registrada tiene {ONE_RM_MAX_REPS} repeticiones o menos, el rango donde el estimado de 1RM
+            es confiable.
+          </p>
+        ) : selectedGroup.isUnilateral ? (
           <DualLineChart
-            points={buildDualPoints(selectedGroup, metric)}
+            points={dualPoints}
             ariaLabel={`${METRIC_LABEL[metric]} de ${selectedGroup.exerciseNameEs}, izquierda vs. derecha`}
           />
         ) : (
-          <LineChart points={buildSinglePoints(selectedGroup, metric)} ariaLabel={`${METRIC_LABEL[metric]} de ${selectedGroup.exerciseNameEs}`} />
+          <LineChart points={singlePoints} ariaLabel={`${METRIC_LABEL[metric]} de ${selectedGroup.exerciseNameEs}`} />
         )}
       </div>
 
@@ -122,13 +152,25 @@ function EffortGapSection({ group }: { group: ExerciseSeriesGroup }) {
   );
 }
 
+// avgWeightKg/volumeLoadKg are always a real number for a point that made it
+// into ExerciseSeriesPoint at all (buildExerciseSeries already skips
+// instances with zero sets) — only best1RmKg can be null on an otherwise
+// real point, so this drops just those points rather than plotting a gap.
 function buildSinglePoints(group: ExerciseSeriesGroup, metric: Metric): LineChartPoint[] {
-  return group.points.map((point) => ({
-    timestampMs: point.completedAt.getTime(),
-    value: point[metric],
-    dateLabel: formatShortDateEs(point.completedAt),
-    valueLabel: formatMetricValue(metric, point[metric]),
-  }));
+  const points: LineChartPoint[] = [];
+  for (const point of group.points) {
+    const value = point[metric];
+    if (value === null) {
+      continue;
+    }
+    points.push({
+      timestampMs: point.completedAt.getTime(),
+      value,
+      dateLabel: formatShortDateEs(point.completedAt),
+      valueLabel: formatMetricValue(metric, value),
+    });
+  }
+  return points;
 }
 
 function buildDualPoints(group: ExerciseSeriesGroup, metric: Metric): DualLineChartPoint[] {

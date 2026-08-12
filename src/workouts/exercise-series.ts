@@ -1,12 +1,19 @@
 import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
-import { average, totalVolumeLoadKg } from "./improvement";
+import { average, bestEstimated1Rm, totalVolumeLoadKg } from "./improvement";
 import { toStrengthSetLog, type ExerciseInstance, type StrengthSetLog } from "./workout-repository";
 
 export type ExerciseSeriesPoint = {
   completedAt: Date;
   avgWeightKg: number;
   volumeLoadKg: number;
+  // RIR-adjusted Epley, best qualifying set in the instance — same formula
+  // and same ONE_RM_MAX_REPS gate as the "Mejoras recientes" before/after
+  // pair, just kept per-instance here instead of collapsed to one pair. Null
+  // when every set in the instance falls outside the rep range the estimate
+  // is trustworthy for (e.g. a pure high-rep/endurance day) — a real gap,
+  // not zero.
+  best1RmKg: number | null;
   // Only meaningful for unilateral exercises; null when that side has no
   // logged sets for this instance (e.g. a bilateral warm-up set mixed in, or
   // a session where only one side got trained).
@@ -14,6 +21,8 @@ export type ExerciseSeriesPoint = {
   rightAvgWeightKg: number | null;
   leftVolumeLoadKg: number | null;
   rightVolumeLoadKg: number | null;
+  leftBest1RmKg: number | null;
+  rightBest1RmKg: number | null;
   // Average RIR per side — a load-matched pair of sides can carry very
   // different effort (e.g. weak side at RIR0/failure, strong side at RIR4
   // deliberately held back per progression-rules.md's "stronger side
@@ -46,6 +55,10 @@ function sideVolume(sets: StrengthSetLog[], side: "left" | "right"): number | nu
   return sideSets.length ? totalVolumeLoadKg(sideSets) : null;
 }
 
+function sideBest1RmKg(sets: StrengthSetLog[], side: "left" | "right"): number | null {
+  return bestEstimated1Rm(sets.filter((set) => set.side === side))?.oneRmKg ?? null;
+}
+
 /**
  * Builds an ascending (oldest-first) per-exercise series for the /progreso
  * progression chart, from the same ExerciseInstance[] shape
@@ -65,10 +78,13 @@ export function buildExerciseSeries(instances: ExerciseInstance[]): ExerciseSeri
       completedAt: instance.completedAt,
       avgWeightKg: average(strengthSets.map((set) => Number(set.actualWeightKg))),
       volumeLoadKg: totalVolumeLoadKg(strengthSets),
+      best1RmKg: bestEstimated1Rm(strengthSets)?.oneRmKg ?? null,
       leftAvgWeightKg: sideAverage(strengthSets, "left", (set) => Number(set.actualWeightKg)),
       rightAvgWeightKg: sideAverage(strengthSets, "right", (set) => Number(set.actualWeightKg)),
       leftVolumeLoadKg: sideVolume(strengthSets, "left"),
       rightVolumeLoadKg: sideVolume(strengthSets, "right"),
+      leftBest1RmKg: sideBest1RmKg(strengthSets, "left"),
+      rightBest1RmKg: sideBest1RmKg(strengthSets, "right"),
       leftAvgRir: sideAverage(strengthSets, "left", (set) => set.rir),
       rightAvgRir: sideAverage(strengthSets, "right", (set) => set.rir),
     });

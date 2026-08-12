@@ -34,8 +34,10 @@ const SIMILAR_RIR_TOLERANCE = 1;
 
 // Epley's formula degrades badly outside a low-to-moderate rep range; sets
 // beyond this are excluded from the 1RM estimate entirely rather than
-// silently feeding it a number nobody should trust.
-const ONE_RM_MAX_REPS = 15;
+// silently feeding it a number nobody should trust. Exported so the
+// progression chart's 1RM metric can explain a gap in its own series using
+// the same threshold, instead of a second hardcoded "15" drifting from this one.
+export const ONE_RM_MAX_REPS = 15;
 // "Compatible rep ranges" (progression-rules.md): only compare two 1RM
 // estimates when they were derived from a similar number of reps, so the
 // two estimates carry roughly the same error margin.
@@ -217,7 +219,10 @@ function estimated1RmKg(set: StrengthSetLog): number {
   return weight * (1 + effectiveReps / 30);
 }
 
-function bestEstimated1Rm(sets: StrengthSetLog[]): { oneRmKg: number; actualReps: number } | null {
+// Exported for reuse by src/workouts/exercise-series.ts (the /progreso
+// progression chart's 1RM metric wants the same per-instance best estimate,
+// not a second implementation of the RIR-adjusted Epley math).
+export function bestEstimated1Rm(sets: StrengthSetLog[]): { oneRmKg: number; actualReps: number } | null {
   let best: { oneRmKg: number; actualReps: number } | null = null;
 
   for (const set of sets) {
