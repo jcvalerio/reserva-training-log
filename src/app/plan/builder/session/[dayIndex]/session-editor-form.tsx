@@ -137,7 +137,7 @@ export function SessionEditorForm({
   }
 
   return (
-    <form action={action} className="mt-6 grid gap-4 pb-10">
+    <form action={action} className="mt-6 grid grid-cols-1 gap-4 pb-10">
       <input type="hidden" name="draftPlanId" value={draftPlanId} />
       <input type="hidden" name="dayIndex" value={dayIndex} />
       <input type="hidden" name="rowCount" value={rows.length} />
@@ -180,7 +180,7 @@ export function SessionEditorForm({
         ))}
       </datalist>
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {rows.map((row, index) => (
           <ExerciseRowFields
             key={row.key}

@@ -197,9 +197,9 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
                     // zinc, never green/red: colour here is reserved for pain,
                     // and "fewer sets" is not a warning.
                     return delta === null ? (
-                      <span className="w-10 shrink-0" />
+                      <span className="w-14 shrink-0" />
                     ) : (
-                      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-400">
+                      <span className="w-14 shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-zinc-400">
                         {formatDelta(delta)}
                       </span>
                     );
