@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { toDisplayRir } from "@/training/rir";
+import type { SessionRecap } from "@/workouts/session-recap";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import type {
@@ -128,6 +129,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
 function renderRunner({
   exercises,
   session = buildSession(),
+  recap = null,
   saveSetAction = noopSaveSetAction,
   completeSessionAction = noopCompleteSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
@@ -140,6 +142,7 @@ function renderRunner({
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
+  recap?: SessionRecap | null;
   saveSetAction?: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   completeSessionAction?: (formData: FormData) => Promise<void>;
   updateTargetSetsAction?: (
@@ -161,6 +164,7 @@ function renderRunner({
       session={session}
       template={template}
       exercises={exercises}
+      recap={recap}
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
@@ -358,6 +362,79 @@ describe("SessionRunner", () => {
 
     expect(screen.getByText(/8 — Muy duro/)).toBeVisible();
     expect(screen.getByText("Semana pesada, dormí poco.")).toBeVisible();
+  });
+
+  it("shows no recap card when the page didn't compute one", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }) });
+
+    expect(screen.queryByRole("region", { name: "Resumen de la sesión" })).toBeNull();
+  });
+
+  it("shows the recap's duration/sets/volume tiles and the honest improvement line", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+    const recap: SessionRecap = {
+      durationMinutes: 54,
+      completedSetCount: 18,
+      totalVolumeLoadKg: 4120,
+      comparableCount: 6,
+      improvedCount: 3,
+    };
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+
+    const card = screen.getByRole("region", { name: "Resumen de la sesión" });
+    expect(within(card).getByText("54 min")).toBeVisible();
+    expect(within(card).getByText("18")).toBeVisible();
+    expect(within(card).getByText("4120kg")).toBeVisible();
+    expect(within(card).getByText("3 de 6 ejercicios mejoraron vs. tu sesión anterior.")).toBeVisible();
+  });
+
+  it("uses the singular form for exactly one comparable exercise", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+    const recap: SessionRecap = {
+      durationMinutes: 20,
+      completedSetCount: 3,
+      totalVolumeLoadKg: 240,
+      comparableCount: 1,
+      improvedCount: 1,
+    };
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+
+    expect(screen.getByText("1 de 1 ejercicio mejoró vs. tu sesión anterior.")).toBeVisible();
+  });
+
+  it("omits the improvement line when no exercise had a previous instance to compare against", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+    const recap: SessionRecap = {
+      durationMinutes: 20,
+      completedSetCount: 3,
+      totalVolumeLoadKg: 240,
+      comparableCount: 0,
+      improvedCount: 0,
+    };
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+
+    expect(screen.queryByText(/vs\. tu sesión anterior/)).toBeNull();
+  });
+
+  it("shows a dash for duration when the recap couldn't compute it", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+    const recap: SessionRecap = {
+      durationMinutes: null,
+      completedSetCount: 3,
+      totalVolumeLoadKg: 240,
+      comparableCount: 0,
+      improvedCount: 0,
+    };
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+
+    const card = screen.getByRole("region", { name: "Resumen de la sesión" });
+    expect(within(card).getByText("—")).toBeVisible();
   });
 
   it("offers an optional RPE and notes section on the complete-session form", () => {

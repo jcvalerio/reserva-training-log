@@ -4,7 +4,13 @@ import { requireCurrentUser } from "@/lib/auth-server";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { determineSmallerSide } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
-import { getSessionRunDetails, getWorkoutSessionForProfile } from "@/workouts/workout-repository";
+import { buildExerciseImprovements } from "@/workouts/improvement";
+import { buildSessionRecap, type SessionRecap } from "@/workouts/session-recap";
+import {
+  getRecentExerciseInstancesByName,
+  getSessionRunDetails,
+  getWorkoutSessionForProfile,
+} from "@/workouts/workout-repository";
 
 import {
   completeSessionAction,
@@ -35,11 +41,22 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
   const [latestMeasurement] = await getRecentBodyMeasurementsForProfile(profile.id, 1);
   const smallerSideHint = latestMeasurement ? determineSmallerSide(latestMeasurement) : null;
 
+  // Only needed once the session is actually done — mid-workout renders never
+  // reach CompletedSessionSummary, so there's nothing to gain fetching this
+  // history query while sets are still being logged.
+  let recap: SessionRecap | null = null;
+  if (session.status === "completed") {
+    const instancesByName = await getRecentExerciseInstancesByName(profile.id);
+    const improvementRows = buildExerciseImprovements(instancesByName);
+    recap = buildSessionRecap(exercises, session, improvementRows);
+  }
+
   return (
     <SessionRunner
       session={session}
       template={template}
       exercises={exercises}
+      recap={recap}
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}

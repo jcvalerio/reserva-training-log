@@ -18,6 +18,7 @@ import {
   splitPlannedAndBonusSets,
   suggestNextWeightKg,
 } from "@/workouts/progression-view";
+import type { SessionRecap } from "@/workouts/session-recap";
 import {
   isSymptomReason,
   substitutionReasonLabelsEs,
@@ -45,6 +46,7 @@ export function SessionRunner({
   session,
   template,
   exercises,
+  recap,
   saveSetAction,
   completeSessionAction,
   updateTargetSetsAction,
@@ -58,6 +60,8 @@ export function SessionRunner({
   session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
+  /** Only computed by the server page when session.status === "completed". */
+  recap: SessionRecap | null;
   saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   completeSessionAction: (formData: FormData) => Promise<void>;
   updateTargetSetsAction: (
@@ -152,6 +156,7 @@ export function SessionRunner({
         session={session}
         template={template}
         exercises={exercises}
+        recap={recap}
         updateSetAction={updateSetAction}
         deleteSetAction={deleteSetAction}
       />
@@ -678,12 +683,14 @@ function CompletedSessionSummary({
   session,
   template,
   exercises,
+  recap,
   updateSetAction,
   deleteSetAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
+  recap: SessionRecap | null;
   updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
 }) {
@@ -700,6 +707,8 @@ function CompletedSessionSummary({
         ) : null}
         {session.notes ? <p className="text-sm leading-6 text-zinc-400">{session.notes}</p> : null}
       </header>
+
+      {recap ? <SessionRecapCard recap={recap} /> : null}
 
       <div className="mt-6 grid gap-3 pb-10">
         {exercises.map((exercise) => (
@@ -741,6 +750,41 @@ function CompletedSessionSummary({
         ))}
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * Duration, sets, and volume are all trivially available from what was just
+ * logged; the improvement line reuses computeExerciseImprovement verbatim
+ * (via buildExerciseImprovements) rather than a second comparison. Honest by
+ * construction — no claimed personal record here, since that needs an
+ * all-time-best query this app doesn't have yet. No colour coding either:
+ * the app's own rule reserves colour for pain, not for "didn't improve."
+ */
+function SessionRecapCard({ recap }: { recap: SessionRecap }) {
+  return (
+    <section className="mt-5 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800" aria-label="Resumen de la sesión">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <RecapTile label="Duración" value={recap.durationMinutes !== null ? `${recap.durationMinutes} min` : "—"} />
+        <RecapTile label="Series completadas" value={String(recap.completedSetCount)} />
+        <RecapTile label="Volumen" value={formatKg(recap.totalVolumeLoadKg, 0)} />
+      </div>
+      {recap.comparableCount > 0 ? (
+        <p className="mt-3 text-sm leading-6 text-zinc-300">
+          {recap.improvedCount} de {recap.comparableCount}{" "}
+          {recap.comparableCount === 1 ? "ejercicio mejoró" : "ejercicios mejoraron"} vs. tu sesión anterior.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function RecapTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-zinc-950 px-2 py-3 ring-1 ring-zinc-800">
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-zinc-100">{value}</p>
+    </div>
   );
 }
 
