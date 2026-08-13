@@ -94,6 +94,18 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
   };
 }
 
+function buildRecap(overrides: Partial<SessionRecap> = {}): SessionRecap {
+  return {
+    durationMinutes: 20,
+    completedSetCount: 3,
+    totalVolumeLoadKg: 240,
+    comparableCount: 0,
+    improvedCount: 0,
+    personalRecords: [],
+    ...overrides,
+  };
+}
+
 function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): ExerciseWithLoggedSets {
   return {
     id: "exercise-a",
@@ -374,13 +386,7 @@ describe("SessionRunner", () => {
 
   it("shows the recap's duration/sets/volume tiles and the honest improvement line", () => {
     const exercise = buildExercise({ loggedSets: [buildSet()] });
-    const recap: SessionRecap = {
-      durationMinutes: 54,
-      completedSetCount: 18,
-      totalVolumeLoadKg: 4120,
-      comparableCount: 6,
-      improvedCount: 3,
-    };
+    const recap = buildRecap({ durationMinutes: 54, completedSetCount: 18, totalVolumeLoadKg: 4120, comparableCount: 6, improvedCount: 3 });
 
     renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
 
@@ -393,13 +399,7 @@ describe("SessionRunner", () => {
 
   it("uses the singular form for exactly one comparable exercise", () => {
     const exercise = buildExercise({ loggedSets: [buildSet()] });
-    const recap: SessionRecap = {
-      durationMinutes: 20,
-      completedSetCount: 3,
-      totalVolumeLoadKg: 240,
-      comparableCount: 1,
-      improvedCount: 1,
-    };
+    const recap = buildRecap({ comparableCount: 1, improvedCount: 1 });
 
     renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
 
@@ -408,33 +408,47 @@ describe("SessionRunner", () => {
 
   it("omits the improvement line when no exercise had a previous instance to compare against", () => {
     const exercise = buildExercise({ loggedSets: [buildSet()] });
-    const recap: SessionRecap = {
-      durationMinutes: 20,
-      completedSetCount: 3,
-      totalVolumeLoadKg: 240,
-      comparableCount: 0,
-      improvedCount: 0,
-    };
 
-    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap: buildRecap() });
 
     expect(screen.queryByText(/vs\. tu sesión anterior/)).toBeNull();
   });
 
   it("shows a dash for duration when the recap couldn't compute it", () => {
     const exercise = buildExercise({ loggedSets: [buildSet()] });
-    const recap: SessionRecap = {
-      durationMinutes: null,
-      completedSetCount: 3,
-      totalVolumeLoadKg: 240,
-      comparableCount: 0,
-      improvedCount: 0,
-    };
 
-    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+    renderRunner({
+      exercises: [exercise],
+      session: buildSession({ status: "completed" }),
+      recap: buildRecap({ durationMinutes: null }),
+    });
 
     const card = screen.getByRole("region", { name: "Resumen de la sesión" });
     expect(within(card).getByText("—")).toBeVisible();
+  });
+
+  it("shows no personal-record banner when the recap has none", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap: buildRecap() });
+
+    expect(screen.queryByText("Nuevo récord personal")).toBeNull();
+  });
+
+  it("shows a personal-record banner listing every record this session set", () => {
+    const exercise = buildExercise({ loggedSets: [buildSet()] });
+    const recap = buildRecap({
+      personalRecords: [
+        { exerciseNameEs: "Prensa de piernas", kind: "volume_load", valueKg: 880 },
+        { exerciseNameEs: "Sentadilla", kind: "estimated_1rm", valueKg: 112.5 },
+      ],
+    });
+
+    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }), recap });
+
+    expect(screen.getByText("Nuevo récord personal")).toBeVisible();
+    expect(screen.getByText("Prensa de piernas — volumen: 880kg")).toBeVisible();
+    expect(screen.getByText("Sentadilla — 1RM estimado: 112.5kg")).toBeVisible();
   });
 
   it("offers an optional RPE and notes section on the complete-session form", () => {

@@ -7,6 +7,7 @@ import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { buildExerciseImprovements } from "@/workouts/improvement";
 import { buildSessionRecap, type SessionRecap } from "@/workouts/session-recap";
 import {
+  getPriorStrengthInstancesForNames,
   getRecentExerciseInstancesByName,
   getSessionRunDetails,
   getWorkoutSessionForProfile,
@@ -48,7 +49,15 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
   if (session.status === "completed") {
     const instancesByName = await getRecentExerciseInstancesByName(profile.id);
     const improvementRows = buildExerciseImprovements(instancesByName);
-    recap = buildSessionRecap(exercises, session, improvementRows);
+    const strengthExerciseNames = exercises
+      .filter((exercise) => exercise.prescriptionType === "strength")
+      .map((exercise) => exercise.exerciseNameEs);
+    const priorInstancesByName = await getPriorStrengthInstancesForNames(
+      profile.id,
+      strengthExerciseNames,
+      session.id,
+    );
+    recap = buildSessionRecap(exercises, session, improvementRows, priorInstancesByName);
   }
 
   return (

@@ -18,7 +18,7 @@ import {
   splitPlannedAndBonusSets,
   suggestNextWeightKg,
 } from "@/workouts/progression-view";
-import type { SessionRecap } from "@/workouts/session-recap";
+import type { PersonalRecord, PersonalRecordKind, SessionRecap } from "@/workouts/session-recap";
 import {
   isSymptomReason,
   substitutionReasonLabelsEs,
@@ -769,6 +769,7 @@ function SessionRecapCard({ recap }: { recap: SessionRecap }) {
         <RecapTile label="Series completadas" value={String(recap.completedSetCount)} />
         <RecapTile label="Volumen" value={formatKg(recap.totalVolumeLoadKg, 0)} />
       </div>
+      {recap.personalRecords.length > 0 ? <PersonalRecordsBanner records={recap.personalRecords} /> : null}
       {recap.comparableCount > 0 ? (
         <p className="mt-3 text-sm leading-6 text-zinc-300">
           {recap.improvedCount} de {recap.comparableCount}{" "}
@@ -784,6 +785,35 @@ function RecapTile({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl bg-zinc-950 px-2 py-3 ring-1 ring-zinc-800">
       <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
       <p className="mt-1 text-sm font-semibold text-zinc-100">{value}</p>
+    </div>
+  );
+}
+
+const PERSONAL_RECORD_LABEL_ES: Record<PersonalRecordKind, string> = {
+  volume_load: "volumen",
+  estimated_1rm: "1RM estimado",
+};
+
+/**
+ * Every entry here already beat the athlete's entire prior history for that
+ * exercise (see findPersonalRecords), not just their last session — the same
+ * emerald status-banner treatment the "Guardado" confirmation elsewhere in
+ * the app uses, not a new achievement colour. Colour is reserved for pain;
+ * this reuses the app's one existing "good news" tint rather than inventing
+ * a badge/gamification style.
+ */
+function PersonalRecordsBanner({ records }: { records: PersonalRecord[] }) {
+  return (
+    <div className="mt-3 rounded-2xl bg-emerald-300/10 p-3 ring-1 ring-emerald-400/30">
+      <p className="text-sm font-semibold text-emerald-300">Nuevo récord personal</p>
+      <ul className="mt-1 grid gap-0.5 text-sm text-zinc-200">
+        {records.map((record) => (
+          <li key={`${record.exerciseNameEs}:${record.kind}`}>
+            {record.exerciseNameEs} — {PERSONAL_RECORD_LABEL_ES[record.kind]}:{" "}
+            {formatKg(record.valueKg, record.kind === "volume_load" ? 0 : 1)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -282,6 +282,74 @@ export async function getPreviousExercisePerformance(
 }
 
 /**
+ * Every strength-type set from every completed instance of the given
+ * exercise names, across the athlete's whole history except the given
+ * session — the raw material for a personal-record check (see
+ * session-recap.ts's findPersonalRecords). Unlike
+ * getRecentExerciseInstancesByName, this is not capped per exercise: a
+ * record has to beat every prior instance, not just the last one or two.
+ */
+export async function getPriorStrengthInstancesForNames(
+  athleteProfileId: string,
+  exerciseNamesEs: string[],
+  excludeSessionId: string,
+): Promise<Map<string, SetLog[][]>> {
+  if (exerciseNamesEs.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({ exerciseLogId: exerciseLog.id, exerciseNameEs: exercisePrescription.exerciseNameEs })
+    .from(exerciseLog)
+    .innerJoin(exercisePrescription, eq(exerciseLog.exercisePrescriptionId, exercisePrescription.id))
+    .innerJoin(workoutSession, eq(exerciseLog.workoutSessionId, workoutSession.id))
+    .where(
+      and(
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+        eq(workoutSession.status, "completed"),
+        eq(exercisePrescription.prescriptionType, "strength"),
+        inArray(exercisePrescription.exerciseNameEs, exerciseNamesEs),
+        ne(workoutSession.id, excludeSessionId),
+      ),
+    );
+
+  const exerciseLogIds = rows.map((row) => row.exerciseLogId);
+  const sets = exerciseLogIds.length
+    ? await db
+        .select()
+        .from(setLog)
+        .where(inArray(setLog.exerciseLogId, exerciseLogIds))
+        .orderBy(asc(setLog.setNumber))
+    : [];
+
+  const setsByLogId = new Map<string, SetLog[]>();
+  for (const set of sets) {
+    const bucket = setsByLogId.get(set.exerciseLogId);
+    if (bucket) {
+      bucket.push(set);
+    } else {
+      setsByLogId.set(set.exerciseLogId, [set]);
+    }
+  }
+
+  const instancesByName = new Map<string, SetLog[][]>();
+  for (const row of rows) {
+    const instanceSets = setsByLogId.get(row.exerciseLogId);
+    if (!instanceSets || instanceSets.length === 0) {
+      continue;
+    }
+    const bucket = instancesByName.get(row.exerciseNameEs);
+    if (bucket) {
+      bucket.push(instanceSets);
+    } else {
+      instancesByName.set(row.exerciseNameEs, [instanceSets]);
+    }
+  }
+
+  return instancesByName;
+}
+
+/**
  * The per-set values themselves, without any pointer to where the set lives.
  * Shared by the create and the correct-in-place paths so both accept exactly
  * the same shape — an edit is never allowed to set a value a fresh log

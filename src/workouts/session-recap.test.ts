@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ExerciseImprovementRow } from "./improvement";
-import { buildSessionRecap, type SessionRecapExercise } from "./session-recap";
+import { buildSessionRecap, findPersonalRecords, type SessionRecapExercise } from "./session-recap";
 import type { SetLog } from "./workout-repository";
 
 function buildSet(overrides: Partial<SetLog> = {}): SetLog {
@@ -153,5 +153,168 @@ describe("buildSessionRecap", () => {
 
     expect(recap.comparableCount).toBe(0);
     expect(recap.improvedCount).toBe(0);
+  });
+
+  it("defaults personalRecords to an empty array when no prior instances are passed", () => {
+    const exercises: SessionRecapExercise[] = [
+      { exerciseNameEs: "Prensa de piernas", prescriptionType: "strength", loggedSets: [buildSet()] },
+    ];
+
+    expect(buildSessionRecap(exercises, session, []).personalRecords).toEqual([]);
+  });
+
+  it("threads personalRecords through from findPersonalRecords when prior instances are passed", () => {
+    // actualReps: 20 is past ONE_RM_MAX_REPS on every set here, so none of
+    // them contribute a 1RM estimate at all — isolates this to the volume
+    // signal only, matching the test's name.
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        loggedSets: [buildSet({ actualWeightKg: "45.00", actualReps: 20 })], // 900
+      },
+    ];
+    const priorInstancesByName = new Map([
+      ["Prensa de piernas", [[buildSet({ actualWeightKg: "40.00", actualReps: 20 })]]], // 800
+    ]);
+
+    const recap = buildSessionRecap(exercises, session, [], priorInstancesByName);
+
+    expect(recap.personalRecords).toEqual([
+      { exerciseNameEs: "Prensa de piernas", kind: "volume_load", valueKg: 900 },
+    ]);
+  });
+});
+
+describe("findPersonalRecords", () => {
+  it("records a volume_load PR when this session's volume beats every prior instance", () => {
+    // actualReps: 20 throughout, past ONE_RM_MAX_REPS — isolates this to the
+    // volume signal only, matching the test's name.
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        loggedSets: [buildSet({ actualWeightKg: "45.00", actualReps: 20 })], // 900
+      },
+    ];
+    const priorInstancesByName = new Map([
+      [
+        "Prensa de piernas",
+        [
+          [buildSet({ actualWeightKg: "40.00", actualReps: 20 })], // 800
+          [buildSet({ actualWeightKg: "42.50", actualReps: 20 })], // 850, the true prior best
+        ],
+      ],
+    ]);
+
+    const records = findPersonalRecords(exercises, priorInstancesByName);
+
+    expect(records).toEqual([{ exerciseNameEs: "Prensa de piernas", kind: "volume_load", valueKg: 900 }]);
+  });
+
+  it("does not record when this session's volume merely matches or falls short of the prior best", () => {
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        loggedSets: [buildSet({ actualWeightKg: "40.00", actualReps: 20 })], // 800
+      },
+    ];
+    const priorInstancesByName = new Map([
+      ["Prensa de piernas", [[buildSet({ actualWeightKg: "40.00", actualReps: 20 })]]], // 800, tied
+    ]);
+
+    expect(findPersonalRecords(exercises, priorInstancesByName)).toEqual([]);
+  });
+
+  it("records an estimated_1rm PR when this session's best estimate beats every prior instance's best", () => {
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        // Low volume (one single at low reps) but a high 1RM estimate —
+        // deliberately not a volume record, to isolate the 1RM signal.
+        loggedSets: [buildSet({ actualWeightKg: "100.00", actualReps: 3, rir: 2 })], // 100*(1+5/30) ≈ 116.7
+      },
+    ];
+    const priorInstancesByName = new Map([
+      [
+        "Prensa de piernas",
+        // Higher volume than this session (so this session is NOT also a
+        // volume record) but past ONE_RM_MAX_REPS, so it contributes no 1RM
+        // estimate at all — isolating the estimated_1rm signal cleanly.
+        [[buildSet({ actualWeightKg: "50.00", actualReps: 40, rir: 0 })]], // volume 2000
+      ],
+    ]);
+
+    const records = findPersonalRecords(exercises, priorInstancesByName);
+
+    expect(records).toEqual([{ exerciseNameEs: "Prensa de piernas", kind: "estimated_1rm", valueKg: 100 * (1 + 5 / 30) }]);
+  });
+
+  it("can record both volume_load and estimated_1rm for the same exercise in the same session", () => {
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        loggedSets: [buildSet({ actualWeightKg: "90.00", actualReps: 10, rir: 2 })], // volume 900, 1RM 90*1.4=126
+      },
+    ];
+    const priorInstancesByName = new Map([
+      ["Prensa de piernas", [[buildSet({ actualWeightKg: "80.00", actualReps: 10, rir: 2 })]]], // volume 800, 1RM 80*1.4=112
+    ]);
+
+    const records = findPersonalRecords(exercises, priorInstancesByName);
+
+    expect(records).toHaveLength(2);
+    expect(records[0]).toEqual({ exerciseNameEs: "Prensa de piernas", kind: "volume_load", valueKg: 900 });
+    expect(records[1]!.kind).toBe("estimated_1rm");
+    expect(records[1]!.valueKg).toBeCloseTo(126, 5);
+  });
+
+  it("takes the true max across every prior instance, not just the most recent one", () => {
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Prensa de piernas",
+        prescriptionType: "strength",
+        loggedSets: [buildSet({ actualWeightKg: "85.00", actualReps: 10 })], // 850
+      },
+    ];
+    const priorInstancesByName = new Map([
+      [
+        "Prensa de piernas",
+        [
+          [buildSet({ actualWeightKg: "80.00", actualReps: 10 })], // most recent, 800 — this session beats it
+          [buildSet({ actualWeightKg: "95.00", actualReps: 10 })], // older, 950 — but this session does NOT beat it
+        ],
+      ],
+    ]);
+
+    // A same-session-over-previous-only check would wrongly call this a
+    // record; the true all-time best (950) rules it out.
+    expect(findPersonalRecords(exercises, priorInstancesByName)).toEqual([]);
+  });
+
+  it("excludes an exercise with no prior instances — a first log is not a record", () => {
+    const exercises: SessionRecapExercise[] = [
+      { exerciseNameEs: "Prensa de piernas", prescriptionType: "strength", loggedSets: [buildSet()] },
+    ];
+
+    expect(findPersonalRecords(exercises, new Map())).toEqual([]);
+  });
+
+  it("skips duration-type exercises entirely", () => {
+    const exercises: SessionRecapExercise[] = [
+      {
+        exerciseNameEs: "Plancha",
+        prescriptionType: "duration",
+        loggedSets: [buildSet({ actualWeightKg: null, actualReps: null, rir: null, actualDurationSeconds: 90 })],
+      },
+    ];
+    const priorInstancesByName = new Map([
+      ["Plancha", [[buildSet({ actualWeightKg: null, actualReps: null, rir: null, actualDurationSeconds: 60 })]]],
+    ]);
+
+    expect(findPersonalRecords(exercises, priorInstancesByName)).toEqual([]);
   });
 });
