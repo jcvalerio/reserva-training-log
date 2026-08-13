@@ -2,6 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-12 — A personal-record banner, built on the all-time-best query the recap explicitly deferred
+
+Status: shipped. Committed as `9b95b9e` on `main`, `lint`/`typecheck`/`test` (503 passing, +18 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_2He4ZJKN8Fggj7oujWD5RgkkYeji`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Closes the gap the recap's own commit message named explicitly: "no personal-record claim yet — that needs an all-time-best query this app doesn't have." That query now exists. `getPriorStrengthInstancesForNames` (`workout-repository.ts`) fetches every prior completed instance's sets for this session's strength exercises, uncapped — unlike `getRecentExerciseInstancesByName` (capped to 2 per exercise for the session-over-session improvement line), a record has to beat the athlete's *entire* history, not just their last session or two. A new pure `findPersonalRecords()` (`session-recap.ts`) then checks two independent signals per exercise — total volume load and best estimated 1RM (RIR-adjusted Epley) — against the true max across every prior instance, and an exercise with no prior instance at all is excluded (nothing yet to have beaten, matching the recap's existing "first log isn't a comparison" stance).
+
+One correctness case worth naming: a session can beat its immediately previous instance while still falling short of an older, larger one — the improvement line's 2-instance cap can't see that, but `findPersonalRecords` reduces over the full prior set precisely so it never overclaims. Verified by test (`takes the true max across every prior instance, not just the most recent one`).
+
+Rendered as a small emerald-tinted banner ("Nuevo récord personal") between the KPI tiles and the improvement line — reusing the exact `bg-emerald-300/10`/`ring-emerald-400/30` treatment `FormStatusBanner`'s "saved" state already uses elsewhere in the app, not a new achievement colour. This is deliberately not the "achievements/badges" idea the original assessment skipped (that skip was about badges with no backing data model, inverting the pain-colour rule with invented gamification chrome) — this reuses the app's one existing "good news" tint and states a real fact backed by a real query.
+
+Verified in a real browser via a throwaway preview route with both a volume and a 1RM record on the same exercise: both lines rendered inside the banner correctly positioned above the improvement line, no layout regression, no console errors.
+
+Files touched: `src/workouts/workout-repository.ts` (+`getPriorStrengthInstancesForNames`), `src/workouts/session-recap.ts` (+`findPersonalRecords`, +test), `src/app/entrenar/[sessionId]/page.tsx`, `src/app/entrenar/[sessionId]/session-runner.tsx` (+test).
+
+Next iteration: none flagged — this was the recap's one deliberately deferred piece, now closed.
+
 ## 2026-08-12 — An honest post-workout recap on the completed-session summary
 
 Status: shipped. Committed as `ca7040b` on `main`, `lint`/`typecheck`/`test` (492 passing, +14 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_FnrgKknYQFqwD4ysoLN15qgzBpaK`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.

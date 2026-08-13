@@ -2,9 +2,13 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: an honest post-workout recap now opens the completed-session summary on `/entrenar/[sessionId]`.
+## Status: the post-workout recap now includes a personal-record banner, backed by a real all-time-best query.
 
-Duración/Series/Volumen KPI tiles plus "N de M ejercicios mejoraron vs. tu sesión anterior", reusing `buildExerciseImprovements` verbatim. Deliberately no personal-record claim yet — that needs an all-time-best query this app doesn't have. Full detail in `implementation-log.md`.
+`getPriorStrengthInstancesForNames` fetches every prior completed instance (uncapped) of this session's exercises; `findPersonalRecords` checks this session's volume and estimated 1RM against the true max across all of them, not just the last session. Closes the one piece the recap explicitly deferred when it shipped. Full detail in `implementation-log.md`.
+
+## Prior status: an honest post-workout recap opened the completed-session summary on `/entrenar/[sessionId]`.
+
+Duración/Series/Volumen KPI tiles plus "N de M ejercicios mejoraron vs. tu sesión anterior", reusing `buildExerciseImprovements` verbatim. Full detail in `implementation-log.md`.
 
 ## Prior status: the body-map thumbnail shows everywhere `PlanDayPager` renders — `/plan/builder`, `/plan/rutina`, `/plan/historial`, and `/plan/templates`.
 
