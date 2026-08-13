@@ -2,7 +2,11 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the body-map thumbnail now shows everywhere `PlanDayPager` renders — `/plan/builder`, `/plan/rutina`, `/plan/historial`, and `/plan/templates`.
+## Status: an honest post-workout recap now opens the completed-session summary on `/entrenar/[sessionId]`.
+
+Duración/Series/Volumen KPI tiles plus "N de M ejercicios mejoraron vs. tu sesión anterior", reusing `buildExerciseImprovements` verbatim. Deliberately no personal-record claim yet — that needs an all-time-best query this app doesn't have. Full detail in `implementation-log.md`.
+
+## Prior status: the body-map thumbnail shows everywhere `PlanDayPager` renders — `/plan/builder`, `/plan/rutina`, `/plan/historial`, and `/plan/templates`.
 
 `/plan/historial` classifies the same way `/plan/rutina` does (real `ExercisePrescription` rows, catalog-link-then-name). `/plan/templates` classifies by name only — templates are static in-memory plan definitions with no `exerciseId` link, so there's nothing to batch-query. Full detail in `implementation-log.md`.
 

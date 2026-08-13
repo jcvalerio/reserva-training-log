@@ -2,6 +2,22 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-12 — An honest post-workout recap on the completed-session summary
+
+Status: shipped. Committed as `ca7040b` on `main`, `lint`/`typecheck`/`test` (492 passing, +14 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_FnrgKknYQFqwD4ysoLN15qgzBpaK`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+
+Idea #4 from the "Design Ideas: Plan Builder & Progreso" assessment, explicitly sequenced after the E1RM/body-map work rather than skipped. Completing a session previously rendered the flattest screen in the app relative to its reference-app counterpart: a header, RPE/notes if any, and a bare list of logged sets — no framing at all. `CompletedSessionSummary` (`session-runner.tsx`) now opens with a KPI row (Duración, Series completadas, Volumen) and, when at least one of this session's exercises has a prior completed instance to compare against, a line naming how many improved — e.g. "3 de 6 ejercicios mejoraron vs. tu sesión anterior."
+
+Every number is either a plain count/sum of what was just logged, or `buildExerciseImprovements`'s existing 5%-improvement definition reused verbatim (via a new pure `buildSessionRecap()` in `session-recap.ts`) — nothing new computed twice. The assessment's own "why it waits" reasoning explicitly named the one thing deliberately left out: a "personal record" claim needs an all-time-best query that doesn't exist yet (the E1RM work only ever needed per-instance/per-session bests, never an all-time one) — inventing a "record" without that query would risk a false claim, so it's absent rather than guessed at. No colour coding either, per the app's own "colour is reserved for pain" rule the assessment flagged as governing anything adapted from a reference app.
+
+The comparison denominator is honest by construction: an exercise trained for the first time has nothing to be "improved" relative to, so it's excluded from both the numerator and the denominator (matching `buildExerciseImprovements`' own <2-instances skip), and the improvement row is matched by exercise name **and** by this session's own `completedAt`, so a same-named exercise from some unrelated session can never be misattributed. The whole `getRecentExerciseInstancesByName` + `buildExerciseImprovements` computation is only run when `session.status === "completed"`, since a mid-workout render never reaches the summary that needs it.
+
+Verified in a real browser via a throwaway preview route with a fully realistic completed session: "54 min · 18 · 4120kg" tiles rendered correctly and "3 de 6 ejercicios mejoraron vs. tu sesión anterior." appeared beneath them, no layout regression, no console errors.
+
+Files touched: `src/workouts/session-recap.ts` (new, +test), `src/app/entrenar/[sessionId]/page.tsx`, `src/app/entrenar/[sessionId]/session-runner.tsx` (+test).
+
+Next iteration: a personal-record banner, once an all-time-best query exists — not currently planned or requested.
+
 ## 2026-08-11 — The body-map thumbnail now also shows on /plan/historial and /plan/templates
 
 Status: shipped. Committed as `3bf3df5` on `main`, `lint`/`typecheck`/`test` (478 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_9CLN8djAyEmwG4xSp9u2sgahit4q`, aliased to `gym.jcvalerio.com`; `/plan/historial` and `/plan/templates` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
