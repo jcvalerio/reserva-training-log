@@ -2,7 +2,13 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the post-workout recap now includes a personal-record banner, backed by a real all-time-best query.
+## Status: `/progreso` opens with "¿Está funcionando?" — one verdict per muscle group. Committed (`36e36c9`), **not yet deployed**.
+
+Joins weekly sets (the input) with per-exercise progression (the output), which the page had both of and never crossed. Five verdicts, each with a different correction: Creciendo / Estancado / Falta estímulo / Pasado de vuelta / Sin datos. Lifts are stated as weight × reps ("60kg × 8 → 60kg × 10") instead of volume-load kg or estimated 1RM — the two numbers you reported as unreadable. Pain escalates onto the row instead of hiding in a disclosure. Fixed to a 4-week window on purpose. Full detail in `implementation-log.md`.
+
+**Next up, same review:** Report 02 — average RIR per muscle group, which turns "Estancado" into an instruction. `setLog.rir` is logged on every set and surfaced nowhere.
+
+## Prior status: the post-workout recap now includes a personal-record banner, backed by a real all-time-best query.
 
 `getPriorStrengthInstancesForNames` fetches every prior completed instance (uncapped) of this session's exercises; `findPersonalRecords` checks this session's volume and estimated 1RM against the true max across all of them, not just the last session. Closes the one piece the recap explicitly deferred when it shipped. Full detail in `implementation-log.md`.
 

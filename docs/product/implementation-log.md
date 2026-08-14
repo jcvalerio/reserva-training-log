@@ -2,6 +2,40 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-13 — "¿Está funcionando?": one verdict per muscle group, joining volume with progression
+
+Status: committed as `36e36c9` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (523 passing, +20 new)/`build` all green. No migration.
+
+Report 01 of a `/progreso` design review that started from a blunt piece of user feedback — "too many things… a place where you confuse the user instead of a place where you see important things" — and then, after a first pass that only reorganised the layout, a sharper follow-up: the *numbers themselves* don't communicate. Specifically: "seeing 1600kg in a graph doesn't give value, it's just a big number" and "seeing the 1RM is unclear, I don't understand how to read it." The first review had ranked "anchor the unexplained numbers" **last**, because it ranked by engineering effort rather than by how much each fix changes a training decision. That ranking was wrong and this entry corrects it.
+
+The diagnosis that produced this feature: **volume is the input, progression is the output, and the page showed both while connecting neither.** `/progreso` could say "pecho got 13 sets" (`buildMuscleVolumeSummary`) and it could draw a bench-press line (`toExerciseSeriesGroups`), but it could never say *"pecho is getting enough work and still isn't moving"* — the one sentence a progress report exists to produce. Nothing new is measured here; the whole feature is the missing **join**.
+
+New pure `buildMuscleProgressRows()` (`muscle-progress.ts`) crosses the two into five verdicts, each carrying a **different** correction — which is the entire justification for crossing them, since three of the five are made worse by the instinct to just train harder:
+
+- **Creciendo** (in band + something moved) — change nothing.
+- **Estancado** (in band + flat) — the dose is fine, intensity is the suspect.
+- **Falta estímulo** (below the floor) — add sets *before* adding load.
+- **Pasado de vuelta** (past the ceiling + flat) — fatigue that isn't buying muscle.
+- **Sin datos** (trained, but nothing has two instances to compare yet).
+
+Three deliberate correctness decisions, each pinned by test:
+
+- **Progression is credited only to an exercise's PRIMARY muscle group**, while the sets column keeps its half-set secondary credit. A remo getting stronger is evidence about the back, not proof the bíceps grew — without this split, secondary credit would mark bíceps "Creciendo" off a back exercise.
+- **Progression outranks the band.** Above the ceiling *and still improving* stays "Creciendo": work that is producing results is not a problem to correct, however high the set count reads. Only above-and-flat is overreaching.
+- **A short dose needs no trend data.** With nothing to compare, below-floor still reports "Falta estímulo" (a statement about the input), while in-band reports "Sin datos" (the output is genuinely unknown). These are different kinds of ignorance and are not collapsed.
+
+The verdict window is fixed at the **4-week average** (`pickProgressView`), deliberately *not* following the period pills that drive the body map and volume bars — declaring a group "estancado" off a single week is noise, since one missed session would flip it. Falls back to the current week only until a completed week exists.
+
+Two of the review's other findings are folded in here rather than deferred. The headline lift is stated as **weight × reps** ("60kg × 8 → 60kg × 10") rather than volume-load kg or an estimated 1RM — directly answering both complaints, and reusing the `reps_at_load`/`load_at_reps` signals that were *already computed* and previously rendered as a small chip underneath the two confusing numbers. And **pain rides on the row** rather than waiting inside a disclosure, escalating on the app's own `PAIN_THRESHOLD` (now exported from `muscle-volume.ts` rather than a second hardcoded `2` drifting) — the physio objection to the first review being that a fixed collapse means pain is never seen, when pain is a conditional signal.
+
+Deliberately **not** a `<table>`: four fixed columns is exactly the grid-track layout that has already overflowed this page three times (a 112px label column that couldn't fit "Abductores y aductores"). Each group is a stacked block, so every field gets the card's full width.
+
+Verified in a real browser via a throwaway preview route at 390px across all five verdicts plus the longest label. That check earned its keep: the first render had the opaque bar **covering** the band zone it passed, so a group that overshot its ceiling looked identical to one that exactly filled it — the single case the bar most needs to show. Floor/ceiling ticks are now drawn *on top* of the fill (and the floor tick suppressed when the band's floor is 0, where it would just re-draw the track edge). No console errors, no layout regression.
+
+Files touched: `src/workouts/muscle-progress.ts` (new, +test), `src/workouts/muscle-volume.ts` (export `PAIN_THRESHOLD`), `src/app/progreso/muscle-progress-table.tsx` (new), `src/app/progreso/progreso-page-content.tsx` (+test).
+
+Next iteration: Report 02 of the same review — **average RIR per muscle group**, which turns "Estancado" from a dead end into an instruction (stalled at RIR 3–4 means push closer to failure; stalled at RIR 0–1 means deload or change the exercise). `setLog.rir` is `notNull` on every set already and is currently never surfaced anywhere. Also still open from the review: deleting the duplicate "Mejoras recientes" list, and splitting the muscle-volume mega-card.
+
 ## 2026-08-12 — A personal-record banner, built on the all-time-best query the recap explicitly deferred
 
 Status: shipped. Committed as `9b95b9e` on `main`, `lint`/`typecheck`/`test` (503 passing, +18 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_2He4ZJKN8Fggj7oujWD5RgkkYeji`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
