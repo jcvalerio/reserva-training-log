@@ -43,6 +43,10 @@ export type VolumeSetInput = {
   /** Where the athlete said it hurt. Null on sets logged before the column
    *  existed, and on pain-free sets. */
   painLocation: PainLocation | null;
+  /** Reps left in the tank. Null on duration-type sets, which have no RIR at
+   *  all — and null must never be read as 0, which is the opposite claim
+   *  ("taken to failure") rather than "not recorded". */
+  rir: number | null;
 };
 
 export type VolumeExerciseInstance = {
@@ -63,6 +67,19 @@ export type VolumeExerciseInstance = {
 export type MuscleGroupVolume = {
   muscleGroup: MuscleVolumeBucket;
   effectiveSets: number;
+  /**
+   * Set-weighted mean RIR for this group over the period, or null when no set
+   * carried one.
+   *
+   * Credited to the PRIMARY group only — unlike effectiveSets, which gives
+   * secondary movers half a set. "How close to failure was this muscle" is not
+   * inherited: a remo taken to RIR 1 says the back was near failure, and says
+   * nothing trustworthy about how hard the bíceps worked.
+   */
+  avgRir: number | null;
+  /** Sets that actually carried an RIR. Kept alongside the mean so a run of
+   *  weeks can be re-averaged by weight rather than by averaging averages. */
+  rirSetCount: number;
 };
 
 export type WeeklyMuscleVolume = {
@@ -189,9 +206,35 @@ function addCredit(totals: Map<MuscleVolumeBucket, number>, bucket: MuscleVolume
   totals.set(bucket, (totals.get(bucket) ?? 0) + amount);
 }
 
-function toWeeklyVolume(weekStartDate: Date, totals: Map<MuscleVolumeBucket, number>): WeeklyMuscleVolume {
+/** Running RIR total per group, kept as sum+count so the mean can be taken
+ *  once at the end and re-weighted when weeks are combined. */
+type RirAccumulator = { sum: number; count: number };
+
+function addRir(rirTotals: Map<MuscleVolumeBucket, RirAccumulator>, bucket: MuscleVolumeBucket, rir: number): void {
+  const existing = rirTotals.get(bucket);
+  if (existing) {
+    existing.sum += rir;
+    existing.count += 1;
+  } else {
+    rirTotals.set(bucket, { sum: rir, count: 1 });
+  }
+}
+
+function toWeeklyVolume(
+  weekStartDate: Date,
+  totals: Map<MuscleVolumeBucket, number>,
+  rirTotals: Map<MuscleVolumeBucket, RirAccumulator>,
+): WeeklyMuscleVolume {
   const byMuscleGroup = [...totals.entries()]
-    .map(([muscleGroup, effectiveSets]) => ({ muscleGroup, effectiveSets: round(effectiveSets) }))
+    .map(([muscleGroup, effectiveSets]) => {
+      const rir = rirTotals.get(muscleGroup);
+      return {
+        muscleGroup,
+        effectiveSets: round(effectiveSets),
+        avgRir: rir && rir.count > 0 ? round(rir.sum / rir.count) : null,
+        rirSetCount: rir?.count ?? 0,
+      };
+    })
     .filter((row) => row.effectiveSets > 0);
   return {
     weekStartDate,
@@ -243,9 +286,23 @@ function buildAverageView(key: VolumeViewKey, labelEs: string, weeks: WeeklyMusc
   }
 
   const totals = new Map<MuscleVolumeBucket, number>();
+  // Re-weighted by set count rather than averaging each week's mean: a week
+  // with one logged set must not pull the period's RIR as hard as a week with
+  // twenty.
+  const rirTotals = new Map<MuscleVolumeBucket, RirAccumulator>();
   for (const week of weeks) {
     for (const row of week.byMuscleGroup) {
       addCredit(totals, row.muscleGroup, row.effectiveSets);
+      if (row.avgRir !== null && row.rirSetCount > 0) {
+        const existing = rirTotals.get(row.muscleGroup);
+        const sum = row.avgRir * row.rirSetCount;
+        if (existing) {
+          existing.sum += sum;
+          existing.count += row.rirSetCount;
+        } else {
+          rirTotals.set(row.muscleGroup, { sum, count: row.rirSetCount });
+        }
+      }
     }
   }
 
@@ -253,7 +310,15 @@ function buildAverageView(key: VolumeViewKey, labelEs: string, weeks: WeeklyMusc
     key,
     labelEs,
     byMuscleGroup: [...totals.entries()]
-      .map(([muscleGroup, total]) => ({ muscleGroup, effectiveSets: round(total / weeks.length) }))
+      .map(([muscleGroup, total]) => {
+        const rir = rirTotals.get(muscleGroup);
+        return {
+          muscleGroup,
+          effectiveSets: round(total / weeks.length),
+          avgRir: rir && rir.count > 0 ? round(rir.sum / rir.count) : null,
+          rirSetCount: rir?.count ?? 0,
+        };
+      })
       .filter((row) => row.effectiveSets > 0),
     weeksCounted: weeks.length,
     isAverage: true,
@@ -275,8 +340,10 @@ export function buildMuscleVolumeSummary(
   }
 
   const totalsByWeekTime = new Map<number, Map<MuscleVolumeBucket, number>>();
+  const rirByWeekTime = new Map<number, Map<MuscleVolumeBucket, RirAccumulator>>();
   for (const weekStart of weekStarts) {
     totalsByWeekTime.set(weekStart.getTime(), new Map());
+    rirByWeekTime.set(weekStart.getTime(), new Map());
   }
 
   const unclassifiedNames = new Set<string>();
@@ -294,6 +361,11 @@ export function buildMuscleVolumeSummary(
       totals = new Map<MuscleVolumeBucket, number>();
       totalsByWeekTime.set(weekTime, totals);
     }
+    let rirTotals = rirByWeekTime.get(weekTime);
+    if (!rirTotals) {
+      rirTotals = new Map<MuscleVolumeBucket, RirAccumulator>();
+      rirByWeekTime.set(weekTime, rirTotals);
+    }
 
     const sets = effectiveSetCount(instance);
 
@@ -304,6 +376,13 @@ export function buildMuscleVolumeSummary(
       addCredit(totals, instance.primaryMuscleGroup, sets);
       for (const secondary of instance.secondaryMuscleGroups) {
         addCredit(totals, secondary, sets * SECONDARY_SET_CREDIT);
+      }
+      // Primary only, and only sets that actually recorded an RIR — see
+      // MuscleGroupVolume.avgRir for why a secondary mover doesn't inherit it.
+      for (const set of instance.sets) {
+        if (set.rir !== null) {
+          addRir(rirTotals, instance.primaryMuscleGroup, set.rir);
+        }
       }
     }
     // Classified with a null primary group (cardio) contributes nothing, and
@@ -352,7 +431,11 @@ export function buildMuscleVolumeSummary(
   }
 
   const weeks = weekStarts.map((weekStartDate) =>
-    toWeeklyVolume(weekStartDate, totalsByWeekTime.get(weekStartDate.getTime()) ?? new Map()),
+    toWeeklyVolume(
+      weekStartDate,
+      totalsByWeekTime.get(weekStartDate.getTime()) ?? new Map(),
+      rirByWeekTime.get(weekStartDate.getTime()) ?? new Map(),
+    ),
   );
   const currentWeek = weeks[weeks.length - 1]!;
   const previousWeek = weeks.length > 1 ? weeks[weeks.length - 2]! : null;
@@ -364,7 +447,7 @@ export function buildMuscleVolumeSummary(
   const finishedWeeks = [...totalsByWeekTime.entries()]
     .filter(([weekTime]) => weekTime < currentWeekStart.getTime())
     .sort(([a], [b]) => a - b)
-    .map(([weekTime, totals]) => toWeeklyVolume(new Date(weekTime), totals));
+    .map(([weekTime, totals]) => toWeeklyVolume(new Date(weekTime), totals, rirByWeekTime.get(weekTime) ?? new Map()));
 
   // Start the run at the first week that actually has training. The trailing
   // window is pre-seeded with empty buckets, and weeks before an athlete ever

@@ -391,7 +391,7 @@ describe("ProgresoPageContent — ¿Está funcionando?", () => {
 
   it("states the verdict and the lift in weight x reps, not in volume-load kg", () => {
     renderPage({
-      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 13, avgRir: null, rirSetCount: 0 }]),
       exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
       improvements: [
         {
@@ -419,8 +419,8 @@ describe("ProgresoPageContent — ¿Está funcionando?", () => {
   it("separates a stalled group from a growing one at an identical set count", () => {
     renderPage({
       muscleVolumeSummary: buildVolumeSummary([
-        { muscleGroup: "pecho", effectiveSets: 13 },
-        { muscleGroup: "dorsal", effectiveSets: 13 },
+        { muscleGroup: "pecho", effectiveSets: 13, avgRir: null, rirSetCount: 0 },
+        { muscleGroup: "dorsal", effectiveSets: 13, avgRir: null, rirSetCount: 0 },
       ]),
       exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Jalón", "dorsal")],
       improvements: [
@@ -440,7 +440,7 @@ describe("ProgresoPageContent — ¿Está funcionando?", () => {
 
   it("surfaces pain on the row itself rather than behind a disclosure", () => {
     renderPage({
-      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 26 }]),
+      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 26, avgRir: null, rirSetCount: 0 }]),
       exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
       improvements: [
         {
@@ -453,6 +453,56 @@ describe("ProgresoPageContent — ¿Está funcionando?", () => {
 
     expect(progressSection().getByText("Pasado de vuelta")).toBeVisible();
     expect(progressSection().getByText("Dolor 4")).toBeVisible();
+  });
+
+  // The reason RIR is tracked at all: the same "Estancado" verdict must give
+  // opposite advice depending on how close to failure the sets were taken.
+  it("tells a stalled group training far from failure to push closer", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([
+        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 3.5, rirSetCount: 12 },
+      ]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
+      improvements: [
+        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
+      ],
+    });
+
+    expect(progressSection().getByText("Estancado")).toBeVisible();
+    expect(progressSection().getByText(/Lejos del fallo · RIR 3.5/)).toBeVisible();
+    expect(progressSection().getByText(/acércate más/)).toBeVisible();
+  });
+
+  it("tells a stalled group already at failure to back off instead", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([
+        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 0.5, rirSetCount: 12 },
+      ]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
+      improvements: [
+        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
+      ],
+    });
+
+    expect(progressSection().getByText("Estancado")).toBeVisible();
+    expect(progressSection().getByText(/Al límite · RIR 0.5/)).toBeVisible();
+    expect(progressSection().getByText(/descarga o cambia el ejercicio/)).toBeVisible();
+  });
+
+  // Printing "RIR 2.1" on every healthy row is exactly the noise this screen
+  // is being cut back for.
+  it("stays silent about RIR in the productive range", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([
+        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 2, rirSetCount: 12 },
+      ]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
+      improvements: [
+        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
+      ],
+    });
+
+    expect(progressSection().queryByText(/RIR/)).toBeNull();
   });
 
   it("hides the section entirely when there is no volume summary", () => {

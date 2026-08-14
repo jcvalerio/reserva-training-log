@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ExerciseSeriesGroup } from "./exercise-series";
 import type { ExerciseImprovement, ExerciseImprovementRow } from "./improvement";
-import { buildMuscleProgressRows, hasPainFlag } from "./muscle-progress";
+import { buildMuscleProgressRows, hasPainFlag, readEffort } from "./muscle-progress";
 import type { VolumeView } from "./muscle-volume";
 
 const LATEST = new Date("2026-08-10T12:00:00");
@@ -49,6 +49,16 @@ function buildSeriesGroup(
   };
 }
 
+/** Most cases here are about the volume/progression cross, not RIR, so the
+ *  default sits in the productive range where it changes nothing. */
+function group(
+  muscleGroup: VolumeView["byMuscleGroup"][number]["muscleGroup"],
+  effectiveSets: number,
+  avgRir: number | null = 2,
+): VolumeView["byMuscleGroup"][number] {
+  return { muscleGroup, effectiveSets, avgRir, rirSetCount: avgRir === null ? 0 : 6 };
+}
+
 function buildView(byMuscleGroup: VolumeView["byMuscleGroup"]): VolumeView {
   return {
     key: "four_weeks",
@@ -65,7 +75,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("reads enough sets plus a moving exercise as growing", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      buildView([group("pecho", 13)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [buildImprovementRow("Press de banca", { improved: true, signals: ["load_at_reps"], latestAvgWeightKg: 65 })],
     );
@@ -78,7 +88,7 @@ describe("buildMuscleProgressRows", () => {
   // opposite corrections, because only one of them is producing anything.
   it("reads enough sets with nothing moving as stalled, not as growing", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      buildView([group("pecho", 13)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [buildImprovementRow("Press de banca")],
     );
@@ -90,7 +100,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("reads too few sets as under_stimulus even when an exercise is flat", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 4 }]),
+      buildView([group("pecho", 4)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [buildImprovementRow("Press de banca")],
     );
@@ -100,7 +110,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("reads past-ceiling sets with nothing moving as overreaching", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 26 }]),
+      buildView([group("pecho", 26)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [buildImprovementRow("Press de banca")],
     );
@@ -112,7 +122,7 @@ describe("buildMuscleProgressRows", () => {
   // a problem to correct, however high the set count reads.
   it("stays growing above the ceiling when an exercise is still improving", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 26 }]),
+      buildView([group("pecho", 26)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [buildImprovementRow("Press de banca", { improved: true, signals: ["volume_load"] })],
     );
@@ -122,7 +132,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("reads a trained group with nothing to compare as no_data", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 12 }]),
+      buildView([group("pecho", 12)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [],
     );
@@ -133,7 +143,7 @@ describe("buildMuscleProgressRows", () => {
   // A short dose is a statement about the input, which needs no trend data.
   it("still reports under_stimulus with nothing to compare when sets are below the floor", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 3 }]),
+      buildView([group("pecho", 3)]),
       [buildSeriesGroup("Press de banca", "pecho")],
       [],
     );
@@ -144,9 +154,9 @@ describe("buildMuscleProgressRows", () => {
   it("omits the unclassified bucket and zero-set groups", () => {
     const rows = buildMuscleProgressRows(
       buildView([
-        { muscleGroup: "sin_clasificar", effectiveSets: 9 },
-        { muscleGroup: "pecho", effectiveSets: 0 },
-        { muscleGroup: "dorsal", effectiveSets: 12 },
+        group("sin_clasificar", 9),
+        group("pecho", 0),
+        group("dorsal", 12),
       ]),
       [],
       [],
@@ -160,8 +170,8 @@ describe("buildMuscleProgressRows", () => {
   it("credits progression only to the exercise's primary muscle group", () => {
     const rows = buildMuscleProgressRows(
       buildView([
-        { muscleGroup: "dorsal", effectiveSets: 12 },
-        { muscleGroup: "biceps", effectiveSets: 12 },
+        group("dorsal", 12),
+        group("biceps", 12),
       ]),
       [buildSeriesGroup("Remo con barra", "dorsal")],
       [buildImprovementRow("Remo con barra", { improved: true, signals: ["load_at_reps"] })],
@@ -174,7 +184,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("ignores improvements for exercises with no resolved muscle group", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      buildView([group("pecho", 13)]),
       [buildSeriesGroup("Ejercicio raro", null)],
       [buildImprovementRow("Ejercicio raro", { improved: true, signals: ["volume_load"] })],
     );
@@ -185,7 +195,7 @@ describe("buildMuscleProgressRows", () => {
   describe("bestLift", () => {
     it("prefers an improved exercise over a flat one with a bigger absolute load", () => {
       const rows = buildMuscleProgressRows(
-        buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+        buildView([group("pecho", 13)]),
         [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Aperturas", "pecho")],
         [
           buildImprovementRow("Press de banca", { latestAvgWeightKg: 100, previousAvgWeightKg: 100 }),
@@ -205,7 +215,7 @@ describe("buildMuscleProgressRows", () => {
 
     it("ranks improved exercises by relative per-set gain", () => {
       const rows = buildMuscleProgressRows(
-        buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+        buildView([group("pecho", 13)]),
         [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Aperturas", "pecho")],
         [
           buildImprovementRow("Press de banca", {
@@ -228,7 +238,7 @@ describe("buildMuscleProgressRows", () => {
 
     it("carries the weight and reps of both instances so the lift can be stated in training units", () => {
       const rows = buildMuscleProgressRows(
-        buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+        buildView([group("pecho", 13)]),
         [buildSeriesGroup("Press de banca", "pecho")],
         [
           buildImprovementRow("Press de banca", {
@@ -254,10 +264,10 @@ describe("buildMuscleProgressRows", () => {
   it("sorts problems above healthy groups, then anatomically", () => {
     const rows = buildMuscleProgressRows(
       buildView([
-        { muscleGroup: "pecho", effectiveSets: 13 },
-        { muscleGroup: "dorsal", effectiveSets: 13 },
-        { muscleGroup: "cuadriceps", effectiveSets: 26 },
-        { muscleGroup: "biceps", effectiveSets: 12 },
+        group("pecho", 13),
+        group("dorsal", 13),
+        group("cuadriceps", 26),
+        group("biceps", 12),
       ]),
       [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Jalón", "dorsal"), buildSeriesGroup("Sentadilla", "cuadriceps")],
       [
@@ -277,7 +287,7 @@ describe("buildMuscleProgressRows", () => {
 
   it("carries the worst pain logged on the group's compared exercises", () => {
     const rows = buildMuscleProgressRows(
-      buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      buildView([group("pecho", 13)]),
       [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Aperturas", "pecho")],
       [
         buildImprovementRow("Press de banca", { latestMaxPain: 1 }),
@@ -289,11 +299,70 @@ describe("buildMuscleProgressRows", () => {
   });
 });
 
+describe("readEffort", () => {
+  // Hypertrophy's effective range is roughly RIR 0-3: at 3 the set is leaving
+  // stimulus behind, at 1 the limit is recovery rather than effort.
+  it("reads at and beyond the far-from-failure threshold", () => {
+    expect(readEffort(3)).toBe("far_from_failure");
+    expect(readEffort(4.2)).toBe("far_from_failure");
+  });
+
+  it("reads at and below the near-failure threshold", () => {
+    expect(readEffort(1)).toBe("near_failure");
+    expect(readEffort(0)).toBe("near_failure");
+  });
+
+  it("reads the middle of the range as productive", () => {
+    expect(readEffort(2)).toBe("productive");
+    expect(readEffort(2.9)).toBe("productive");
+  });
+
+  // Distinct from RIR 0. "Not recorded" must never be read as "taken to
+  // failure", which is the strongest claim the scale can make.
+  it("reads a missing RIR as no reading at all", () => {
+    expect(readEffort(null)).toBeNull();
+  });
+});
+
+describe("buildMuscleProgressRows — effort", () => {
+  it("carries the period's RIR and its reading onto the row", () => {
+    const rows = buildMuscleProgressRows(
+      buildView([group("pecho", 13, 3.4)]),
+      [buildSeriesGroup("Press de banca", "pecho")],
+      [buildImprovementRow("Press de banca")],
+    );
+
+    expect(rows[0]).toMatchObject({ verdict: "stalled", avgRir: 3.4, effort: "far_from_failure" });
+  });
+
+  it("leaves the reading null when the period recorded no RIR", () => {
+    const rows = buildMuscleProgressRows(
+      buildView([group("pecho", 13, null)]),
+      [buildSeriesGroup("Press de banca", "pecho")],
+      [buildImprovementRow("Press de banca")],
+    );
+
+    expect(rows[0]).toMatchObject({ avgRir: null, effort: null });
+  });
+
+  // Effort explains a verdict; it never overrides it. A group training far
+  // from failure that is nonetheless growing is still growing.
+  it("does not let the effort reading change the verdict", () => {
+    const rows = buildMuscleProgressRows(
+      buildView([group("pecho", 13, 4)]),
+      [buildSeriesGroup("Press de banca", "pecho")],
+      [buildImprovementRow("Press de banca", { improved: true, signals: ["load_at_reps"] })],
+    );
+
+    expect(rows[0]).toMatchObject({ verdict: "growing", effort: "far_from_failure" });
+  });
+});
+
 describe("hasPainFlag", () => {
   // Mirrors the app's own progression gate: pain above 2 blocks aggressive
   // progression, so 2 alone must not escalate the section.
   it("is false at the threshold and true above it", () => {
-    const view = buildView([{ muscleGroup: "pecho", effectiveSets: 13 }]);
+    const view = buildView([group("pecho", 13)]);
     const seriesGroups = [buildSeriesGroup("Press de banca", "pecho")];
 
     const atThreshold = buildMuscleProgressRows(view, seriesGroups, [

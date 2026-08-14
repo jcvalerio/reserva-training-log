@@ -79,7 +79,7 @@ describe("shadeForVolume", () => {
 
 describe("BodyMap", () => {
   it("renders both views with accessible labels", () => {
-    render(<BodyMap view={buildView([{ muscleGroup: "pecho", effectiveSets: 6 }])} />);
+    render(<BodyMap view={buildView([{ muscleGroup: "pecho", effectiveSets: 6, avgRir: null, rirSetCount: 0 }])} />);
 
     const views = screen.getAllByRole("img");
     expect(views).toHaveLength(2);

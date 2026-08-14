@@ -1,6 +1,11 @@
 import { formatKg } from "@/lib/format";
 import { muscleGroupLabelsEs } from "@/training/muscle-taxonomy";
-import type { MuscleProgressLift, MuscleProgressRow, MuscleProgressVerdict } from "@/workouts/muscle-progress";
+import type {
+  EffortReading,
+  MuscleProgressLift,
+  MuscleProgressRow,
+  MuscleProgressVerdict,
+} from "@/workouts/muscle-progress";
 
 // Deliberately NOT a <table>. Four columns of muscle group / sets / lift /
 // verdict is exactly the fixed-track layout that has already overflowed this
@@ -35,15 +40,45 @@ const BAR_CLASS: Record<MuscleProgressVerdict, string> = {
   no_data: "bg-zinc-600",
 };
 
-// The correction, not a restatement of the verdict. A group that needs nothing
-// says nothing — silence is the useful answer for "Creciendo", and printing an
-// encouragement on every healthy row would bury the three that need action.
-const VERDICT_ACTION_ES: Record<MuscleProgressVerdict, string | null> = {
-  growing: null,
-  stalled: "El volumen ya alcanza: acércate más al fallo o cambia el ejercicio.",
-  under_stimulus: "Añade series antes de subir el peso.",
-  overreaching: "Baja el volumen. Es fatiga que no se está convirtiendo en músculo.",
-  no_data: "Repite un mismo ejercicio en dos sesiones para poder compararlo.",
+/**
+ * The correction, not a restatement of the verdict. A group that needs nothing
+ * says nothing — silence is the useful answer for "Creciendo", and printing an
+ * encouragement on every healthy row would bury the three that need action.
+ *
+ * "Estancado" is the one verdict whose correction genuinely depends on RIR,
+ * and it is the reason RIR is tracked at all: stalled far from failure is an
+ * intensity problem (train closer), stalled at failure is a recovery problem
+ * (back off). Giving both the same advice would be actively wrong for one of
+ * them. Without RIR the wording stays deliberately non-committal.
+ */
+function actionFor(row: MuscleProgressRow): string | null {
+  switch (row.verdict) {
+    case "growing":
+      return null;
+    case "stalled":
+      if (row.effort === "far_from_failure") {
+        return "Tus series terminan lejos del fallo. No es el volumen: acércate más — mismo peso, una o dos reps más.";
+      }
+      if (row.effort === "near_failure") {
+        return "Ya entrenas al límite. La intensidad no es el problema: descarga o cambia el ejercicio.";
+      }
+      return "El volumen ya alcanza: acércate más al fallo o cambia el ejercicio.";
+    case "under_stimulus":
+      return "Añade series antes de subir el peso.";
+    case "overreaching":
+      return "Baja el volumen. Es fatiga que no se está convirtiendo en músculo.";
+    case "no_data":
+      return "Repite un mismo ejercicio en dos sesiones para poder compararlo.";
+  }
+}
+
+// Only the two readings that should change something get a chip. A group
+// training in the productive range has nothing to say, and printing "RIR 2.1"
+// on every healthy row is exactly the noise this screen is being cut back for.
+const EFFORT_LABEL_ES: Record<EffortReading, string | null> = {
+  far_from_failure: "Lejos del fallo",
+  near_failure: "Al límite",
+  productive: null,
 };
 
 export function MuscleProgressTable({ rows }: { rows: MuscleProgressRow[] }) {
@@ -59,24 +94,34 @@ export function MuscleProgressTable({ rows }: { rows: MuscleProgressRow[] }) {
 }
 
 function MuscleProgressRowContent({ row }: { row: MuscleProgressRow }) {
-  const action = VERDICT_ACTION_ES[row.verdict];
+  const action = actionFor(row);
+  const effortLabel = row.effort ? EFFORT_LABEL_ES[row.effort] : null;
 
   return (
     <>
-      {/* min-w-0 on the name so a long label ("Abductores y aductores")
-          wraps instead of pushing the verdict chip out of the card. */}
-      <div className="flex items-start justify-between gap-2">
+      {/* Both sides must be able to yield. A shrink-0 chip group looks fine
+          with one chip and silently overlaps the muscle name once a row
+          carries three (long label + RIR + pain + verdict) — so the group
+          shrinks and wraps internally, while each chip stays unbroken. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <p className="min-w-0 font-semibold text-zinc-100">{muscleGroupLabelsEs[row.muscleGroup]}</p>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+        <div className="flex min-w-0 flex-wrap justify-end gap-1">
+          {/* Neutral-toned on purpose: this is context that explains the
+              verdict, not a second alarm competing with it. */}
+          {effortLabel && row.avgRir !== null ? (
+            <span className="rounded-full bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-300">
+              {effortLabel} · RIR {formatRir(row.avgRir)}
+            </span>
+          ) : null}
           {/* Pain rides on the row rather than waiting inside a disclosure:
               it's a conditional signal, and the app already blocks aggressive
               progression on it. Absent entirely when nothing crossed the gate. */}
           {row.maxPainScore > 2 ? (
-            <span className="rounded-full bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-300">
+            <span className="rounded-full bg-rose-400/10 px-2 py-1 text-xs font-semibold whitespace-nowrap text-rose-300">
               Dolor {row.maxPainScore}
             </span>
           ) : null}
-          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${VERDICT_CLASS[row.verdict]}`}>
+          <span className={`rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap ${VERDICT_CLASS[row.verdict]}`}>
             {VERDICT_LABEL_ES[row.verdict]}
           </span>
         </div>
@@ -161,4 +206,9 @@ function formatReps(reps: number): string {
 /** Half-set credit for secondary muscles means these are genuinely fractional. */
 function formatSets(sets: number): string {
   return `${Number(sets.toFixed(1))}`;
+}
+
+/** A mean across many sets, so 2 stays 2 while 2.4 keeps its decimal. */
+function formatRir(rir: number): string {
+  return `${Number(rir.toFixed(1))}`;
 }

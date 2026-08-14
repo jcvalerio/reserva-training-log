@@ -34,6 +34,34 @@ export type MuscleProgressVerdict =
 export type BandPosition = "below" | "within" | "above";
 
 /**
+ * How close to failure this group's sets have actually been taken.
+ *
+ * The variable a set count cannot see: fifteen sets at RIR 4 and fifteen sets
+ * at RIR 1 are the same bar on a volume chart and completely different
+ * training. It exists here to make "Estancado" actionable — a stalled group
+ * trained far from failure has an intensity problem, and a stalled group
+ * already at failure has a recovery problem. Opposite corrections, and the
+ * volume number alone cannot tell them apart.
+ */
+export type EffortReading = "far_from_failure" | "productive" | "near_failure";
+
+/** Hypertrophy's effective range runs roughly RIR 0-3. At or above 3 the set
+ *  is leaving real stimulus behind; at or below 1 it is close enough to
+ *  failure that the ceiling is recovery, not effort. */
+const FAR_FROM_FAILURE_RIR = 3;
+const NEAR_FAILURE_RIR = 1;
+
+export function readEffort(avgRir: number | null): EffortReading | null {
+  if (avgRir === null) {
+    return null;
+  }
+  if (avgRir >= FAR_FROM_FAILURE_RIR) {
+    return "far_from_failure";
+  }
+  return avgRir <= NEAR_FAILURE_RIR ? "near_failure" : "productive";
+}
+
+/**
  * The headline lift for a group, stated in the units the athlete trains in
  * (weight x reps) rather than as volume-load kg or an estimated 1RM.
  *
@@ -66,6 +94,10 @@ export type MuscleProgressRow = {
    *  row rather than hidden behind a disclosure: pain is a conditional signal,
    *  and the app already gates progression on it at PAIN_THRESHOLD. */
   maxPainScore: number;
+  /** Set-weighted mean RIR over the same window, primary group only. Null when
+   *  no set in the period recorded one. */
+  avgRir: number | null;
+  effort: EffortReading | null;
   verdict: MuscleProgressVerdict;
 };
 
@@ -219,6 +251,8 @@ export function buildMuscleProgressRows(
       improvedExerciseCount,
       bestLift: pickBestLift(groupImprovements),
       maxPainScore: groupImprovements.reduce((max, row) => Math.max(max, row.improvement.latestMaxPain), 0),
+      avgRir: entry.avgRir,
+      effort: readEffort(entry.avgRir),
       verdict: verdictFor(bandPosition, groupImprovements.length, improvedExerciseCount),
     });
   }

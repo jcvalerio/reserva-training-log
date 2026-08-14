@@ -18,8 +18,9 @@ function buildSets(
   side: VolumeSetInput["side"] = "bilateral",
   painScore = 0,
   painLocation: VolumeSetInput["painLocation"] = null,
+  rir: number | null = 2,
 ): VolumeSetInput[] {
-  return Array.from({ length: count }, (_, index) => ({ setNumber: index + 1, side, painScore, painLocation }));
+  return Array.from({ length: count }, (_, index) => ({ setNumber: index + 1, side, painScore, painLocation, rir }));
 }
 
 function buildInstance(overrides: Partial<VolumeExerciseInstance> = {}): VolumeExerciseInstance {
@@ -55,12 +56,12 @@ describe("effectiveSetCount", () => {
     const instance = buildInstance({
       isUnilateral: true,
       sets: [
-        { setNumber: 1, side: "left", painScore: 0, painLocation: null },
-        { setNumber: 2, side: "right", painScore: 0, painLocation: null },
-        { setNumber: 3, side: "left", painScore: 0, painLocation: null },
-        { setNumber: 4, side: "right", painScore: 0, painLocation: null },
-        { setNumber: 5, side: "left", painScore: 0, painLocation: null },
-        { setNumber: 6, side: "right", painScore: 0, painLocation: null },
+        { setNumber: 1, side: "left", painScore: 0, painLocation: null, rir: 2 },
+        { setNumber: 2, side: "right", painScore: 0, painLocation: null, rir: 2 },
+        { setNumber: 3, side: "left", painScore: 0, painLocation: null, rir: 2 },
+        { setNumber: 4, side: "right", painScore: 0, painLocation: null, rir: 2 },
+        { setNumber: 5, side: "left", painScore: 0, painLocation: null, rir: 2 },
+        { setNumber: 6, side: "right", painScore: 0, painLocation: null, rir: 2 },
       ],
     });
     expect(effectiveSetCount(instance)).toBe(3);
@@ -176,6 +177,76 @@ describe("buildMuscleVolumeSummary — credit", () => {
   });
 });
 
+describe("buildMuscleVolumeSummary — RIR per muscle group", () => {
+  function rirFor(summary: ReturnType<typeof buildMuscleVolumeSummary>, muscleGroup: string) {
+    return summary.currentWeek.byMuscleGroup.find((row) => row.muscleGroup === muscleGroup) ?? null;
+  }
+
+  it("averages RIR across the group's sets", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ sets: [...buildSets(2, "bilateral", 0, null, 3), ...buildSets(2, "bilateral", 0, null, 1)] })],
+      { now: NOW },
+    );
+
+    expect(rirFor(summary, "pecho")).toMatchObject({ avgRir: 2, rirSetCount: 4 });
+  });
+
+  // Unlike effectiveSets, which gives secondaries half a set. How close to
+  // failure the back was taken says nothing trustworthy about the biceps.
+  it("credits RIR to the primary group only, never to secondaries", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ primaryMuscleGroup: "dorsal", secondaryMuscleGroups: ["biceps"] })],
+      { now: NOW },
+    );
+
+    expect(rirFor(summary, "dorsal")?.avgRir).toBe(2);
+    expect(rirFor(summary, "biceps")).toMatchObject({ effectiveSets: 1.5, avgRir: null, rirSetCount: 0 });
+  });
+
+  // A duration-type set has no RIR. Reading null as 0 would claim it was taken
+  // to failure — the strongest possible claim, from missing data.
+  it("skips sets with no recorded RIR instead of counting them as zero", () => {
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ sets: [...buildSets(2, "bilateral", 0, null, 4), ...buildSets(2, "bilateral", 0, null, null)] })],
+      { now: NOW },
+    );
+
+    expect(rirFor(summary, "pecho")).toMatchObject({ avgRir: 4, rirSetCount: 2 });
+  });
+
+  it("reports no RIR at all when no set recorded one", () => {
+    const summary = buildMuscleVolumeSummary([buildInstance({ sets: buildSets(3, "bilateral", 0, null, null) })], {
+      now: NOW,
+    });
+
+    expect(rirFor(summary, "pecho")).toMatchObject({ avgRir: null, rirSetCount: 0 });
+  });
+
+  it("re-averages multi-week views by set count, not by averaging each week's average", () => {
+    // Week A: 2 sets at RIR 4. Week B: 6 sets at RIR 1.
+    // Averaging the two weekly means gives 2.5; weighting by sets gives 1.75.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({
+          completedAt: new Date("2026-07-22T12:00:00"),
+          sets: buildSets(2, "bilateral", 0, null, 4),
+        }),
+        buildInstance({
+          completedAt: new Date("2026-07-29T12:00:00"),
+          sets: buildSets(6, "bilateral", 0, null, 1),
+        }),
+      ],
+      { now: NOW },
+    );
+
+    const fourWeeks = summary.views.find((view) => view.key === "four_weeks");
+    expect(fourWeeks?.byMuscleGroup.find((row) => row.muscleGroup === "pecho")).toMatchObject({
+      avgRir: 1.75,
+      rirSetCount: 8,
+    });
+  });
+});
+
 describe("buildMuscleVolumeSummary — ratios", () => {
   it("computes push:pull from derived regions", () => {
     const summary = buildMuscleVolumeSummary(
@@ -214,9 +285,9 @@ describe("buildMuscleVolumeSummary — pain by location", () => {
           exerciseNameEs: "Press de pecho en máquina",
           jointLoads: ["hombro", "codo"],
           sets: [
-            { setNumber: 1, side: "bilateral", painScore: 1, painLocation: null },
-            { setNumber: 2, side: "bilateral", painScore: 4, painLocation: null },
-            { setNumber: 3, side: "bilateral", painScore: 3, painLocation: null },
+            { setNumber: 1, side: "bilateral", painScore: 1, painLocation: null, rir: 2 },
+            { setNumber: 2, side: "bilateral", painScore: 4, painLocation: null, rir: 2 },
+            { setNumber: 3, side: "bilateral", painScore: 3, painLocation: null, rir: 2 },
           ],
         }),
       ],
