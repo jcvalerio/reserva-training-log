@@ -2,13 +2,28 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: `/progreso` opens with "¿Está funcionando?" — one verdict per muscle group, now RIR-aware. Committed (`36e36c9`, `f07fcf1`), **not yet deployed**.
+## Status: the `/progreso` rebuild is complete — all three reports plus both structural cleanups. Committed (`36e36c9`, `f07fcf1`, `a96f6fb`).
 
-Reports 01 and 02 of the `/progreso` review are both in. The table joins weekly sets (the input) with per-exercise progression (the output) — which the page had both of and never crossed — into five verdicts, each with a different correction: Creciendo / Estancado / Falta estímulo / Pasado de vuelta / Sin datos. Lifts read as weight × reps ("60kg × 8 → 60kg × 10") instead of volume-load kg or estimated 1RM, the two numbers you reported as unreadable. Average RIR per muscle group then splits "Estancado" into its two opposite corrections: far from failure means push closer, already at failure means deload. Pain escalates onto the row instead of hiding in a disclosure. Fixed to a 4-week window on purpose. Full detail in `implementation-log.md`.
+The screen now reads: KPI row → **¿Está funcionando?** → Ejercicios que más mejoraron → Tendencia corporal → Series por grupo muscular → Equilibrio → Dónde te ha dolido → Ejercicios por grupo muscular → Consistencia semanal → Sin clasificar → Historial.
 
-**Worth doing on real data before building more:** open `/progreso` on your phone after deploying and check whether the verdicts read true for you. The dev DB's `demo-seed-` history will not resemble production.
+What changed and why, in one line each — full detail in `implementation-log.md`:
 
-**Still open from the same review**, none blocked: delete the duplicate "Mejoras recientes" list (its own code comment calls it a reformatting of the same deltas), split the muscle-volume mega-card, and Report 03 — body measurements promoted back up as the outcome check.
+- **¿Está funcionando?** crosses weekly sets (input) with per-exercise progression (output), which the page had both of and never joined. Five verdicts, each with a *different* correction.
+- **Lifts read as weight × reps** ("60kg × 8 → 60kg × 10"), never volume-load kg or estimated 1RM — the two numbers reported as unreadable.
+- **RIR per muscle group** splits "Estancado" into its two opposite fixes: far from failure → push closer; already at failure → deload.
+- **"Mejoras recientes" deleted** — it was the third rendering of one comparison. Asymmetry survives in the per-exercise chart.
+- **Volume card split**; pain opens itself when a set crossed the progression gate rather than hiding behind a fixed collapse.
+- **Tendencia corporal promoted** as the outcome check, stating its own 8–12 week timescale.
+
+## Up next — this is now a data question, not a code one
+
+**Use it for a few real weeks before building anything else here.** The verdicts are only as good as the logged history behind them, and the dev DB's `demo-seed-` rows do not resemble production. Specifically worth checking on real data:
+
+1. Do the verdicts read true? A group marked *Estancado* that you know is progressing means an exercise is attributed to the wrong muscle group.
+2. Do the reference bands feel right once four real weeks are in? `project-status.md` already flags that if the averages read as discouraging, change the copy around the band rather than the numbers.
+3. Does your logged RIR match what you actually feel? A "Lejos del fallo" chip on something you take close to failure is worth knowing on its own.
+
+Still unbuilt from the original review, deliberately: **the Resumen / Músculos / Historial tab split.** It was ranked below everything above because the content fixes had to land first — a tab shell around unreadable numbers would have solved nothing. Worth reconsidering only if the page still feels long after real use.
 
 ## Prior status: the post-workout recap now includes a personal-record banner, backed by a real all-time-best query.
 

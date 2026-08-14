@@ -2,6 +2,28 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-13 — The duplicate improvement list deleted, the volume card split, the outcome check promoted
+
+Status: committed as `a96f6fb` on `main`. `lint`/`typecheck`/`test` (543 passing, +5 net)/`build` all green. No migration.
+
+The last three items from the `/progreso` review, done together so the resulting page order is coherent rather than three partial states.
+
+**Deleted "Mejoras recientes."** It rendered one full card per exercise restating the same per-exercise deltas that "Ejercicios que más mejoraron" ranks above it and "¿Está funcionando?" now rolls up by muscle group — three renderings of a single comparison, on a screen whose reported problem was having too much on it. Checked before cutting that nothing is only there: the conclusion survives in the ranked list, and the per-exercise progression chart keeps the detail — including the left/right asymmetry (`DualLineChart` + `buildEffortGapSeries`) that these cards were the only other place to see. That mattered, because the physio read of the first review had explicitly objected to asymmetry being treated as noise.
+
+**Split the volume mega-card**, which had grown to answer four unrelated questions inside one card: how much did I train, is my structure balanced, does anything hurt, which exercises are unclassified. Equilibrio and Sin clasificar became their own top-level sections, closed by default — reference material consulted occasionally, costing one line of scroll instead of a screen. Sin clasificar also moved to the housekeeping end of the page; it is a plan-editing chore, not a reading.
+
+**Pain deliberately does not get a fixed collapse.** It opens itself whenever any location crossed the app's own progression gate, and takes an alert ring when it does. This is the physio correction to the first review stated in code: a pain section closed by default is a pain section never read, and unlike the two sections beside it, this one can be time-critical. Quiet when nothing crossed the gate, unmissable when something did. Both directions are tested.
+
+**Promoted "Tendencia corporal"** above the volume and progression sections (Report 03). Sets are the input and lifts are a proxy; over a training block, circumference and bodyweight are the only direct evidence that any of it turned into tissue — strength can improve on technique, sleep or neural adaptation alone. It now also states its own timescale ("se lee en bloques de 8 a 12 semanas, no de una semana a otra"), so it stops inviting a week-to-week read where the only thing it can show is noise.
+
+Resulting order: KPI row → ¿Está funcionando? → Ejercicios que más mejoraron → Tendencia corporal → Series por grupo muscular → Equilibrio → Dónde te ha dolido → Ejercicios por grupo muscular → Consistencia semanal → Sin clasificar → Historial de sesiones. Net one section fewer than before, and every remaining one answers a single question.
+
+The browser check caught one thing again: the new closed sections rendered with no disclosure marker at all, so a collapsed section read as an inert heading nobody would think to tap. Fixed by reusing `MuscleVolumeChart`'s existing `ChevronDown` + `group-open:rotate-180` affordance rather than inventing a second convention for the same interaction.
+
+Files touched: `src/app/progreso/progreso-page-content.tsx` (−`ImprovementCard`, −`signalLabelEs`, +`DisclosureSection`), `src/app/progreso/progreso-page-content.test.tsx`.
+
+Next iteration: none flagged from this review — all of Reports 01–03 plus both structural cleanups are done. The open question is now a data one: whether the verdicts read true against real production history, which only real use answers.
+
 ## 2026-08-13 — Average RIR per muscle group, turning "Estancado" into an instruction
 
 Status: committed as `f07fcf1` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (538 passing, +15 new)/`build` all green. No migration.
