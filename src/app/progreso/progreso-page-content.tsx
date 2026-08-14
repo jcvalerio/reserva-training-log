@@ -1,11 +1,12 @@
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 
-import { formatKg, formatShortDateEs } from "@/lib/format";
+import { formatShortDateEs } from "@/lib/format";
 import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
-import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
+import type { ExerciseImprovementRow } from "@/workouts/improvement";
 import { painLocationLabelsEs } from "@/training/muscle-taxonomy";
 import { buildMuscleProgressRows, pickProgressView } from "@/workouts/muscle-progress";
 import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
@@ -135,6 +136,17 @@ export function ProgresoPageContent({
         </section>
       ) : null}
 
+      {/* Promoted above the volume and progression sections on purpose. Sets
+          are the input and lifts are a proxy; over a block, circumference and
+          bodyweight are the only direct evidence that any of it turned into
+          tissue. Strength can improve on technique, sleep or neural
+          adaptation alone — so a page where every chart reads green and the
+          tape has not moved in three months is saying something, and burying
+          this at the bottom is what stopped it being heard. */}
+      {bodyMeasurementTrend ? (
+        <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
+      ) : null}
+
       {muscleVolumeSummary ? (
         <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="muscle-volume-title">
           <p id="muscle-volume-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
@@ -144,91 +156,82 @@ export function ProgresoPageContent({
             <MuscleVolumeSection summary={muscleVolumeSummary} />
           </div>
 
-          {muscleVolumeSummary.pushPullRatio !== null || muscleVolumeSummary.quadHamstringRatio !== null ? (
-            <div className="mt-3 border-t border-zinc-800 pt-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Equilibrio</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">
-                {muscleVolumeSummary.pushPullRatio !== null
-                  ? `Empuje : Tirón — ${formatRatio(muscleVolumeSummary.pushPullRatio)}`
-                  : null}
-                {muscleVolumeSummary.pushPullRatio !== null && muscleVolumeSummary.quadHamstringRatio !== null
-                  ? " · "
-                  : null}
-                {muscleVolumeSummary.quadHamstringRatio !== null
-                  ? `Cuádriceps : Femorales — ${formatRatio(muscleVolumeSummary.quadHamstringRatio)}`
-                  : null}
-              </p>
-            </div>
-          ) : null}
-
-          {muscleVolumeSummary.painByLocation.length > 0 ? (
-            <div className="mt-3 border-t border-zinc-800 pt-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                {muscleVolumeSummary.painByLocation.every((row) => !row.isInferred)
-                  ? "Dónde te ha dolido"
-                  : "Dónde te ha dolido (algunas series son estimadas)"}
-              </p>
-              {/* Rows the athlete actually located are stated plainly. Rows
-                  inferred from the joints an exercise loads keep hedging —
-                  that path would happily report "hombro" for a hurting wrist,
-                  and it still runs for sets logged before painLocation
-                  existed. Never present the two identically. */}
-              <ul className="mt-2 grid grid-cols-1 gap-1">
-                {muscleVolumeSummary.painByLocation.map((row) => (
-                  <li key={row.location} className="text-sm leading-6 text-zinc-300">
-                    {painLocationLabelsEs[row.location]}
-                    {row.isInferred ? <span className="text-zinc-500"> (estimado)</span> : null} — dolor máx.{" "}
-                    {row.maxPainScore}
-                    {row.setsAboveThreshold > 0 ? (
-                      <span className="text-zinc-400">
-                        {" "}
-                        · {row.setsAboveThreshold} {row.setsAboveThreshold === 1 ? "serie" : "series"} sobre 2 (
-                        {row.exerciseNamesEs.join(", ")})
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs leading-5 text-zinc-400">
-                Lo marcado como <span className="italic">estimado</span> viene de series registradas antes de que la
-                app preguntara dónde dolía: ahí sólo puede repartir el dolor entre las articulaciones que carga el
-                ejercicio. El resto es lo que anotaste tú. En ningún caso es un diagnóstico. Con dolor sobre 2 no
-                conviene progresar; sobre 3, reduce o modifica el ejercicio.
-              </p>
-            </div>
-          ) : null}
-
           <Link
             href="/guia?open=volumen"
             className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
           >
             Cómo se cuentan estas series
           </Link>
-
-          {muscleVolumeSummary.unclassifiedExerciseNames.length > 0 ? (
-            <details className="mt-3 border-t border-zinc-800 pt-3">
-              <summary className="min-h-11 text-sm leading-6 text-zinc-300">
-                Sin clasificar ({muscleVolumeSummary.unclassifiedExerciseNames.length})
-              </summary>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Estas series no se cuentan en ningún grupo muscular. Asigna su grupo al editar el plan.
-              </p>
-              <ul className="mt-2 grid grid-cols-1 gap-1">
-                {muscleVolumeSummary.unclassifiedExerciseNames.map((name) => (
-                  <li key={name} className="text-sm leading-6 text-zinc-300">
-                    {name}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/plan/builder"
-                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-              >
-                Editar plan
-              </Link>
-            </details>
-          ) : null}
         </section>
+      ) : null}
+
+      {/* Split out of the volume card above, which had grown to hold four
+          unrelated questions at once. Each is now its own disclosure, closed
+          by default — they are reference material consulted occasionally, not
+          part of the per-visit read. */}
+      {muscleVolumeSummary &&
+      (muscleVolumeSummary.pushPullRatio !== null || muscleVolumeSummary.quadHamstringRatio !== null) ? (
+        <DisclosureSection title="Equilibrio">
+          <p className="text-sm leading-6 text-zinc-300">
+            {muscleVolumeSummary.pushPullRatio !== null
+              ? `Empuje : Tirón — ${formatRatio(muscleVolumeSummary.pushPullRatio)}`
+              : null}
+            {muscleVolumeSummary.pushPullRatio !== null && muscleVolumeSummary.quadHamstringRatio !== null
+              ? " · "
+              : null}
+            {muscleVolumeSummary.quadHamstringRatio !== null
+              ? `Cuádriceps : Femorales — ${formatRatio(muscleVolumeSummary.quadHamstringRatio)}`
+              : null}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            Compara cuánto trabajo recibe cada lado de un par opuesto. Un desequilibrio sostenido no es una urgencia,
+            pero con el tiempo limita el lado que menos trabajas.
+          </p>
+        </DisclosureSection>
+      ) : null}
+
+      {muscleVolumeSummary && muscleVolumeSummary.painByLocation.length > 0 ? (
+        /* Opens itself when something crossed the app's own progression gate.
+           A pain section closed by default is a pain section never read — and
+           unlike the two beside it, this one can be time-critical. Quiet when
+           nothing crossed it, unmissable when something did. */
+        <DisclosureSection
+          title={
+            muscleVolumeSummary.painByLocation.every((row) => !row.isInferred)
+              ? "Dónde te ha dolido"
+              : "Dónde te ha dolido (algunas series son estimadas)"
+          }
+          defaultOpen={muscleVolumeSummary.painByLocation.some((row) => row.setsAboveThreshold > 0)}
+          tone={muscleVolumeSummary.painByLocation.some((row) => row.setsAboveThreshold > 0) ? "alert" : "default"}
+        >
+          {/* Rows the athlete actually located are stated plainly. Rows
+              inferred from the joints an exercise loads keep hedging —
+              that path would happily report "hombro" for a hurting wrist,
+              and it still runs for sets logged before painLocation
+              existed. Never present the two identically. */}
+          <ul className="grid grid-cols-1 gap-1">
+            {muscleVolumeSummary.painByLocation.map((row) => (
+              <li key={row.location} className="text-sm leading-6 text-zinc-300">
+                {painLocationLabelsEs[row.location]}
+                {row.isInferred ? <span className="text-zinc-500"> (estimado)</span> : null} — dolor máx.{" "}
+                {row.maxPainScore}
+                {row.setsAboveThreshold > 0 ? (
+                  <span className="text-zinc-400">
+                    {" "}
+                    · {row.setsAboveThreshold} {row.setsAboveThreshold === 1 ? "serie" : "series"} sobre 2 (
+                    {row.exerciseNamesEs.join(", ")})
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            Lo marcado como <span className="italic">estimado</span> viene de series registradas antes de que la app
+            preguntara dónde dolía: ahí sólo puede repartir el dolor entre las articulaciones que carga el ejercicio. El
+            resto es lo que anotaste tú. En ningún caso es un diagnóstico. Con dolor sobre 2 no conviene progresar;
+            sobre 3, reduce o modifica el ejercicio.
+          </p>
+        </DisclosureSection>
       ) : null}
 
       {exerciseSeriesGroups.length > 0 ? (
@@ -243,22 +246,13 @@ export function ProgresoPageContent({
         </section>
       ) : null}
 
-      <section className="mt-7" aria-labelledby="improvements-title">
-        <p id="improvements-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
-          Mejoras recientes
-        </p>
-        {improvements.length === 0 ? (
-          <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí.
-          </p>
-        ) : (
-          <div className="mt-3 grid grid-cols-1 gap-3">
-            {improvements.map((row) => (
-              <ImprovementCard key={row.exerciseNameEs} row={row} />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* "Mejoras recientes" used to sit here: one full card per exercise
+          restating the same per-exercise deltas that "Ejercicios que más
+          mejoraron" ranks above and "¿Está funcionando?" rolls up by muscle
+          group — three renderings of one comparison. The ranked list keeps the
+          conclusion, and the per-exercise chart below keeps the detail
+          (including the left/right asymmetry these cards were the only other
+          place to see), so nothing is actually lost by removing them. */}
 
       {consistencySummary ? (
         <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="consistency-title">
@@ -276,8 +270,29 @@ export function ProgresoPageContent({
         </section>
       ) : null}
 
-      {bodyMeasurementTrend ? (
-        <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
+      {muscleVolumeSummary && muscleVolumeSummary.unclassifiedExerciseNames.length > 0 ? (
+        /* Housekeeping, not a reading: these sets are missing a muscle group,
+           which is fixed in the plan editor. It sat inside the volume card
+           where it interrupted the scroll every visit; down here it's findable
+           without being in the way. */
+        <DisclosureSection title={`Sin clasificar (${muscleVolumeSummary.unclassifiedExerciseNames.length})`}>
+          <p className="text-xs leading-5 text-zinc-400">
+            Estas series no se cuentan en ningún grupo muscular. Asigna su grupo al editar el plan.
+          </p>
+          <ul className="mt-2 grid grid-cols-1 gap-1">
+            {muscleVolumeSummary.unclassifiedExerciseNames.map((name) => (
+              <li key={name} className="text-sm leading-6 text-zinc-300">
+                {name}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/plan/builder"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            Editar plan
+          </Link>
+        </DisclosureSection>
       ) : null}
 
       <section className="mt-6 grid grid-cols-1 gap-3 pb-10" aria-labelledby="history-title">
@@ -302,6 +317,55 @@ export function ProgresoPageContent({
         </div>
       </section>
     </AppShell>
+  );
+}
+
+/**
+ * A top-level section that stays closed until asked for.
+ *
+ * The three things split out of the volume card are all reference material —
+ * consulted when a question comes up, not read every visit. Closed by default
+ * they cost one line of scroll each instead of a screen.
+ *
+ * `defaultOpen` exists for the one case that must not wait to be asked for:
+ * pain that crossed the app's own progression threshold.
+ */
+function DisclosureSection({
+  title,
+  defaultOpen = false,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  tone?: "default" | "alert";
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className={`group mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ${
+        tone === "alert" ? "ring-rose-400/30" : "ring-zinc-800"
+      }`}
+    >
+      {/* Same chevron affordance MuscleVolumeChart's disclosure already uses,
+          rather than a second convention: without it a closed section reads as
+          an inert heading and never gets opened. */}
+      <summary className="flex min-h-11 w-full cursor-pointer list-none items-center gap-2 text-left [&::-webkit-details-marker]:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-150 group-open:rotate-180 group-open:text-zinc-300"
+        />
+        <span
+          className={`min-w-0 text-sm font-semibold uppercase tracking-[0.22em] ${
+            tone === "alert" ? "text-rose-300" : "text-zinc-400"
+          }`}
+        >
+          {title}
+        </span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
 
@@ -332,6 +396,15 @@ function BodyMeasurementTrendCard({
           Ver mediciones
         </Link>
       </div>
+
+      {/* States its own timescale, because the honest answer to "did this
+          week work?" from a tape measure is that it cannot tell you. Without
+          this line the card invites being read week to week, where the only
+          thing it can show is noise. */}
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
+        La prueba de que el entrenamiento se convirtió en músculo. Se lee en bloques de 8 a 12 semanas, no de una
+        semana a otra.
+      </p>
 
       {trend.measurementCount === 1 ? (
         <p className="mt-2 text-sm leading-6 text-zinc-400">
@@ -396,67 +469,6 @@ function formatGap(value: number | null) {
   }
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}cm`;
-}
-
-function ImprovementCard({ row }: { row: ExerciseImprovementRow }) {
-  const { improvement } = row;
-
-  return (
-    <article className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="min-w-0 truncate font-semibold text-zinc-100">{row.exerciseNameEs}</h3>
-        <span
-          className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${
-            improvement.improved ? "bg-emerald-300/10 text-emerald-300" : "bg-zinc-800 text-zinc-400"
-          }`}
-        >
-          {improvement.improved ? "Mejora ≥5%" : "Sin cambio de 5%"}
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Volumen: {formatKg(improvement.previousVolumeLoadKg, 0)} → {formatKg(improvement.latestVolumeLoadKg, 0)}{" "}
-        · Dolor máx: {improvement.previousMaxPain} → {improvement.latestMaxPain}
-      </p>
-      <p className="mt-1 text-xs leading-5 text-zinc-400">
-        Peso prom: {formatKg(improvement.previousAvgWeightKg, 1)} → {formatKg(improvement.latestAvgWeightKg, 1)} · Reps
-        prom: {improvement.previousAvgReps.toFixed(1)} → {improvement.latestAvgReps.toFixed(1)}
-      </p>
-      {improvement.latestEstimated1RmKg !== null && improvement.previousEstimated1RmKg !== null ? (
-        <p className="mt-1 text-xs leading-5 text-zinc-400">
-          1RM estimado: {formatKg(improvement.previousEstimated1RmKg, 1)} → {formatKg(improvement.latestEstimated1RmKg, 1)}
-        </p>
-      ) : null}
-      {improvement.latestAsymmetryGapKg !== null && improvement.previousAsymmetryGapKg !== null ? (
-        <p className="mt-1 text-xs leading-5 text-zinc-400">
-          Asimetría izq/der: {formatKg(improvement.previousAsymmetryGapKg, 1)} →{" "}
-          {formatKg(improvement.latestAsymmetryGapKg, 1)}
-        </p>
-      ) : null}
-      {improvement.signals.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {improvement.signals.map((signal) => (
-            <span
-              key={signal}
-              className="rounded-full bg-emerald-300/10 px-2 py-1 text-xs font-semibold text-emerald-300"
-            >
-              {signalLabelEs(signal)}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function signalLabelEs(signal: ImprovementSignal) {
-  return {
-    volume_load: "Volumen +5%",
-    pain: "Dolor -2",
-    reps_at_load: "Reps +5% (mismo peso)",
-    load_at_reps: "Peso +5% (mismas reps)",
-    estimated_1rm: "1RM estimado +5%",
-    asymmetry_performance: "Asimetría -5%",
-  }[signal];
 }
 
 /**

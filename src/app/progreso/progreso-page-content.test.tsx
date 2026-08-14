@@ -102,9 +102,6 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByText(/Día 1/)).toBeVisible();
     // startedAt 12:00, completedAt 13:00 in the fixture.
     expect(screen.getByText(/60 min/)).toBeVisible();
-    expect(
-      screen.getByText("Registra el mismo ejercicio en dos sesiones completadas para ver comparaciones aquí."),
-    ).toBeVisible();
   });
 
   it("shows per-session training load and a Carga KPI tile when RPE was logged", () => {
@@ -145,7 +142,11 @@ describe("ProgresoPageContent", () => {
     expect(screen.getByText("3/5")).toBeVisible();
   });
 
-  it("shows an improved badge and matching signals for an exercise that improved", () => {
+  // "Mejoras recientes" rendered a full card per exercise restating the same
+  // deltas "Ejercicios que más mejoraron" ranks and "¿Está funcionando?" rolls
+  // up by muscle group. Deleted as the third rendering of one comparison; this
+  // guards against it being reintroduced alongside them.
+  it("no longer renders a second, full-detail copy of the improvement data", () => {
     const improvements: ExerciseImprovementRow[] = [
       {
         exerciseNameEs: "Prensa de piernas",
@@ -163,14 +164,11 @@ describe("ProgresoPageContent", () => {
 
     renderPage({ improvements });
 
-    // "Prensa de piernas" now legitimately appears twice — once as this
-    // card's own heading, once in "Ejercicios que más mejoraron" above it
-    // (see the dedicated test for that section below) — so the heading role
-    // disambiguates instead of a plain text match.
-    expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
-    expect(screen.getByText("Mejora ≥5%")).toBeVisible();
-    expect(screen.getByText("Volumen +5%")).toBeVisible();
-    expect(screen.getByText(/Peso prom: 80kg → 84kg/)).toBeVisible();
+    expect(screen.queryByText("Mejoras recientes")).toBeNull();
+    expect(screen.queryByText("Mejora ≥5%")).toBeNull();
+    expect(screen.queryByText(/Peso prom:/)).toBeNull();
+    // The conclusion itself survives, once, in the ranked list.
+    expect(screen.getByText("Prensa de piernas")).toBeVisible();
   });
 
   it("lists improved exercises in 'Ejercicios que más mejoraron', ranked by their headline signal", () => {
@@ -228,7 +226,7 @@ describe("ProgresoPageContent", () => {
     expect(screen.queryByText("Ejercicios que más mejoraron")).toBeNull();
   });
 
-  it("shows a neutral badge and no signal chips for an exercise with no 5% change", () => {
+  it("says nothing at all about an exercise that did not change by 5%", () => {
     const improvements: ExerciseImprovementRow[] = [
       {
         exerciseNameEs: "Prensa de piernas",
@@ -239,7 +237,9 @@ describe("ProgresoPageContent", () => {
 
     renderPage({ improvements });
 
-    expect(screen.getByText("Sin cambio de 5%")).toBeVisible();
+    // The ranked list only carries exercises that actually improved, so a flat
+    // one now leaves no row anywhere rather than a "Sin cambio de 5%" card.
+    expect(screen.queryByText("Prensa de piernas")).toBeNull();
     expect(screen.queryByText("Volumen +5%")).toBeNull();
   });
 
@@ -509,6 +509,81 @@ describe("ProgresoPageContent — ¿Está funcionando?", () => {
     renderPage({ muscleVolumeSummary: null });
 
     expect(screen.queryByText("¿Está funcionando?")).toBeNull();
+  });
+});
+
+describe("ProgresoPageContent — sections split out of the volume card", () => {
+  function summaryWith(overrides: Partial<MuscleVolumeSummary>): MuscleVolumeSummary {
+    const week: MuscleVolumeSummary["currentWeek"] = {
+      weekStartDate: new Date("2026-08-03T00:00:00"),
+      byMuscleGroup: [],
+      totalEffectiveSets: 0,
+    };
+    return {
+      weeks: [week],
+      currentWeek: week,
+      previousWeek: null,
+      unclassifiedExerciseNames: [],
+      pushPullRatio: null,
+      quadHamstringRatio: null,
+      painByLocation: [],
+      views: [
+        { key: "week", labelEs: "Esta semana", byMuscleGroup: [], weeksCounted: 0, isAverage: false, comparison: null },
+      ],
+      ...overrides,
+    };
+  }
+
+  function painRow(overrides: Partial<MuscleVolumeSummary["painByLocation"][number]> = {}) {
+    return {
+      location: "hombro" as const,
+      maxPainScore: 4,
+      setsAboveThreshold: 0,
+      setCount: 3,
+      exerciseNamesEs: ["Press militar"],
+      isInferred: false,
+      ...overrides,
+    };
+  }
+
+  it("gives Equilibrio its own section, closed by default", () => {
+    renderPage({ muscleVolumeSummary: summaryWith({ pushPullRatio: 1.5, quadHamstringRatio: null }) });
+
+    const details = screen.getByText("Equilibrio").closest("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+  });
+
+  // The physio correction to the first review: a fixed collapse means pain is
+  // never read. It has to open itself exactly when it becomes actionable.
+  it("opens the pain section by itself once a set crossed the progression gate", () => {
+    renderPage({
+      muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ setsAboveThreshold: 2 })] }),
+    });
+
+    expect(screen.getByText("Dónde te ha dolido").closest("details")).toHaveAttribute("open");
+  });
+
+  it("leaves the pain section closed when nothing crossed the gate", () => {
+    renderPage({ muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ maxPainScore: 2 })] }) });
+
+    expect(screen.getByText("Dónde te ha dolido").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("keeps hedging in the title when any pain row was inferred", () => {
+    renderPage({
+      muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ isInferred: true })] }),
+    });
+
+    expect(screen.getByText("Dónde te ha dolido (algunas series son estimadas)")).toBeVisible();
+  });
+
+  it("moves Sin clasificar out of the volume card into its own closed section", () => {
+    renderPage({ muscleVolumeSummary: summaryWith({ unclassifiedExerciseNames: ["Máquina rara"] }) });
+
+    const details = screen.getByText("Sin clasificar (1)").closest("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: "Editar plan" })).toHaveAttribute("href", "/plan/builder");
   });
 });
 
