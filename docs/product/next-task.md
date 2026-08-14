@@ -2,11 +2,13 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: `/progreso` opens with "¿Está funcionando?" — one verdict per muscle group. Committed (`36e36c9`), **not yet deployed**.
+## Status: `/progreso` opens with "¿Está funcionando?" — one verdict per muscle group, now RIR-aware. Committed (`36e36c9`, `f07fcf1`), **not yet deployed**.
 
-Joins weekly sets (the input) with per-exercise progression (the output), which the page had both of and never crossed. Five verdicts, each with a different correction: Creciendo / Estancado / Falta estímulo / Pasado de vuelta / Sin datos. Lifts are stated as weight × reps ("60kg × 8 → 60kg × 10") instead of volume-load kg or estimated 1RM — the two numbers you reported as unreadable. Pain escalates onto the row instead of hiding in a disclosure. Fixed to a 4-week window on purpose. Full detail in `implementation-log.md`.
+Reports 01 and 02 of the `/progreso` review are both in. The table joins weekly sets (the input) with per-exercise progression (the output) — which the page had both of and never crossed — into five verdicts, each with a different correction: Creciendo / Estancado / Falta estímulo / Pasado de vuelta / Sin datos. Lifts read as weight × reps ("60kg × 8 → 60kg × 10") instead of volume-load kg or estimated 1RM, the two numbers you reported as unreadable. Average RIR per muscle group then splits "Estancado" into its two opposite corrections: far from failure means push closer, already at failure means deload. Pain escalates onto the row instead of hiding in a disclosure. Fixed to a 4-week window on purpose. Full detail in `implementation-log.md`.
 
-**Next up, same review:** Report 02 — average RIR per muscle group, which turns "Estancado" into an instruction. `setLog.rir` is logged on every set and surfaced nowhere.
+**Worth doing on real data before building more:** open `/progreso` on your phone after deploying and check whether the verdicts read true for you. The dev DB's `demo-seed-` history will not resemble production.
+
+**Still open from the same review**, none blocked: delete the duplicate "Mejoras recientes" list (its own code comment calls it a reformatting of the same deltas), split the muscle-volume mega-card, and Report 03 — body measurements promoted back up as the outcome check.
 
 ## Prior status: the post-workout recap now includes a personal-record banner, backed by a real all-time-best query.
 

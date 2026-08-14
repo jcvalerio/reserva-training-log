@@ -2,6 +2,33 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-13 — Average RIR per muscle group, turning "Estancado" into an instruction
+
+Status: committed as `f07fcf1` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (538 passing, +15 new)/`build` all green. No migration.
+
+Report 02 of the same `/progreso` review, and the one the athlete's own training style asked for: he trains by RIR and specifically values having previous weights and reps to push against. `setLog.rir` is `notNull` on every logged set and was surfaced **nowhere** in the app.
+
+That left the most common verdict a dead end. "Estancado" said the volume is fine and nothing is moving — without saying which of two opposite corrections applies. Proximity to failure is precisely the variable a set count cannot see: 15 sets at RIR 4 and 15 sets at RIR 1 are the same bar on a volume chart and completely different training. With RIR the split is clean and the advice inverts:
+
+- **Estancado + RIR ≥ 3** → "Tus series terminan lejos del fallo. No es el volumen: acércate más — mismo peso, una o dos reps más."
+- **Estancado + RIR ≤ 1** → "Ya entrenas al límite. La intensidad no es el problema: descarga o cambia el ejercicio."
+
+Giving both the same wording — as the previous non-committal copy had to — is actively wrong for one of them.
+
+`MuscleGroupVolume` gained `avgRir` and `rirSetCount`. Three decisions worth naming, each pinned by test:
+
+- **RIR credits the PRIMARY group only**, unlike effective sets which give secondaries half credit. A remo taken to RIR 1 says the back was near failure and says nothing trustworthy about how hard the bíceps worked. Same reasoning as the progression rule in Report 01, applied consistently.
+- **Multi-week views re-average by set count**, not by averaging each week's mean. Test pins the difference explicitly: 2 sets at RIR 4 in one week and 6 sets at RIR 1 in another give 1.75, not the 2.5 that averaging averages would produce.
+- **Null RIR is skipped, never read as 0.** `setLog.rir` is nullable (duration-type sets have no RIR), and 0 is the strongest claim the scale makes — "taken to failure". Inferring it from missing data would be the worst possible direction to be wrong in.
+
+Only the two readings that should change something get a chip; the productive range (RIR 1–3) stays silent, since printing "RIR 2.1" on every healthy row is exactly the noise this screen is being cut back for. Effort never overrides a verdict either — a group training far from failure that is nonetheless growing is still "Creciendo" (tested).
+
+The preview route paid for itself a second time: the chip group was `shrink-0`, which looked correct with one chip and **silently overlapped the muscle-group name** once a row carried three (long label + RIR + pain + verdict). Only visible in a real browser at 390px — jsdom renders it without complaint. Both sides now yield, and the short chips carry `whitespace-nowrap` while the longest (the RIR chip) may break as a last resort.
+
+Files touched: `src/workouts/muscle-volume.ts` (+`avgRir`/`rirSetCount`, +tests), `src/workouts/muscle-progress.ts` (+`readEffort`, +tests), `src/app/progreso/muscle-progress-table.tsx`, `src/app/progreso/progreso-page-content.test.tsx`, plus `VolumeSetInput.rir` fixture updates in `body-map.test.tsx` and `muscle-volume-chart.test.tsx`.
+
+Next iteration: still open from the review — deleting the duplicate "Mejoras recientes" list (the code's own comment calls it a reformatting of the same deltas), splitting the muscle-volume mega-card, and Report 03 (body measurements promoted back up as the outcome check). None are blocked.
+
 ## 2026-08-13 — "¿Está funcionando?": one verdict per muscle group, joining volume with progression
 
 Status: committed as `36e36c9` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (523 passing, +20 new)/`build` all green. No migration.
