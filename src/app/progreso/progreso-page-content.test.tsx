@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
@@ -6,6 +6,7 @@ import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
 import type { ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/improvement";
+import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import type { WorkoutSession } from "@/workouts/workout-repository";
 
@@ -352,6 +353,112 @@ describe("ProgresoPageContent", () => {
     renderPage({ consistencySummary });
 
     expect(screen.getByText("Consistencia semanal")).toBeVisible();
+  });
+});
+
+describe("ProgresoPageContent — ¿Está funcionando?", () => {
+  function buildVolumeSummary(byMuscleGroup: MuscleVolumeSummary["views"][number]["byMuscleGroup"]): MuscleVolumeSummary {
+    const week: MuscleVolumeSummary["currentWeek"] = {
+      weekStartDate: new Date("2026-08-03T00:00:00"),
+      byMuscleGroup: [],
+      totalEffectiveSets: 0,
+    };
+    return {
+      weeks: [week],
+      currentWeek: week,
+      previousWeek: null,
+      unclassifiedExerciseNames: [],
+      pushPullRatio: null,
+      quadHamstringRatio: null,
+      painByLocation: [],
+      views: [
+        { key: "week", labelEs: "Esta semana", byMuscleGroup: [], weeksCounted: 0, isAverage: false, comparison: null },
+        { key: "four_weeks", labelEs: "4 semanas", byMuscleGroup, weeksCounted: 4, isAverage: true, comparison: null },
+      ],
+    };
+  }
+
+  function buildSeriesGroup(exerciseNameEs: string, primaryMuscleGroup: ExerciseSeriesGroup["primaryMuscleGroup"]): ExerciseSeriesGroup {
+    return { exerciseNameEs, isUnilateral: false, primaryMuscleGroup, isClassified: true, substitutedForNameEs: null, points: [] };
+  }
+
+  // Scoped to the section: "Series por grupo muscular" renders the same
+  // muscle-group labels just below, so an unscoped getByText("Pecho") matches
+  // both and passes for the wrong reason.
+  function progressSection() {
+    return within(screen.getByRole("region", { name: "¿Está funcionando?" }));
+  }
+
+  it("states the verdict and the lift in weight x reps, not in volume-load kg", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 13 }]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
+      improvements: [
+        {
+          exerciseNameEs: "Press de banca",
+          improvement: buildImprovement({
+            improved: true,
+            signals: ["reps_at_load"],
+            previousAvgWeightKg: 60,
+            previousAvgReps: 8,
+            latestAvgWeightKg: 60,
+            latestAvgReps: 10,
+          }),
+          latestCompletedAt: new Date("2026-08-10T12:00:00"),
+        },
+      ],
+    });
+
+    expect(progressSection().getByText("Pecho")).toBeVisible();
+    expect(progressSection().getByText("Creciendo")).toBeVisible();
+    expect(progressSection().getByText("60kg × 8 → 60kg × 10")).toBeVisible();
+  });
+
+  // The join's whole reason for existing: same set count, opposite verdict,
+  // because only one of the two is producing anything.
+  it("separates a stalled group from a growing one at an identical set count", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([
+        { muscleGroup: "pecho", effectiveSets: 13 },
+        { muscleGroup: "dorsal", effectiveSets: 13 },
+      ]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Jalón", "dorsal")],
+      improvements: [
+        {
+          exerciseNameEs: "Press de banca",
+          improvement: buildImprovement({ improved: true, signals: ["volume_load"] }),
+          latestCompletedAt: new Date("2026-08-10T12:00:00"),
+        },
+        { exerciseNameEs: "Jalón", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
+      ],
+    });
+
+    expect(progressSection().getByText("Creciendo")).toBeVisible();
+    expect(progressSection().getByText("Estancado")).toBeVisible();
+    expect(progressSection().getByText(/El volumen ya alcanza/)).toBeVisible();
+  });
+
+  it("surfaces pain on the row itself rather than behind a disclosure", () => {
+    renderPage({
+      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 26 }]),
+      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
+      improvements: [
+        {
+          exerciseNameEs: "Press de banca",
+          improvement: buildImprovement({ latestMaxPain: 4 }),
+          latestCompletedAt: new Date("2026-08-10T12:00:00"),
+        },
+      ],
+    });
+
+    expect(progressSection().getByText("Pasado de vuelta")).toBeVisible();
+    expect(progressSection().getByText("Dolor 4")).toBeVisible();
+  });
+
+  it("hides the section entirely when there is no volume summary", () => {
+    renderPage({ muscleVolumeSummary: null });
+
+    expect(screen.queryByText("¿Está funcionando?")).toBeNull();
   });
 });
 

@@ -7,6 +7,7 @@ import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consis
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow, ImprovementSignal } from "@/workouts/improvement";
 import { painLocationLabelsEs } from "@/training/muscle-taxonomy";
+import { buildMuscleProgressRows, pickProgressView } from "@/workouts/muscle-progress";
 import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
@@ -15,6 +16,7 @@ import { AppShell } from "../app-shell";
 import { BarChart } from "./bar-chart";
 import { ExerciseGroupList } from "./exercise-group-list";
 import { MeasurementSeriesChart } from "./measurement-series-chart";
+import { MuscleProgressTable } from "./muscle-progress-table";
 import { MuscleVolumeSection } from "./muscle-volume-section";
 import { buildTopExerciseRows, TopExercisesList } from "./top-exercises-list";
 
@@ -66,6 +68,14 @@ export function ProgresoPageContent({
   const improvedExerciseCount = improvements.filter((row) => row.improvement.improved).length;
   const topExerciseRows = buildTopExerciseRows(improvements);
 
+  // Volume (the input) crossed with progression (the output). Both halves were
+  // already on this page and neither could answer "is this muscle group
+  // actually working" alone.
+  const progressView = muscleVolumeSummary ? pickProgressView(muscleVolumeSummary.views) : null;
+  const muscleProgressRows = progressView
+    ? buildMuscleProgressRows(progressView, exerciseSeriesGroups, improvements)
+    : [];
+
   return (
     <AppShell activeHref="/progreso" backTo={null}>
       <header className="space-y-3">
@@ -91,6 +101,25 @@ export function ProgresoPageContent({
         />
         <KpiTile label="Carga" value={recentAverageLoad !== null ? `${recentAverageLoad}` : "—"} sublabel="UA reciente" />
       </section>
+
+      {muscleProgressRows.length > 0 && progressView ? (
+        <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="muscle-progress-title">
+          <p id="muscle-progress-title" className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
+            ¿Está funcionando?
+          </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
+            Cruza cuánto entrenas cada grupo con si sus ejercicios están subiendo.{" "}
+            {progressView.isAverage
+              ? `Promedio por semana de ${progressView.weeksCounted} ${
+                  progressView.weeksCounted === 1 ? "semana completa" : "semanas completas"
+                }.`
+              : "Semana en curso."}
+          </p>
+          <div className="mt-3">
+            <MuscleProgressTable rows={muscleProgressRows} />
+          </div>
+        </section>
+      ) : null}
 
       {topExerciseRows.length > 0 ? (
         <section className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800" aria-labelledby="top-exercises-title">

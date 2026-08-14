@@ -25,8 +25,10 @@ const WEEKS_BACK_DEFAULT = 8;
 const SECONDARY_SET_CREDIT = 0.5;
 
 /** The app's own threshold: above 2, aggressive progression is blocked.
- *  See docs/product/progression-rules.md. */
-const PAIN_THRESHOLD = 2;
+ *  See docs/product/progression-rules.md. Exported so muscle-progress.ts can
+ *  escalate on the same number instead of a second hardcoded 2 drifting from
+ *  this one. */
+export const PAIN_THRESHOLD = 2;
 
 /** A known exercise with no muscle group (cardio) contributes nothing and is
  *  not "unclassified"; only a genuinely unresolved exercise lands here. */
