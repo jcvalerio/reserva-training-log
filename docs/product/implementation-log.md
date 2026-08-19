@@ -4,7 +4,7 @@ Living checkpoint for small iterations. Update this after every task iteration s
 
 ## 2026-08-18 — Landing on the exercise you navigated to, and an end-of-session action you can't hit by accident
 
-Status: **not yet committed, not yet deployed.** `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. No migration.
+Status: shipped. Committed as `e8ad863` on `main`, `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4teZPcJrkn7pqTUCXJP3RUFE3VdK`, aliased to `gym.jcvalerio.com`; `/entrenar` and `/progreso` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration.
 
 Two complaints reported from a live session, both about the active-session runner, and both fundamentally about *geometry* rather than styling.
 

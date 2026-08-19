@@ -2,7 +2,7 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: two `/entrenar` fixes are built but **not committed and not deployed** — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
+## Status: two `/entrenar` fixes are shipped and deployed (`e8ad863`) — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
 
 Reported live, mid-workout. Both were geometry problems, not styling ones. Full detail in `implementation-log.md`; the short version:
 
@@ -11,7 +11,7 @@ Reported live, mid-workout. Both were geometry problems, not styling ones. Full 
 - **`Reabrir sesión`** on the completed summary. Completion was a one-way door, and worse than annoying: restarting made one workout count as two in every `/progreso` verdict.
 - **A sticky `3/7 · nombre` rail**, funded by hiding the brand chrome row on this route.
 
-**Before deploying:** the constraint below still applies — do not deploy while a session might be in progress.
+**Now worth checking on your phone**, since real iOS Safari is the one thing the pre-deploy browser check could not exercise (it ran headless Chromium, and the root cause — no scroll anchoring in WebKit — is Safari-specific): open a session, log a set, and tap `Siguiente ejercicio` from the bottom. Confirm you land on the new exercise's title, and that the sticky `3/7 · nombre` rail reads correctly with a long exercise name.
 
 **Two things worth knowing:**
 
