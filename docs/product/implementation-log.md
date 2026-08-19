@@ -2,6 +2,46 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-18 — Landing on the exercise you navigated to, and an end-of-session action you can't hit by accident
+
+Status: **not yet committed, not yet deployed.** `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. No migration.
+
+Two complaints reported from a live session, both about the active-session runner, and both fundamentally about *geometry* rather than styling.
+
+**1. "Siguiente ejercicio" left you at the bottom of a different exercise.** Changing exercise swaps the card in place inside one long document — there is no route transition, so neither Next nor the browser moves the viewport, and nothing else in the component does either. You were left looking at the nav row of an exercise whose name, target sets/reps/RIR, notes and (worst) its "Vigilar dolor" warning were all scrolled off the top. Measured in a real browser at 390px before the fix: the `<h2>` sat at **y = −813**. After: **y = 116**, with focus moved to the heading so the change is announced rather than only implied.
+
+Anchored on the exercise `<section>`, not the page — `window.scrollTo(0, 0)` would land on the day header, which is identical for every exercise. Instant rather than smooth: this fires on a tap in the thumb arc, and animating targets under a thumb for 300ms is *the other bug on this screen*. Choosing instant also means `prefers-reduced-motion` needs no handling, avoiding a convention this repo has never had. Applies to all three writes of `exerciseIndex`, including the substitution auto-jump, which previously teleported you to a different exercise with no visual event at all.
+
+**2. "Completar entrenamiento" was being hit by accident, and completion was a one-way door.** Three lookalike blocks sat stacked in the one-handed thumb arc: `[Anterior | Siguiente ejercicio]`, a `<details>` "¿Cómo te sentiste? (opcional)", and a full-width `Completar entrenamiento` — the last being the *largest tap target on the screen* and an unconfirmed, irreversible server action.
+
+Restyling alone could not have fixed this, because the cluster was not stationary. Three separate things moved it under a thumb, two of them with **no user action at all**: the disclosure collapsing (~200px), the rest-timer card unmounting when the countdown hit zero (~88px, against a 124px inter-button gap), and the logging form collapsing on the set that completes an exercise (~380px). WebKit implements no scroll anchoring, so Safari holds `scrollTop` and lets the content slide. A habituated thumb aims at a remembered position; the remembered position was never stable.
+
+So the always-present submit is gone. What sits there now is low-emphasis text that only **reveals** a confirm panel — which is precisely why the shifts above are now harmless: the worst a mis-tap can do is open a panel. The RPE and notes fields moved *into* that panel rather than being deleted; they are the only capture point for `sessionRpe`/`notes` and were never really a peer of the navigation controls. Also fixed: `Siguiente ejercicio` disabled on the last exercise kept its emerald fill under `disabled:opacity-40`, still reading as a bright tappable button — you tap, nothing happens, and the reflex is to tap again lower, onto whatever is beneath. It now renders as plainly inert.
+
+**Deliberately no new colour.** Fill → ring → coloured text → plain text is a four-rung emphasis ladder the screen was using one rung of; amber/red stays the pain channel. The reopen confirm reuses the amber treatment `EditableSetRow`'s "¿Borrar el set N?" already established for a destructive confirm — a smaller claim than ending a whole workout, and until now the only one of the two that asked.
+
+**3. `Reabrir sesión`, because prevention is not enough.** Completion was unrecoverable: `startOrResumeWorkoutSession` only ever resumes a session whose `status` is `"active"`, so the only route onward was "Empezar de nuevo", which inserts a *new* row. The sets already logged stayed stranded in the completed one — and since both rows read as completed sessions, **one workout counted as two in every `/progreso` verdict**. That is a data-correctness bug, not just an annoyance.
+
+`reopenWorkoutSession` nulls `completedAt` as well as flipping the status. That is load-bearing, not tidiness: `buildWeeklyConsistency` and `toExerciseSeries` both key off `completedAt`, so a reopen that kept it would produce a session simultaneously in progress and counted in the reports. Both readers already skip a null `completedAt` (with existing tests pinning it), so nulling it removes the session from the reports cleanly.
+
+Guarded by `hasOtherActiveSessionForTemplate`, and this guard is the whole reason the feature is not a six-line change. **There is no unique constraint keeping one session active per template** — `workout_session` carries only plain indexes — and `startOrResumeWorkoutSession` destructures the first row of its lookup **with no `ORDER BY`**. So complete-by-accident → "Empezar de nuevo" → reopen would leave two active rows and make every later set land on whichever the planner returned. The action refuses instead. Adding the partial unique index is the right long-term fix but it is a migration that would fail on any production data that already has duplicates, so it needs a check against real data first — deliberately not bundled here.
+
+**4. A sticky `3/7 · nombre` rail with a completion dot rail**, funded by suppressing the "MVP personal · iPhone Web" chrome row on this route (new `showBrandBar` prop on `AppShell`). Scroll-to-top decays: one set logged and the title leaves the screen for the rest of the exercise. The two fixes need each other — sticky alone would make an exercise change *silent*, since nothing on screen would move. The rail reuses `isExerciseComplete`, already computed to seed the starting index, so "how much is left" is readable at a glance with no new data.
+
+Verified in a real browser at 390px via a throwaway preview route, and **it earned its keep twice**:
+
+- The finish control rendered **350px wide** — `block` + `mx-auto` still fills its container, so the irreversible action was *still* the widest target on the screen, the exact Fitts problem being fixed. Now a flex child at **207×44** (46% less area), with centre-to-centre distance from `Siguiente ejercicio` up from **124px → 267px**.
+- Folding the consequence into the button label (`Terminar entrenamiento — faltan 5 ejercicios`) was itself what made it 350px wide. Split into a caption plus a short button, associated by `aria-describedby` — the consequence still reads in peripheral vision without re-inflating the target. jsdom reports neither of these.
+- A `{/* */}` comment placed before a `return`'s root element **passed `tsc` and was rejected by SWC** — caught only because the dev server 500'd during the browser check.
+
+No console errors, no horizontal overflow at 390px (`scrollWidth` 390 = `clientWidth` 390 — the grid-track overflow class that has bitten this project repeatedly).
+
+Files touched: `src/app/entrenar/[sessionId]/session-runner.tsx` (+`FinishSessionPanel`, +`ExerciseProgressBar`, +`ReopenSessionPanel`, scroll/focus effect, −the `<details>`), `src/app/entrenar/[sessionId]/session-runner.test.tsx` (+11 tests), `src/app/entrenar/actions.ts` (+`reopenSessionAction`), `src/workouts/workout-repository.ts` (+`reopenWorkoutSession`, +`hasOtherActiveSessionForTemplate`), `src/app/entrenar/[sessionId]/page.tsx`, `src/app/app-shell.tsx` (+`showBrandBar`), `vitest.setup.ts` (jsdom has no `scrollIntoView` at all — unstubbed, it throws and breaks every test that changes exercise).
+
+**Known gap, stated rather than hidden:** `reopenWorkoutSession` and `hasOtherActiveSessionForTemplate` have **no unit tests**. There is no `workout-repository.test.ts` and no DB-mocking harness anywhere in this repo — every test here is on pure functions — so testing them would mean inventing a new pattern. The refusal path is the one worth covering if that harness ever exists.
+
+Next iteration: the review-screen option (`/entrenar/[sessionId]/finalizar`) was scoped and deliberately deferred — a real route showing "5 de 7 ejercicios completos" plus a **tappable list of what is unfinished**, which is the one thing the inline panel cannot offer. If built, note that `Cancelar` remounts `SessionRunner` and reseeds `exerciseIndex` to first-incomplete, so it needs `?ejercicio=<id>` and an `initialExerciseId` prop or it drops you on the wrong exercise.
+
 ## 2026-08-13 — The duplicate improvement list deleted, the volume card split, the outcome check promoted
 
 Status: committed as `a96f6fb` on `main`. `lint`/`typecheck`/`test` (543 passing, +5 net)/`build` all green. No migration.

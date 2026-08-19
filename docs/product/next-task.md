@@ -2,7 +2,25 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the `/progreso` rebuild is complete — all three reports plus both structural cleanups. Committed (`36e36c9`, `f07fcf1`, `a96f6fb`).
+## Status: two `/entrenar` fixes are built but **not committed and not deployed** — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
+
+Reported live, mid-workout. Both were geometry problems, not styling ones. Full detail in `implementation-log.md`; the short version:
+
+- **Tapping "Siguiente ejercicio" now lands you on the exercise**, not at the bottom of it. Measured before/after in a real browser: the heading moved from y = −813 to y = 116, and takes focus.
+- **"Completar entrenamiento" is gone as an always-present submit.** It was the largest tap target on the screen for an irreversible, unconfirmed action — and the cluster it sat in moved under your thumb without you doing anything (rest timer unmounting, disclosure collapsing, logging form collapsing; WebKit has no scroll anchoring). Now low-emphasis text that only *reveals* a confirm panel carrying RPE + notes.
+- **`Reabrir sesión`** on the completed summary. Completion was a one-way door, and worse than annoying: restarting made one workout count as two in every `/progreso` verdict.
+- **A sticky `3/7 · nombre` rail**, funded by hiding the brand chrome row on this route.
+
+**Before deploying:** the constraint below still applies — do not deploy while a session might be in progress.
+
+**Two things worth knowing:**
+
+1. **`workout_session` has no unique constraint on one active session per template**, and `startOrResumeWorkoutSession` picks the first row with no `ORDER BY`. `reopenSessionAction` refuses rather than risking two active rows. The partial unique index is the real fix, but it is a migration that will fail if production already has duplicates — **check production for duplicate active rows before writing it.**
+2. **The repository layer has no tests at all** (no `workout-repository.test.ts`, no DB-mocking harness — every test in this repo is on pure functions), so `reopenWorkoutSession` and its guard are covered only by the component tests around them.
+
+**Deliberately deferred:** the `/entrenar/[sessionId]/finalizar` review screen — "5 de 7 ejercicios completos" plus a tappable list of unfinished exercises, which the inline panel can't offer. Worth building if the inline confirm still feels thin after real use. It needs `?ejercicio=<id>` + an `initialExerciseId` prop, or Cancelar drops you on the wrong exercise.
+
+## Prior status: the `/progreso` rebuild is complete — all three reports plus both structural cleanups. Committed (`36e36c9`, `f07fcf1`, `a96f6fb`).
 
 The screen now reads: KPI row → **¿Está funcionando?** → Ejercicios que más mejoraron → Tendencia corporal → Series por grupo muscular → Equilibrio → Dónde te ha dolido → Ejercicios por grupo muscular → Consistencia semanal → Sin clasificar → Historial.
 

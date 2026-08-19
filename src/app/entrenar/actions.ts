@@ -21,7 +21,9 @@ import {
   completeWorkoutSession,
   deleteSetForSession,
   getWorkoutSessionForProfile,
+  hasOtherActiveSessionForTemplate,
   markExerciseChosenForSession,
+  reopenWorkoutSession,
   saveSetForSession,
   startOrResumeWorkoutSession,
   updateSetForSession,
@@ -334,4 +336,60 @@ export async function completeSessionAction(formData: FormData) {
   revalidatePath("/entrenar");
   revalidatePath("/progreso");
   redirect("/entrenar?completed=1");
+}
+
+export type ReopenSessionActionState = { status: "idle" } | { status: "error"; message: string };
+
+/**
+ * The way back from an accidental "Terminar entrenamiento". Without it the only
+ * route onward is "Empezar de nuevo", which creates a second, empty session and
+ * leaves the sets already logged stranded in the completed one — one workout
+ * counted as two in every report.
+ */
+export async function reopenSessionAction(
+  _previousState: ReopenSessionActionState,
+  formData: FormData,
+): Promise<ReopenSessionActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const workoutSessionId = formData.get("workoutSessionId");
+  if (typeof workoutSessionId !== "string" || !workoutSessionId) {
+    return { status: "error", message: "Falta información de la sesión." };
+  }
+
+  const session = await getWorkoutSessionForProfile(workoutSessionId, profile.id);
+  if (!session) {
+    return { status: "error", message: "No se encontró la sesión que querés reabrir." };
+  }
+
+  if (session.status !== "completed") {
+    return { status: "error", message: "Esta sesión no está completada." };
+  }
+
+  // Two active sessions for one template would make every later set land on
+  // whichever row the lookup happens to return first. See
+  // hasOtherActiveSessionForTemplate for why this refuses rather than merges.
+  const hasOtherActive = await hasOtherActiveSessionForTemplate(
+    profile.id,
+    session.planSessionTemplateId,
+    session.id,
+  );
+  if (hasOtherActive) {
+    return {
+      status: "error",
+      message: "Ya empezaste esta sesión de nuevo. Termina o borra esa antes de reabrir ésta.",
+    };
+  }
+
+  await reopenWorkoutSession(session.id);
+
+  revalidatePath("/entrenar");
+  revalidatePath("/progreso");
+  revalidatePath(`/entrenar/${session.id}`);
+  redirect(`/entrenar/${session.id}`);
 }

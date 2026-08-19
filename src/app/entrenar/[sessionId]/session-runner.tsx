@@ -32,12 +32,14 @@ import { SubmitButton } from "../../submit-button";
 import { YoutubeTechniqueLink } from "../../youtube-technique-link";
 import type {
   EditSetActionState,
+  ReopenSessionActionState,
   SaveSetActionState,
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
 } from "../actions";
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
+const initialReopenState: ReopenSessionActionState = { status: "idle" };
 const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
 const initialEditSetState: EditSetActionState = { status: "idle" };
 const initialSubstituteState: SubstituteExerciseActionState = { status: "idle" };
@@ -49,6 +51,7 @@ export function SessionRunner({
   recap,
   saveSetAction,
   completeSessionAction,
+  reopenSessionAction,
   updateTargetSetsAction,
   updateSetAction,
   deleteSetAction,
@@ -64,6 +67,10 @@ export function SessionRunner({
   recap: SessionRecap | null;
   saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   completeSessionAction: (formData: FormData) => Promise<void>;
+  reopenSessionAction: (
+    prevState: ReopenSessionActionState,
+    formData: FormData,
+  ) => Promise<ReopenSessionActionState>;
   updateTargetSetsAction: (
     prevState: UpdateTargetSetsActionState,
     formData: FormData,
@@ -150,6 +157,41 @@ export function SessionRunner({
     }
   }
 
+  // Changing exercise swaps the whole card in place inside one long document
+  // — no route transition, so neither Next nor the browser moves the
+  // viewport. Left alone, tapping "Siguiente ejercicio" at the bottom of a
+  // logged-out exercise leaves you looking at the nav row of a different
+  // exercise, with its name, target sets/reps/RIR, notes and (worst) its
+  // "Vigilar dolor" warning all scrolled off the top.
+  //
+  // Anchored on the card rather than the page: window.scrollTo(0, 0) would
+  // land on the day header, which is identical for every exercise. Focus
+  // moves to the heading as well as the scroll, so the change is announced
+  // rather than only implied — and scrollIntoView is deliberately instant:
+  // this fires on a tap in the thumb arc, and animating targets under a
+  // thumb for 300ms is the other bug on this screen.
+  //
+  // The dependency array is the whole filter. Saves, the rest-timer tick and
+  // the substitution panel all re-render without touching exerciseIndex, so
+  // none of them scroll. The render-phase setExerciseIndex on a swap
+  // (above) is safe here too: React commits once, so effects run once.
+  const exerciseCardRef = useRef<HTMLElement | null>(null);
+  const exerciseHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const hasRenderedOnceRef = useRef(false);
+  useEffect(() => {
+    // Never on mount: the initial index is derived from data (first
+    // incomplete exercise), and scrolling on first paint would fight the
+    // browser restoring position on a resumed session.
+    if (!hasRenderedOnceRef.current) {
+      hasRenderedOnceRef.current = true;
+      return;
+    }
+    exerciseCardRef.current?.scrollIntoView({ block: "start" });
+    // preventScroll because focus() otherwise re-scrolls with "nearest"
+    // semantics and undoes the "start" alignment just applied.
+    exerciseHeadingRef.current?.focus({ preventScroll: true });
+  }, [exerciseIndex]);
+
   if (session.status === "completed") {
     return (
       <CompletedSessionSummary
@@ -159,6 +201,7 @@ export function SessionRunner({
         recap={recap}
         updateSetAction={updateSetAction}
         deleteSetAction={deleteSetAction}
+        reopenSessionAction={reopenSessionAction}
       />
     );
   }
@@ -172,6 +215,12 @@ export function SessionRunner({
       </AppShell>
     );
   }
+
+  const isLastExercise = exerciseIndex === exercises.length - 1;
+  // Drives the finish control's label ("faltan 2 ejercicios"). Counts the
+  // whole session, not just what's ahead of the cursor — you can leave an
+  // earlier exercise unfinished and navigate past it.
+  const remainingExerciseCount = exercises.filter((exercise) => !isExerciseComplete(exercise)).length;
 
   const isDuration = currentExercise.prescriptionType === "duration";
   const loggedCount = currentExercise.loggedSets.length;
@@ -282,7 +331,7 @@ export function SessionRunner({
       : null;
 
   return (
-    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
+    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Día {template.dayIndex}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
@@ -290,12 +339,27 @@ export function SessionRunner({
         <p className="text-xs leading-5 text-zinc-400">{template.mobilityNotesEs}</p>
       </header>
 
-      <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+      <ExerciseProgressBar
+        exercises={exercises}
+        exerciseIndex={exerciseIndex}
+        exerciseName={currentExercise.exerciseNameEs}
+      />
+
+      {/* scroll-mt clears the sticky bar above, which would otherwise cover
+          the top of the card the effect just scrolled to. */}
+      <section
+        ref={exerciseCardRef}
+        className="mt-4 scroll-mt-16 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800"
+      >
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
           Ejercicio {exerciseIndex + 1} de {exercises.length}
         </p>
         <div className="mt-2 flex items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-zinc-100">{currentExercise.exerciseNameEs}</h2>
+          {/* tabIndex -1: focused programmatically on exercise change so the
+              swap is announced, never a tab stop in normal keyboard order. */}
+          <h2 ref={exerciseHeadingRef} tabIndex={-1} className="text-xl font-semibold text-zinc-100 focus:outline-none">
+            {currentExercise.exerciseNameEs}
+          </h2>
           <YoutubeTechniqueLink
             nameEs={currentExercise.exerciseNameEs}
             nameEn={currentExercise.exerciseNameEn}
@@ -620,55 +684,221 @@ export function SessionRunner({
         >
           Anterior
         </button>
+        {/* Disabled on the last exercise keeps the emerald fill under
+            disabled:opacity-40, which still reads as a bright, tappable
+            button — you tap, nothing happens, and the reflex is to tap again
+            lower, onto whatever is beneath. Rendered as plainly inert
+            instead, so there is nothing to re-aim at. */}
         <button
           type="button"
           onClick={() => setExerciseIndex((index) => Math.min(index + 1, exercises.length - 1))}
-          disabled={exerciseIndex === exercises.length - 1}
-          className="min-h-12 rounded-2xl bg-emerald-300 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 disabled:opacity-40"
+          disabled={isLastExercise}
+          className={`min-h-12 rounded-2xl text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 ${
+            isLastExercise
+              ? "bg-zinc-900 text-zinc-600 ring-1 ring-zinc-800"
+              : "bg-emerald-300 text-zinc-950"
+          }`}
         >
           Siguiente ejercicio
         </button>
       </div>
 
-      <form action={completeSessionAction} className="mt-4 grid gap-3">
-        <input type="hidden" name="workoutSessionId" value={session.id} />
-        <details className="rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800">
-          <summary className="cursor-pointer text-sm font-semibold text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
-            ¿Cómo te sentiste? (opcional)
-          </summary>
-          <div className="mt-3 grid gap-3">
-            <label className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Esfuerzo percibido (RPE)</span>
-              <select name="sessionRpe" defaultValue="" className="input">
-                <option value="">Sin especificar</option>
-                {rpeValues.map((value) => (
-                  <option key={value} value={value}>
-                    {value} — {rpeLabelsEs[value]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Notas de la sesión</span>
-              <textarea
-                name="notes"
-                rows={2}
-                className="input resize-none"
-                placeholder="¿Algo a considerar para la próxima?"
-              />
-            </label>
-          </div>
-        </details>
-        <SubmitButton className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
-          Completar entrenamiento
-        </SubmitButton>
-      </form>
-
-      <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30 mb-10">
+      <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
         Dolor &gt;2 bloquea aumentos agresivos, dolor &gt;3 exige reducir, modificar o cambiar el movimiento, dolor
         ≥7 significa detener y buscar orientación profesional si persiste.
       </div>
+
+      <FinishSessionPanel
+        sessionId={session.id}
+        completeSessionAction={completeSessionAction}
+        remainingCount={remainingExerciseCount}
+      />
     </AppShell>
+  );
+}
+
+/**
+ * Ending the session used to be a full-width, emerald-ringed submit button
+ * sitting one gap below "Siguiente ejercicio", with an identically-styled
+ * "¿Cómo te sentiste? (opcional)" disclosure between them — three lookalike
+ * blocks in the one-handed thumb arc, of which the largest was irreversible
+ * and unconfirmed. It was reported hit by accident, repeatedly, mid-workout.
+ *
+ * Three separate things moved that cluster under a thumb without any user
+ * action at all: the disclosure collapsing (~200px), the rest timer card
+ * unmounting when the countdown hit zero (~88px), and the logging form
+ * collapsing on the set that completes an exercise (~380px). WebKit has no
+ * scroll anchoring, so Safari holds scrollTop and lets the content slide.
+ * Restyling alone could not have fixed that — a habituated thumb aims at a
+ * remembered position, and the remembered position was never stable.
+ *
+ * So the always-present submit is gone. What sits here is low-emphasis text
+ * that only *reveals*, which is why the shifts above are now harmless: the
+ * worst a mis-tap can do is open this panel. The RPE and notes fields moved
+ * inside it rather than being deleted — they are the only capture point for
+ * workoutSession.sessionRpe/notes, and they were never really a peer of the
+ * navigation controls. Deliberately no new colour: fill → ring → coloured
+ * text → plain text was a four-rung ladder the screen was using one rung of,
+ * and amber/red stays the pain channel.
+ *
+ * Mirrors the confirm-in-place pattern EditableSetRow already uses for
+ * "Borrar este set" — a smaller claim than ending a whole workout, and until
+ * now the only one of the two that asked.
+ */
+function FinishSessionPanel({
+  sessionId,
+  completeSessionAction,
+  remainingCount,
+}: {
+  sessionId: string;
+  completeSessionAction: (formData: FormData) => Promise<void>;
+  remainingCount: number;
+}) {
+  const [isConfirming, setIsConfirming] = useState(false);
+  const panelRef = useRef<HTMLFormElement | null>(null);
+
+  // The panel opens below the fold from a control that sits at the very end
+  // of a long document, so bring it into view — same reasoning (and same
+  // instant behaviour) as the exercise-change scroll.
+  useEffect(() => {
+    if (isConfirming) {
+      panelRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [isConfirming]);
+
+  const remainingHintId = useId();
+  const remainingLabel =
+    remainingCount === 1 ? "falta 1 ejercicio" : `faltan ${remainingCount} ejercicios`;
+
+  if (!isConfirming) {
+    // A column, not one long label. The remaining work has to be stated —
+    // that is what makes this readable when tapped in peripheral vision —
+    // but folding it into the button text made the button 350px wide in a
+    // real browser, re-inflating the very target this restructure exists to
+    // shrink. As a caption it still reads, and the button stays small.
+    // aria-describedby keeps the two associated for a screen reader.
+    return (
+      <div className="mt-8 mb-10 flex flex-col items-center gap-1 border-t border-zinc-800 pt-5">
+        {remainingCount > 0 ? (
+          <p id={remainingHintId} className="text-xs leading-5 text-zinc-500">
+            Todavía te {remainingLabel}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setIsConfirming(true)}
+          aria-describedby={remainingCount > 0 ? remainingHintId : undefined}
+          className="min-h-11 rounded-xl px-3 text-sm font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+        >
+          Terminar entrenamiento
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      ref={panelRef}
+      action={completeSessionAction}
+      className="mt-8 mb-10 grid scroll-mt-16 gap-3 border-t border-zinc-800 pt-5"
+    >
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <h2 className="text-lg font-semibold text-zinc-100">Terminar entrenamiento</h2>
+      {remainingCount > 0 ? (
+        <p className="text-sm leading-6 text-zinc-400">
+          Todavía te {remainingLabel}. Al terminar, la sesión se cierra y las series que falten quedan sin
+          registrar.
+        </p>
+      ) : (
+        <p className="text-sm leading-6 text-zinc-400">Completaste todos los ejercicios de la sesión.</p>
+      )}
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Esfuerzo percibido (RPE)</span>
+        <select name="sessionRpe" defaultValue="" className="input">
+          <option value="">Sin especificar</option>
+          {rpeValues.map((value) => (
+            <option key={value} value={value}>
+              {value} — {rpeLabelsEs[value]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1 text-sm font-medium text-zinc-300">
+        <span>Notas de la sesión</span>
+        <textarea name="notes" rows={2} className="input resize-none" placeholder="¿Algo a considerar para la próxima?" />
+      </label>
+      <p className="text-xs leading-5 text-zinc-500">Los dos campos son opcionales.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setIsConfirming(false)}
+          className="min-h-12 rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Volver al entrenamiento
+        </button>
+        <SubmitButton
+          pendingChildren="Terminando…"
+          className="min-h-12 rounded-2xl bg-emerald-300 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+        >
+          Terminar entrenamiento
+        </SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Persistent identity for the exercise on screen. The card's own title is
+ * unbounded distance away once sets, the "última vez" block and the logging
+ * form have rendered — so on a long exercise the answer to "which one is
+ * this?" is two screens up, exactly when fatigue is highest.
+ *
+ * The dot rail reuses isExerciseComplete, which the runner already computes
+ * to seed the starting index, so "how much is left" is readable at a glance
+ * without any new data. It pairs with the scroll-on-change effect rather than
+ * replacing it: sticky alone would make an exercise change silent, since
+ * nothing on screen would move.
+ */
+function ExerciseProgressBar({
+  exercises,
+  exerciseIndex,
+  exerciseName,
+}: {
+  exercises: ExerciseWithLoggedSets[];
+  exerciseIndex: number;
+  exerciseName: string;
+}) {
+  return (
+    <div className="sticky top-0 z-10 -mx-5 mt-5 flex items-center gap-3 bg-zinc-950/95 px-5 py-2 backdrop-blur">
+      <ul aria-label="Progreso de ejercicios" className="flex shrink-0 items-center gap-1">
+        {exercises.map((exercise, index) => {
+          const state =
+            index === exerciseIndex ? "En curso" : isExerciseComplete(exercise) ? "Completo" : "Pendiente";
+          return (
+            <li
+              key={exercise.id}
+              aria-label={`${exercise.exerciseNameEs}: ${state}`}
+              className={`h-1.5 w-1.5 rounded-full ${
+                index === exerciseIndex
+                  ? "bg-emerald-300 ring-2 ring-emerald-300/30"
+                  : isExerciseComplete(exercise)
+                    ? "bg-emerald-300/50"
+                    : "bg-zinc-700"
+              }`}
+            />
+          );
+        })}
+      </ul>
+      {/* min-w-0 + truncate on the label, shrink-0 on the dots: a long
+          exercise name silently overlapping its neighbour is a bug this
+          project has already shipped once, on /progreso's chip row. */}
+      <p className="min-w-0 truncate text-xs font-semibold text-zinc-400">
+        <span className="text-zinc-500">
+          {exerciseIndex + 1}/{exercises.length}
+        </span>{" "}
+        · {exerciseName}
+      </p>
+    </div>
   );
 }
 
@@ -686,6 +916,7 @@ function CompletedSessionSummary({
   recap,
   updateSetAction,
   deleteSetAction,
+  reopenSessionAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -693,6 +924,10 @@ function CompletedSessionSummary({
   recap: SessionRecap | null;
   updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
+  reopenSessionAction: (
+    prevState: ReopenSessionActionState,
+    formData: FormData,
+  ) => Promise<ReopenSessionActionState>;
 }) {
   return (
     <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
@@ -749,7 +984,85 @@ function CompletedSessionSummary({
           </article>
         ))}
       </div>
+
+      <ReopenSessionPanel sessionId={session.id} reopenSessionAction={reopenSessionAction} />
     </AppShell>
+  );
+}
+
+/**
+ * The net under the wire for an accidental completion.
+ *
+ * Before this, "Empezar de nuevo" on /entrenar was the only way onward, and it
+ * inserts a *new* session — so the sets already logged stayed in the completed
+ * one and the same workout was counted twice by every /progreso read. The
+ * athlete's own account of the failure was exactly that: restart, then manually
+ * skip the exercises already done.
+ *
+ * Permanent rather than a time-boxed undo, deliberately. The mistake is
+ * discovered when you come back to log the next set — minutes later, often
+ * after the phone has locked — so a five-minute window would expire precisely
+ * in the case it exists for. It is also the smaller claim next to a precedent
+ * this file already set: sets stay editable and deletable from this screen
+ * because history is read live rather than snapshotted at completion.
+ */
+function ReopenSessionPanel({
+  sessionId,
+  reopenSessionAction,
+}: {
+  sessionId: string;
+  reopenSessionAction: (
+    prevState: ReopenSessionActionState,
+    formData: FormData,
+  ) => Promise<ReopenSessionActionState>;
+}) {
+  const [state, formAction] = useActionState(reopenSessionAction, initialReopenState);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  return (
+    <div className="mt-4 mb-10 border-t border-zinc-800 pt-5">
+      {state.status === "error" ? (
+        <p className="mb-3 rounded-xl bg-zinc-900 p-3 text-xs leading-5 text-amber-200 ring-1 ring-amber-300/30">
+          {state.message}
+        </p>
+      ) : null}
+      {isConfirming ? (
+        <form action={formAction} className="grid gap-2 rounded-xl bg-zinc-900 p-3 ring-1 ring-amber-200/30">
+          <input type="hidden" name="workoutSessionId" value={sessionId} />
+          <p className="text-xs leading-5 text-amber-200">
+            ¿Reabrir esta sesión? Vuelve a quedar activa y sale de tus reportes hasta que la termines otra vez.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsConfirming(false)}
+              className="min-h-11 rounded-xl bg-zinc-950 text-xs font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            >
+              Cancelar
+            </button>
+            <SubmitButton
+              pendingChildren="Reabriendo…"
+              className="min-h-11 rounded-xl bg-amber-200 text-xs font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100"
+            >
+              Sí, reabrir
+            </SubmitButton>
+          </div>
+        </form>
+      ) : (
+        <>
+          <p className="text-xs leading-5 text-zinc-500">
+            Si la terminaste sin querer, puedes reabrirla y seguir registrando series.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsConfirming(true)}
+            className="mt-1 min-h-11 rounded-xl text-sm font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+          >
+            Reabrir sesión
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -552,6 +552,62 @@ export async function completeWorkoutSession(
     .where(eq(workoutSession.id, workoutSessionId));
 }
 
+/**
+ * Un-completes a session so logging can continue in it.
+ *
+ * Exists because completion was, until now, a one-way door: completeWorkoutSession
+ * flips status to "completed", and startOrResumeWorkoutSession only ever resumes a
+ * session whose status is "active" — so an accidental completion stranded the sets
+ * already logged and forced a second, empty session for the same workout. That is
+ * not merely annoying: both rows count as completed sessions, so one workout reads
+ * as two in every /progreso verdict.
+ *
+ * completedAt MUST be nulled, not just left behind. It is load-bearing — the weekly
+ * consistency buckets, the per-exercise series and the improvement/PR comparisons
+ * all key off it — so a reopen that keeps it produces a session that is
+ * simultaneously in progress and counted in the reports. Both readers already skip
+ * a null completedAt, so nulling it removes the session from the reports cleanly.
+ */
+export async function reopenWorkoutSession(workoutSessionId: string): Promise<void> {
+  await db
+    .update(workoutSession)
+    .set({ status: "active", completedAt: null })
+    .where(eq(workoutSession.id, workoutSessionId));
+}
+
+/**
+ * Guards the reopen above. There is no unique constraint keeping one session
+ * active per template (workout_session carries only plain indexes), and
+ * startOrResumeWorkoutSession destructures the first row of its lookup with no
+ * ORDER BY — so two active rows for one template mean subsequent sets land on
+ * whichever one the planner happens to return. Reachable in practice: complete by
+ * accident, tap "Empezar de nuevo", then reopen the original.
+ *
+ * Refusing is deliberate rather than adding the partial unique index here. The
+ * index is the right long-term fix, but it is a migration that would fail on any
+ * production data that already has duplicates, so it needs a check against real
+ * data first.
+ */
+export async function hasOtherActiveSessionForTemplate(
+  athleteProfileId: string,
+  planSessionTemplateId: string,
+  excludeSessionId: string,
+): Promise<boolean> {
+  const [other] = await db
+    .select({ id: workoutSession.id })
+    .from(workoutSession)
+    .where(
+      and(
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+        eq(workoutSession.planSessionTemplateId, planSessionTemplateId),
+        eq(workoutSession.status, "active"),
+        ne(workoutSession.id, excludeSessionId),
+      ),
+    );
+
+  return other !== undefined;
+}
+
 export type CompletedSessionSummary = {
   session: WorkoutSession;
   template: PlanSessionTemplate;

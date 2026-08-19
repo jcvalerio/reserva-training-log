@@ -16,6 +16,7 @@ import {
 import {
   completeSessionAction,
   deleteSetAction,
+  reopenSessionAction,
   saveSetAction,
   substituteExerciseAction,
   updateSetAction,
@@ -68,6 +69,7 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
       recap={recap}
       saveSetAction={saveSetAction}
       completeSessionAction={completeSessionAction}
+      reopenSessionAction={reopenSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
