@@ -172,7 +172,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           <Field label="Gimnasio / equipo">
             <input
               name="gymContext"
-              defaultValue={profile?.gymContext ?? "a fully-equipped commercial gym, full gym"}
+              defaultValue={profile?.gymContext ?? "Gimnasio con equipo completo"}
               className="input"
             />
           </Field>

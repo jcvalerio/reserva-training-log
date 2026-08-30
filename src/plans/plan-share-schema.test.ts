@@ -5,9 +5,9 @@ import { parsePlanShareFormData } from "./plan-share-schema";
 describe("parsePlanShareFormData", () => {
   it("trims and lowercases a valid email", () => {
     const formData = new FormData();
-    formData.set("recipientEmail", "  Cousin@Example.com  ");
+    formData.set("recipientEmail", "  Athlete@Example.com  ");
 
-    expect(parsePlanShareFormData(formData)).toEqual({ recipientEmail: "Athlete C@example.com" });
+    expect(parsePlanShareFormData(formData)).toEqual({ recipientEmail: "athlete@example.com" });
   });
 
   it("rejects an invalid email", () => {

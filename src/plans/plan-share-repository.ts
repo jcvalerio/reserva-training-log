@@ -29,7 +29,7 @@ function normalizeEmail(email: string): string {
 /**
  * Backfills sharePlanGroupId (on the plan) and lineageKey (on each of its
  * exercises) the first time a plan is ever shared — idempotent, so
- * re-sharing the same plan (a second Athlete C, a re-sent invite) reuses the
+ * re-sharing the same plan (a second recipient, a re-sent invite) reuses the
  * same identifiers rather than minting new ones each time.
  */
 async function ensureShareLineage(sourcePlan: WorkoutPlan): Promise<string> {

@@ -141,7 +141,7 @@ export const athleteProfile = pgTable("athlete_profile", {
     .default("aggressive"),
   preferredLocale: localeEnum("preferred_locale").notNull().default("es"),
   timezone: text("timezone").notNull().default("America/Costa_Rica"),
-  gymContext: text("gym_context").notNull().default("a fully-equipped commercial gym, full gym"),
+  gymContext: text("gym_context").notNull().default("Gimnasio con equipo completo"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: updatedAtColumn(),

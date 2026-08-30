@@ -4,7 +4,7 @@ Living checkpoint for small iterations. Update this after every task iteration s
 
 ## 2026-08-18 — Landing on the exercise you navigated to, and an end-of-session action you can't hit by accident
 
-Status: shipped. Committed as `e8ad863` on `main`, `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4teZPcJrkn7pqTUCXJP3RUFE3VdK`, aliased to `gym.jcvalerio.com`; `/entrenar` and `/progreso` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration.
+Status: shipped. Committed as `fffa362` on `main`, `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4teZPcJrkn7pqTUCXJP3RUFE3VdK`, aliased to `gym.jcvalerio.com`; `/entrenar` and `/progreso` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration.
 
 Two complaints reported from a live session, both about the active-session runner, and both fundamentally about *geometry* rather than styling.
 
@@ -44,7 +44,7 @@ Next iteration: the review-screen option (`/entrenar/[sessionId]/finalizar`) was
 
 ## 2026-08-13 — The duplicate improvement list deleted, the volume card split, the outcome check promoted
 
-Status: committed as `a96f6fb` on `main`. `lint`/`typecheck`/`test` (543 passing, +5 net)/`build` all green. No migration.
+Status: committed as `516a32e` on `main`. `lint`/`typecheck`/`test` (543 passing, +5 net)/`build` all green. No migration.
 
 The last three items from the `/progreso` review, done together so the resulting page order is coherent rather than three partial states.
 
@@ -66,7 +66,7 @@ Next iteration: none flagged from this review — all of Reports 01–03 plus bo
 
 ## 2026-08-13 — Average RIR per muscle group, turning "Estancado" into an instruction
 
-Status: committed as `f07fcf1` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (538 passing, +15 new)/`build` all green. No migration.
+Status: committed as `a0a33cc` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (538 passing, +15 new)/`build` all green. No migration.
 
 Report 02 of the same `/progreso` review, and the one the athlete's own training style asked for: he trains by RIR and specifically values having previous weights and reps to push against. `setLog.rir` is `notNull` on every logged set and was surfaced **nowhere** in the app.
 
@@ -93,7 +93,7 @@ Next iteration: still open from the review — deleting the duplicate "Mejoras r
 
 ## 2026-08-13 — "¿Está funcionando?": one verdict per muscle group, joining volume with progression
 
-Status: committed as `36e36c9` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (523 passing, +20 new)/`build` all green. No migration.
+Status: committed as `a8b8be0` on `main`, **not yet deployed**. `lint`/`typecheck`/`test` (523 passing, +20 new)/`build` all green. No migration.
 
 Report 01 of a `/progreso` design review that started from a blunt piece of user feedback — "too many things… a place where you confuse the user instead of a place where you see important things" — and then, after a first pass that only reorganised the layout, a sharper follow-up: the *numbers themselves* don't communicate. Specifically: "seeing 1600kg in a graph doesn't give value, it's just a big number" and "seeing the 1RM is unclear, I don't understand how to read it." The first review had ranked "anchor the unexplained numbers" **last**, because it ranked by engineering effort rather than by how much each fix changes a training decision. That ranking was wrong and this entry corrects it.
 
@@ -127,7 +127,7 @@ Next iteration: Report 02 of the same review — **average RIR per muscle group*
 
 ## 2026-08-12 — A personal-record banner, built on the all-time-best query the recap explicitly deferred
 
-Status: shipped. Committed as `9b95b9e` on `main`, `lint`/`typecheck`/`test` (503 passing, +18 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_2He4ZJKN8Fggj7oujWD5RgkkYeji`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `17af10e` on `main`, `lint`/`typecheck`/`test` (503 passing, +18 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_2He4ZJKN8Fggj7oujWD5RgkkYeji`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Closes the gap the recap's own commit message named explicitly: "no personal-record claim yet — that needs an all-time-best query this app doesn't have." That query now exists. `getPriorStrengthInstancesForNames` (`workout-repository.ts`) fetches every prior completed instance's sets for this session's strength exercises, uncapped — unlike `getRecentExerciseInstancesByName` (capped to 2 per exercise for the session-over-session improvement line), a record has to beat the athlete's *entire* history, not just their last session or two. A new pure `findPersonalRecords()` (`session-recap.ts`) then checks two independent signals per exercise — total volume load and best estimated 1RM (RIR-adjusted Epley) — against the true max across every prior instance, and an exercise with no prior instance at all is excluded (nothing yet to have beaten, matching the recap's existing "first log isn't a comparison" stance).
 
@@ -143,7 +143,7 @@ Next iteration: none flagged — this was the recap's one deliberately deferred 
 
 ## 2026-08-12 — An honest post-workout recap on the completed-session summary
 
-Status: shipped. Committed as `ca7040b` on `main`, `lint`/`typecheck`/`test` (492 passing, +14 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_FnrgKknYQFqwD4ysoLN15qgzBpaK`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `e2a0d07` on `main`, `lint`/`typecheck`/`test` (492 passing, +14 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_FnrgKknYQFqwD4ysoLN15qgzBpaK`, aliased to `gym.jcvalerio.com`; `/entrenar` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Idea #4 from the "Design Ideas: Plan Builder & Progreso" assessment, explicitly sequenced after the E1RM/body-map work rather than skipped. Completing a session previously rendered the flattest screen in the app relative to its reference-app counterpart: a header, RPE/notes if any, and a bare list of logged sets — no framing at all. `CompletedSessionSummary` (`session-runner.tsx`) now opens with a KPI row (Duración, Series completadas, Volumen) and, when at least one of this session's exercises has a prior completed instance to compare against, a line naming how many improved — e.g. "3 de 6 ejercicios mejoraron vs. tu sesión anterior."
 
@@ -159,7 +159,7 @@ Next iteration: a personal-record banner, once an all-time-best query exists —
 
 ## 2026-08-11 — The body-map thumbnail now also shows on /plan/historial and /plan/templates
 
-Status: shipped. Committed as `3bf3df5` on `main`, `lint`/`typecheck`/`test` (478 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_9CLN8djAyEmwG4xSp9u2sgahit4q`, aliased to `gym.jcvalerio.com`; `/plan/historial` and `/plan/templates` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `3164f79` on `main`, `lint`/`typecheck`/`test` (478 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_9CLN8djAyEmwG4xSp9u2sgahit4q`, aliased to `gym.jcvalerio.com`; `/plan/historial` and `/plan/templates` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Follow-up request after wiring `/plan/rutina`: the other two `PlanDayPager` callers, explicitly flagged as unscoped at the time. Both now pass real `muscleGroupsByDayIndex` through the same optional prop, each sourcing classification differently:
 
@@ -174,7 +174,7 @@ Next iteration: none flagged. Every `PlanDayPager` caller now shows the thumbnai
 
 ## 2026-08-11 — The body-map thumbnail now also shows on "Ver plan completo" (/plan/rutina)
 
-Status: shipped. Committed as `6656715` on `main`, `lint`/`typecheck`/`test` (474 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4MG66mmRsfQWPitJoshfonVSEyVU`, aliased to `gym.jcvalerio.com`; `/plan/rutina` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `2bc9cb3` on `main`, `lint`/`typecheck`/`test` (474 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4MG66mmRsfQWPitJoshfonVSEyVU`, aliased to `gym.jcvalerio.com`; `/plan/rutina` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Feedback right after the plan-builder thumbnail shipped: "only visible during the plan editor, would be nice to see during the ver plan completo." `/plan/rutina` (that link's actual target) renders through the shared `PlanDayPager`, also used by `/plan/historial/[planId]` and `/plan/templates/[templateId]` — so `PlanDayPager` gained an optional `muscleGroupsByDayIndex` prop rather than a hardcoded thumbnail, and only `/plan/rutina/page.tsx` computes and passes real classification. The other two callers pass nothing and render exactly as before; wiring them is unscoped, no request for it yet, and templates in particular would need a different data path since they're not backed by real `exercisePrescription`/`exercise` rows the same way.
 
@@ -188,7 +188,7 @@ Next iteration: none flagged. `/plan/historial` and `/plan/templates` could get 
 
 ## 2026-08-11 — Plan builder: a body-map thumbnail on each day card — the third and last Hevy-inspired idea, shipped
 
-Status: shipped. Committed as `e84c6d4` on `main`, `lint`/`typecheck`/`test` (472 passing, +10 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4irw9qxcfFirhR1E33ajp2c64E3h`, aliased to `gym.jcvalerio.com`; `/plan/builder` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `be25863` on `main`, `lint`/`typecheck`/`test` (472 passing, +10 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4irw9qxcfFirhR1E33ajp2c64E3h`, aliased to `gym.jcvalerio.com`; `/plan/builder` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Third and last of the three prioritized ideas from the design-ideas proposal — all three are now shipped. Each `/plan/builder` day card gets a tiny front/back silhouette next to the day info, shaded to show which muscle groups that day's exercises train, so "what does this day actually hit" reads at a glance before tapping in to the exercise list.
 
@@ -202,7 +202,7 @@ Next iteration: none flagged — this closes the three-idea design proposal. No 
 
 ## 2026-08-11 — Progreso: estimated 1RM as a third progression-chart metric — the second Hevy-inspired idea, shipped
 
-Status: shipped. Committed as `aeb898c` on `main`, `lint`/`typecheck`/`test` (462 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_6RUVgZixLgEPHGBT6hYn3wwnBjGD`, aliased to `gym.jcvalerio.com`; `/progreso` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
+Status: shipped. Committed as `f6a5455` on `main`, `lint`/`typecheck`/`test` (462 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_6RUVgZixLgEPHGBT6hYn3wwnBjGD`, aliased to `gym.jcvalerio.com`; `/progreso` 307 confirmed live — the auth redirect, expected unauthenticated). No migration. No active session at deploy time.
 
 Second of the three prioritized ideas from the design-ideas proposal. `improvement.ts` already computed a RIR-adjusted Epley 1RM estimate for the "Mejoras recientes" before/after pair — `bestEstimated1Rm` and its `ONE_RM_MAX_REPS` gate (sets past 15 reps are excluded, Epley degrades badly outside a low-to-moderate rep range) were exported rather than reimplemented, and reused per-instance in `exercise-series.ts` to populate a new `best1RmKg`/`leftBest1RmKg`/`rightBest1RmKg` on every `ExerciseSeriesPoint`. `exercise-progression-chart.tsx` gained a third toggle ("1RM") alongside Peso/Volumen, generic over the existing `LEFT_METRIC`/`RIGHT_METRIC`/dual-chart machinery.
 
@@ -214,7 +214,7 @@ Next iteration: the third proposal idea — a body-map thumbnail on plan-builder
 
 ## 2026-08-11 — Progreso: "Ejercicios que más mejoraron" — the first Hevy-inspired idea, shipped
 
-Status: shipped. Committed as `9b1fedd` on `main`, `lint`/`typecheck`/`test` (456 passing, +7 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_APt3JCTV4SUoiyaJxGdiHT7FEpe3`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `400fe01` on `main`, `lint`/`typecheck`/`test` (456 passing, +7 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_APt3JCTV4SUoiyaJxGdiHT7FEpe3`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
 
 First of the three prioritized ideas from the design-ideas proposal (`2026-08-11` "Hevy-inspired design ideas" artifact) — a ranked, scannable list of improved exercises with a real percentage, sitting above the KPI row's bare "Mejorando 4/5" count. Exactly the reformatting the proposal called for: `computeExerciseImprovement` already computed every delta needed, so this is a new small component (`top-exercises-list.tsx`) plus wiring, not a new query or schema change.
 
@@ -230,7 +230,7 @@ Next iteration: the second and third proposal ideas (E1RM as a third progression
 
 ## 2026-08-11 — Plan builder: collapsed exercise name/stats were truncated and squeezed to half the card
 
-Status: shipped. Committed as `884819e` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_8FqU21vePGR9MF7HCsPhKW3zTuuX`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `c434ce8` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_8FqU21vePGR9MF7HCsPhKW3zTuuX`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
 
 Reported with a screenshot: "Prensa unilat...", "Fuerza · 3x6-10 · P..." — the collapsed summary line was unreadable. Two stacked problems, not one. Removing `truncate` alone (first pass) only let the text wrap instead of clip — it was still confined to whatever width was left beside the reorder/delete button cluster, because the name and stats lines shared one flex row with that cluster for their *entire* height, not just the first line. Flagged directly, mid-fix: "use all the space and not only 50% or less."
 
@@ -242,7 +242,7 @@ Next iteration: none flagged.
 
 ## 2026-08-11 — Progreso: long muscle-group labels wrapped and crowded the volume bar
 
-Status: shipped. Committed as `6ee2ddf` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G19xi7v76ddiXeuggtxoFnRCT5AW`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `46fe815` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G19xi7v76ddiXeuggtxoFnRCT5AW`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
 
 A related follow-up to the same-day delta-wrapping fix, caught in a separate concurrent session working the same file — reviewed and finished here rather than left half-done, since it landed as uncommitted work in this same working tree. "Abductores y aductores" (22 characters, the longest real label in `muscleGroupLabelsEs`) had nowhere near enough room in the fixed `w-28` (112px) column it shared with the bar/value/delta/chevron on one line — it wrapped unevenly and squeezed every row's usable bar width, not just the long row's own.
 
@@ -254,7 +254,7 @@ Next iteration: none flagged.
 
 ## 2026-08-11 — Plan builder horizontal scroll, and progreso deltas wrapping to a second line
 
-Status: shipped. Committed as `40902a0` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_EwaRj5bLALJusAX6HFMnWEYboUnM`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `957b852` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_EwaRj5bLALJusAX6HFMnWEYboUnM`, aliased to `gym.jcvalerio.com`; `/` 200 confirmed live). No migration. No active session at deploy time.
 
 Two layout bugs from real-phone screenshots, both root-caused empirically in a live browser rather than by reading code alone.
 
@@ -268,7 +268,7 @@ Next iteration: none flagged for these two — both are closed. A broader design
 
 ## 2026-08-11 — Plan builder: a blocked exercise removal can now actually resolve, and the error toast floats
 
-Status: shipped. Committed as `e5924ca` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_B69VXVmxRCBrvuG2n9bqBfCgAyvT`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `ce1b622` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_B69VXVmxRCBrvuG2n9bqBfCgAyvT`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
 
 Two follow-ups from the crash fix a few hours earlier. First: she could see the error now, but it rendered inline at the top of a long, scrollable form while the save button and bottom nav sit far below — easy to miss. `FormStatusBanner` gained an opt-in `floating` prop that fixed-positions it just above the bottom nav instead, like a toast. Every other page using this shared component (`perfil`, `plan`, `plan/compartir`, `builder-page-content`, `entrenar`, `mediciones`) is unchanged — `floating` defaults to `false`.
 
@@ -284,13 +284,13 @@ Next iteration: none flagged — this closes the loop the crash fix opened. Wort
 
 ## 2026-08-11 — Plan builder: deleting an exercise with logged history crashed instead of explaining why
 
-Status: shipped. Committed as `6f3f100` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G6vcdsqujYd51X2GjdMLFiLYKxjK`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
+Status: shipped. Committed as `984baa0` on `main`, `lint`/`typecheck`/`test` (447 passing)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_G6vcdsqujYd51X2GjdMLFiLYKxjK`, aliased to `gym.jcvalerio.com`; `/` 200, `/plan/builder` 307-to-auth confirmed live). No migration. No active session at deploy time.
 
 Reported from production, minutes after happening: deleting an exercise in `/plan/builder/session/[dayIndex]` and saving threw a bare HTTP 500 (digest-only, no message). Root cause confirmed by direct reproduction against the dev DB, not just code reading: `saveDraftSession` already refuses to hard-delete an `exercisePrescription` row once real sets are logged against it — `exerciseLog.exercisePrescriptionId` is FK-`restrict` on purpose, to protect history — and already converts that into a readable `Error`. But `saveSessionAction` only wrapped the two form-parse calls in `try/catch`, not the `saveDraftSession` call itself, so that Error went uncaught straight into Next.js's generic error page instead of the `?error=` redirect pattern this file uses everywhere else.
 
 Fix is the same three-line shape already proven elsewhere in this exact file (`activateDraftPlanAction`): wrap the call, redirect to `?error=cannot_remove` on catch. The message is deliberately specific about what actually happened — `saveDraftSession` isn't transactional, so by the time the final delete fails, every other edit (other exercises, session name/focus) already committed; only the one exercise with history is left in place, not deleted. Saying "the whole save failed" would have been wrong.
 
-This was a latent gap, not something newly broken — it needed both a real athlete with logged history *and* someone editing that specific session's exercise list to surface, which is exactly what `a04edcc` (unblocking `/plan` → `/plan/builder` for an already-active plan) made possible for the first time.
+This was a latent gap, not something newly broken — it needed both a real athlete with logged history *and* someone editing that specific session's exercise list to surface, which is exactly what `c2905c0` (unblocking `/plan` → `/plan/builder` for an already-active plan) made possible for the first time.
 
 Files touched: `src/app/plan/builder/actions.ts`, `src/app/plan/builder/session/[dayIndex]/page.tsx`.
 
@@ -298,7 +298,7 @@ Next iteration: none flagged — this closes the crash. The underlying restricti
 
 ## 2026-08-10 — `/entrenar`: compare logged RIR to target, group unilateral sets by side, expose full last-time history
 
-Status: shipped. Committed as `d2099fa` on `main`, `lint`/`typecheck`/`test` (447 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_CE7Ec1jfQht6gR89YnTFHfZDWVNG`, aliased to `gym.jcvalerio.com`; `/` and `/guia` 200, `/entrenar` and `/plan/builder` 307-to-auth confirmed live). No migration — presentation only. Held for an active workout session before deploying; re-checked and it had ended.
+Status: shipped. Committed as `9263f0f` on `main`, `lint`/`typecheck`/`test` (447 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_CE7Ec1jfQht6gR89YnTFHfZDWVNG`, aliased to `gym.jcvalerio.com`; `/` and `/guia` 200, `/entrenar` and `/plan/builder` 307-to-auth confirmed live). No migration — presentation only. Held for an active workout session before deploying; re-checked and it had ended.
 
 Reported live, mid-workout: "I only see the first set and I'm unable to see if I was able to do the suggested RIR"; "when the exercise is unilateral the app only shows me the first set for one leg"; and a request to tap something like "last time" and see all of that session's sets, not just one. All three turned out to be a presentation gap, not a data gap — `getPreviousExercisePerformance` already fetched every prior set, and per-side counts already existed for the radio-button logic. Confirmed by two independent reviews (UX/UI and mobile engineering, same process as the plan-builder pass below) that converged on the same three fixes.
 
@@ -312,7 +312,7 @@ Next iteration: none flagged — this closes the three complaints as reported.
 
 ## 2026-08-10 — Plan builder: collapsed exercise cards and labeled reorder buttons
 
-Status: shipped. Committed as `1e1ded3` on `main`, `lint`/`typecheck`/`test` (443 passing, +2 new)/`build` all green. Deployed together with the `/entrenar` fixes above via the same `npx vercel deploy --prod --yes`. No migration — presentation only.
+Status: shipped. Committed as `023920d` on `main`, `lint`/`typecheck`/`test` (443 passing, +2 new)/`build` all green. Deployed together with the `/entrenar` fixes above via the same `npx vercel deploy --prod --yes`. No migration — presentation only.
 
 Reported with a screenshot: two unlabeled `↑`/`↓` arrow buttons next to "Eliminar" with no visible affordance, and a form that "gets lost scrolling up and down" through every field of every exercise plus three permanent helper paragraphs, always expanded. Reviewed the same way as the fix above — independent UX/UI and mobile-engineering passes, written blind to each other, which converged on the same recommendation from different angles (UX: reuses an established idiom and solves both complaints directly; engineering: zero new dependencies, the only proposal that left the uncontrolled-fields/single-submit form architecture untouched).
 
@@ -353,7 +353,7 @@ Next iteration: decide whether **Editar mi plan** should adopt an existing draft
 
 ## 2026-08-09 — setLog.painLocation: pain by location becomes a measurement instead of an inference
 
-Status: shipped. Committed as `5217545` on `main` (`feat: record where it hurts, not just how much`), `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, new `/guia` pain copy confirmed in the production HTML). Zero active sessions before deploying.
+Status: shipped. Committed as `daabc31` on `main` (`feat: record where it hurts, not just how much`), `lint`/`typecheck`/`test` (434 passing, +5 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, new `/guia` pain copy confirmed in the production HTML). Zero active sessions before deploying.
 
 Migration `drizzle/0021_quiet_onslaught.sql` — purely additive: one enum, one nullable column, no backfill. Applied to dev directly; applied to production by the chained `db:migrate && build`, proven by the new code being live. The production DB still cannot be queried directly (`DATABASE_URL` is Sensitive in Vercel).
 
@@ -387,7 +387,7 @@ Split by job instead:
 - **`next-task.md`** — only what is immediately next. Trimmed 168 → 56 lines.
 - **`implementation-log.md`** — how we got here and why. Unchanged in role; still the source of truth for decisions.
 
-Before trimming, every commit referenced by a removed "Prior status" section was verified to appear in the implementation log (`8459052`, `f039f89`, `9c2c550`, `344237a`, `2469330`, `0305f98`, `a66474a`, `7de478e` — all present). Nothing was lost; the duplication was.
+Before trimming, every commit referenced by a removed "Prior status" section was verified to appear in the implementation log (`6bfa0cb`, `69e207f`, `b09bb51`, `3cdbf14`, `1a8a1c8`, `941198d`, `a68c3b3`, `866ff96` — all present). Nothing was lost; the duplication was.
 
 `project-status.md` deliberately records the *reasoning* behind the four load-bearing rules in the reporting layer — the three-step classification fallback, `max(left, right)` for unilateral sets, mobility-phase strength work counting, and substitutes never inheriting identity — because each was arrived at by getting it wrong first, and a new session reading only the code would plausibly "simplify" any of them back into a bug.
 
@@ -401,7 +401,7 @@ Next iteration: nothing outstanding. Candidates are ranked in `project-status.md
 
 ## 2026-08-09 — Deployed a "Semana pasada" period, and moved the delta baseline onto the view
 
-Status: shipped. Committed as `6fb8006` on `main` (`feat: add a "Semana pasada" period to Series por grupo muscular`), `lint`/`typecheck`/`test` (429 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth). No migration, no data change.
+Status: shipped. Committed as `f3a9456` on `main` (`feat: add a "Semana pasada" period to Series por grupo muscular`), `lint`/`typecheck`/`test` (429 passing, +4 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth). No migration, no data change.
 
 The user's report, and it is a real gap the period views created rather than closed: *"this week is empty if I want to see how was my last week of work right now is not possible."* Early in a week the current-week view holds one session or none, and the 4-week and all-time views average the last week away instead of showing it — so the most natural question on a Monday had no answer.
 
@@ -417,7 +417,7 @@ Next iteration: nothing outstanding. Let real weeks accumulate, then revisit whe
 
 ## 2026-08-09 — Period views on Series por grupo muscular (esta semana / 4 semanas / todo)
 
-Status: shipped. Committed as `4afb2d6` on `main` (`feat: add period views to Series por grupo muscular`) — 11 files, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, and the new "Esta semana, 4 semanas y Todo" copy confirmed in the production `/guia` HTML).
+Status: shipped. Committed as `61d3ae8` on `main` (`feat: add period views to Series por grupo muscular`) — 11 files, `lint`/`typecheck`/`test` (425 passing, +6 new)/`build` all green. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` 200, `/progreso` and `/entrenar` 307-to-auth, and the new "Esta semana, 4 semanas y Todo" copy confirmed in the production `/guia` HTML).
 
 **No migration and no data change in this deploy**, which is why it went out without the usual active-session check being conclusive: production sessions cannot be queried since `DATABASE_URL` became Sensitive in Vercel, but a code-only deploy can at worst hand an in-progress session a new bundle on its next navigation. Dev showed zero active sessions.
 
@@ -441,7 +441,7 @@ Next iteration: let a few real weeks accumulate before revisiting whether a tren
 
 ## 2026-08-09 — Deployed and committed the exercise taxonomy and the rebuilt /progreso
 
-Status: shipped. Committed as `bfdd8fb` on `main` (`feat: add an exercise taxonomy and rebuild /progreso around it`) — 43 files, one commit covering all seven phases plus the mobile-UX pass, per this project's pattern for stacked work. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` HTTP 200, `/progreso` and `/entrenar` 307-to-auth). Adds one runtime dependency, `lucide-react`.
+Status: shipped. Committed as `c123c28` on `main` (`feat: add an exercise taxonomy and rebuild /progreso around it`) — 43 files, one commit covering all seven phases plus the mobile-UX pass, per this project's pattern for stacked work. Deployed via `npx vercel deploy --prod --yes`; live at `https://gym.jcvalerio.com` (`/` and `/guia` HTTP 200, `/progreso` and `/entrenar` 307-to-auth). Adds one runtime dependency, `lucide-react`.
 
 Deployed with **no** workout session active — the Día 4 session that had been open all day was completed by the user at 18:27 local while reviewing the dashboard, and `status = 'active'` returned zero rows immediately before deploying.
 
@@ -542,7 +542,7 @@ Next iteration: browser verification at 390×844 with Playwright (needs the user
 
 ## 2026-08-09 — Deployed and committed exercise substitution + the reading type scale
 
-Status: shipped. Committed as `ffe3197` on `main` (`feat: swap an exercise mid-session, and raise the reading type scale`) — 17 files, bundling both undeployed pieces into one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
+Status: shipped. Committed as `f8052a1` on `main` (`feat: swap an exercise mid-session, and raise the reading type scale`) — 17 files, bundling both undeployed pieces into one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
 
 Verified in production rather than assumed, since this deploy carried a schema change: both `substituted_for_prescription_id` and `substitution_reason_es` exist and are nullable, `drizzle.__drizzle_migrations` shows 18 applied entries, and the production CSS bundle carries the new scale (`--text-xs:.875rem`, `--text-sm:1rem`) with `--text-xl` still at its stock `1.25rem` — confirming headings were left alone as the user asked — plus `input-stepper{appearance:textfield;padding-left:0;padding-right:0}`.
 
@@ -619,7 +619,7 @@ Next iteration: deploy and commit when asked.
 
 ## 2026-08-09 — Deployed and committed set correction + the iOS text-zoom fix
 
-Status: shipped. Committed as `a7c27a9` on `main` (`feat: let a logged set be corrected or deleted, and unblock iOS text zoom`) — 22 files, both of this session's pieces in one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try this time (no retry needed, unlike the last two sessions). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
+Status: shipped. Committed as `51a0a66` on `main` (`feat: let a logged set be corrected or deleted, and unblock iOS text zoom`) — 22 files, both of this session's pieces in one commit per this project's established pattern for stacked work. 1Password's SSH signing agent worked first try this time (no retry needed, unlike the last two sessions). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed).
 
 Unlike every prior deploy in this project, this one **did** carry a schema change — verified rather than assumed afterwards: `set_log.updated_at` exists in the DB as `timestamp with time zone`, nullable, and `drizzle.__drizzle_migrations` shows 17 applied entries. Also confirmed the two fixes actually reached production rather than trusting the build: the served HTML now emits `content="width=device-width, initial-scale=1"` with **no** `maximum-scale` (the previous production build had `maximum-scale=1`, so this doubles as proof the alias is serving the new deployment), and the production CSS bundle contains `input-stepper{padding-left:.25rem;padding-right:.25rem}`.
 
@@ -667,7 +667,7 @@ Next iteration: deploy and commit when asked (neither done yet). **Still open, a
 
 ## 2026-08-05 — Deployed and committed the "Ver técnica en YouTube" tap target
 
-Status: shipped. Committed as `8459052` on `main` (`feat: add a minimalistic "Ver técnica en YouTube" tap target`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query (using the corrected `grep '^DATABASE_URL='` pattern, not the earlier flawed one — see below).
+Status: shipped. Committed as `6bfa0cb` on `main` (`feat: add a minimalistic "Ver técnica en YouTube" tap target`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` and `/plan/rutina` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query (using the corrected `grep '^DATABASE_URL='` pattern, not the earlier flawed one — see below).
 
 Next iteration: none queued. The real-iPhone check of the universal-link handoff to the installed YouTube app is still open — see the entry below. See the entry below for the feature's full design/verification detail.
 
@@ -691,7 +691,7 @@ Next iteration: deploy and commit when asked (neither done yet). The universal-l
 
 ## 2026-08-03 — Deployed and committed bonus-set logging + the `/guia` page
 
-Status: shipped. Committed as `f039f89` on `main` (`feat: let a set exceed the plan, and add a RIR/AMRAP/progression guide`) — bundled both of this session's undeployed pieces into one commit, per this project's established pattern for stacked work. The first commit attempt failed with 1Password's SSH signing agent ("failed to fill whole buffer" — locked), succeeded on retry once unlocked, same failure mode this project has hit before. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query — the account's only recent session was already `completed`.
+Status: shipped. Committed as `69e207f` on `main` (`feat: let a set exceed the plan, and add a RIR/AMRAP/progression guide`) — bundled both of this session's undeployed pieces into one commit, per this project's established pattern for stacked work. The first commit attempt failed with 1Password's SSH signing agent ("failed to fill whole buffer" — locked), succeeded on retry once unlocked, same failure mode this project has hit before. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` and `/guia` HTTP 200, `/entrenar` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do). Confirmed no workout session was active at deploy time via a direct DB query — the account's only recent session was already `completed`.
 
 Next iteration: none queued. See the two entries below for what shipped.
 
@@ -734,7 +734,7 @@ Next iteration: deploy and commit when asked (neither done yet).
 
 ## 2026-08-02 — Deployed and committed the standardized back-navigation pattern
 
-Status: shipped. Committed as `9c2c550` on `main` (`fix: standardize back-navigation to one AppShell-owned pattern`) — the first commit this session that needed a retry: 1Password's SSH commit-signing agent failed once with "failed to fill whole buffer" (likely locked), succeeded on retry after the user unlocked it. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+Status: shipped. Committed as `b09bb51` on `main` (`fix: standardize back-navigation to one AppShell-owned pattern`) — the first commit this session that needed a retry: 1Password's SSH commit-signing agent failed once with "failed to fill whole buffer" (likely locked), succeeded on retry after the user unlocked it. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
 
 Next iteration: none queued. See the entry below for the fix's design/verification detail.
 
@@ -759,7 +759,7 @@ Next iteration: none queued. Deploy and commit when asked.
 
 ## 2026-08-02 — Deployed and committed the "Readaptación" template
 
-Status: shipped. Committed as `344237a` on `main` (`feat: add "Readaptación" template from a user-supplied infographic`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+Status: shipped. Committed as `3cdbf14` on `main` (`feat: add "Readaptación" template from a user-supplied infographic`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
 
 Next iteration: none queued. See the entry below for the template's design/verification detail.
 
@@ -784,7 +784,7 @@ Next iteration: none queued. Deploy and commit when asked. Activating this templ
 
 ## 2026-08-02 — Deployed and committed the leg-priority template + measurement-based side default
 
-Status: shipped. Committed as `2469330` on `main` (`feat: add leg-priority template; default unilateral side from measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
+Status: shipped. Committed as `1a8a1c8` on `main` (`feat: add leg-priority template; default unilateral side from measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan/templates` HTTP 307-to-auth confirmed; no schema change, nothing for the automatic migration step to do).
 
 Next iteration: none queued. See the two entries below for what shipped.
 
@@ -824,7 +824,7 @@ Next iteration: none queued. Deploy and commit when asked. Activating the templa
 
 ## 2026-08-02 — Deployed and committed pecho/caderas (chest/hips) measurements
 
-Status: shipped. Committed as `0305f98` on `main` (`feat: add pecho/caderas (chest/hips) to body measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; migration 0015 ran automatically as part of the build, consistent with how every prior schema change in this project has deployed).
+Status: shipped. Committed as `941198d` on `main` (`feat: add pecho/caderas (chest/hips) to body measurements`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/mediciones` HTTP 307-to-auth confirmed; migration 0015 ran automatically as part of the build, consistent with how every prior schema change in this project has deployed).
 
 Next iteration: none queued. See the entry below for the feature's design/verification detail.
 
@@ -844,7 +844,7 @@ Next iteration: none queued. Deploy and commit when asked.
 
 ## 2026-08-02 — Deployed and committed the "Zona de peligro" reset feature
 
-Status: shipped. Committed as `7de478e` on `main` (`feat: self-serve reset for plans/sessions, keeping body measurements by default`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/perfil/reiniciar` HTTP 307-to-auth confirmed — no schema change, nothing for the automatic migration step to do).
+Status: shipped. Committed as `866ff96` on `main` (`feat: self-serve reset for plans/sessions, keeping body measurements by default`). Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/perfil/reiniciar` HTTP 307-to-auth confirmed — no schema change, nothing for the automatic migration step to do).
 
 The feature itself is live now, but running it for real against the account's own data is still a separate, unexecuted decision — nothing has been deleted from the real account as part of shipping this.
 
@@ -870,7 +870,7 @@ Next iteration: the user needs to decide whether to actually run this against th
 
 ## 2026-08-02 — Deployed and committed plan sharing, "Tus planes" history, and the competitor UX benchmark work
 
-Status: shipped. Committed as `a66474a` on `main` (`feat: plan sharing, "Tus planes" history, and a competitor UX benchmark pass`), bundling three previously-uncommitted pieces of work in one commit per this project's established pattern for stacked undeployed entries. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan` HTTP 307-to-auth confirmed — migration 0014 had already been applied to the dev DB in a prior session and ran with the deploy as usual, no manual step needed).
+Status: shipped. Committed as `a68c3b3` on `main` (`feat: plan sharing, "Tus planes" history, and a competitor UX benchmark pass`), bundling three previously-uncommitted pieces of work in one commit per this project's established pattern for stacked undeployed entries. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, aliased successfully; `/` HTTP 200 and `/plan` HTTP 307-to-auth confirmed — migration 0014 had already been applied to the dev DB in a prior session and ran with the deploy as usual, no manual step needed).
 
 Confirmed before deploying that no `/entrenar` session could be actively in progress: the real account's plan was in `draft` status (mid-edit by the user) at deploy time, so there was no active plan to train against regardless.
 
@@ -1024,7 +1024,7 @@ Next iteration: none queued from this pass. The deferred training-load and pain-
 
 ## 2026-07-31 — Deployed and committed the round-2 mobile UX audit
 
-Status: shipped. Committed as `64ad0be` on `main` ("fix: round-2 mobile UX audit — Home stale state, sticky-button overlap, builder gaps, a11y"), then deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, no migration involved since this round had no schema changes).
+Status: shipped. Committed as `9f76dfb` on `main` ("fix: round-2 mobile UX audit — Home stale state, sticky-button overlap, builder gaps, a11y"), then deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, no migration involved since this round had no schema changes).
 
 Next iteration: a real-device pass on an actual iPhone — this round's changes (especially the Home state fix and the sticky-button removal) haven't been confirmed on-device yet, only via Playwright's emulated viewport. See `docs/product/next-task.md`.
 
@@ -1053,7 +1053,7 @@ Next iteration: deploy, then a real-device pass on an actual iPhone (the round-1
 
 ## 2026-07-31 — Deployed and committed the mobile UI/UX audit
 
-Status: shipped. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, migration step ran with zero diff since this was a UI-only change), then committed locally as `79abc58` on `main` ("fix: mobile UI/UX audit — button-contrast bug, /plan scroll, nav cleanup").
+Status: shipped. Deployed to production via `npx vercel deploy --prod --yes` (live at `https://gym.jcvalerio.com`, HTTP 200 verified, migration step ran with zero diff since this was a UI-only change), then committed locally as `7f445c8` on `main` ("fix: mobile UI/UX audit — button-contrast bug, /plan scroll, nav cleanup").
 
 Two things worth recording for future sessions, now written up in `docs/architecture/release-workflow.md`'s new "How deploys actually happen today" section:
 - **This repo currently has no git remote** (`git remote -v` is empty) — deploys go straight from the local working directory via the Vercel CLI, not through git push/PR/Vercel's git integration. The `.github/workflows/ci.yml` and the branching model documented further down `release-workflow.md` are the intended future state, not current practice.
@@ -1392,7 +1392,7 @@ Next iteration:
 
 ## 2026-07-30 — Custom plan builder: Phase A complete, deployed, verified
 
-Status: completed. Committed (`b8b2fd4`), deployed to Vercel production, and manually verified by the user against the real production DB's existing 4-week activated plan: `/plan` shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion and no "Semana" headers, `/progreso` session-history cards show "Día N" not "Semana 1 · Día N," nothing crashed. Also cleared the separate loose end from the prior session while 1Password was cooperating: committed the previously-staged Vercel deployment-config changes (`c6471e3`) — no functional change, git history now matches what was already live.
+Status: completed. Committed (`ce28abe`), deployed to Vercel production, and manually verified by the user against the real production DB's existing 4-week activated plan: `/plan` shows 5 sessions (not 20), `/entrenar` shows a flat list with a real suggestion and no "Semana" headers, `/progreso` session-history cards show "Día N" not "Semana 1 · Día N," nothing crashed. Also cleared the separate loose end from the prior session while 1Password was cooperating: committed the previously-staged Vercel deployment-config changes (`ca975b1`) — no functional change, git history now matches what was already live.
 
 Context:
 - User wants each person using the app (three separate people — each with their own login, already supported by the existing per-`athleteProfile` multi-tenancy) to define their own real training routine, instead of everyone getting the same hardcoded example plan from `src/plans/seeded-plan.ts`.

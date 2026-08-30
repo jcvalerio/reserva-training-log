@@ -222,7 +222,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'a fully-equipped commercial gym, full gym'"
+          "default": "'Gimnasio con equipo completo'"
         },
         "notes": {
           "name": "notes",

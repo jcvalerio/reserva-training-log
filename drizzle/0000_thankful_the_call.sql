@@ -34,7 +34,7 @@ CREATE TABLE "athlete_profile" (
 	"experience_level" "experience_level" DEFAULT 'intermediate' NOT NULL,
 	"progression_aggressiveness" "progression_aggressiveness" DEFAULT 'aggressive' NOT NULL,
 	"preferred_locale" "locale" DEFAULT 'es' NOT NULL,
-	"gym_context" text DEFAULT 'a fully-equipped commercial gym, full gym' NOT NULL,
+	"gym_context" text DEFAULT 'Gimnasio con equipo completo' NOT NULL,
 	"notes" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL

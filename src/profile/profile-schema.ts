@@ -43,7 +43,7 @@ export const athleteProfileInputSchema = z.object({
   progressionAggressiveness: z.enum(["conservative", "normal", "aggressive"]).default("aggressive"),
   preferredLocale: z.enum(["es", "en"]).default("es"),
   timezone: z.string().trim().min(1).default("America/Costa_Rica"),
-  gymContext: z.string().trim().min(1).max(200).default("a fully-equipped commercial gym, full gym"),
+  gymContext: z.string().trim().min(1).max(200).default("Gimnasio con equipo completo"),
   notes: optionalTrimmedString,
   painSensitiveAreas: optionalTrimmedString,
   musclePriorities: optionalTrimmedString,

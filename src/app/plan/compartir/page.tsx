@@ -100,7 +100,7 @@ export default async function PlanCompartirPage({ searchParams }: PlanCompartirP
         </div>
         <label className="grid gap-2 text-sm font-medium text-zinc-300">
           <span>Correo</span>
-          <input name="recipientEmail" type="email" placeholder="Athlete C@example.com" className="input" required />
+          <input name="recipientEmail" type="email" placeholder="correo@ejemplo.com" className="input" required />
         </label>
         <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
           Generar enlace
