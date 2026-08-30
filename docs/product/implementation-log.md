@@ -2,6 +2,43 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-30 — Error monitoring, and the first bug it caught
+
+Status: Sentry shipped and verified in production; the crash fix built and tested, deploy pending. `lint`/`typecheck`/`test` (580 passing, +27 net)/`build` all green. No migration.
+
+**A user hit "This page couldn't load" on `/entrenar` → Continuar and had to tell us.** Nothing in this app had ever reported a crash: no client exception capture, no source maps, no alerting, and — the part that turned one bad exercise into a blank screen — **not a single error boundary anywhere in `src/app`**.
+
+**Why Sentry and not the cheaper options.** The stack the user pasted was `at ad (0zsaoe4nar2uk.js:40:55721)`. Vercel's built-in observability was free and would have caught *nothing*: this error is client-side, thrown during React render, and never reaches a server log. A hand-rolled `window.onerror` reporter — genuinely in keeping with a codebase that hand-rolls its own SVG charts — loses exactly the source maps that make a minified mobile stack actionable. Cost measured properly with a worktree at the previous commit and its own `npm ci`: **+63.4 KB brotli** (376.1 → 439.5), on the critical path for every page since the SDK initialises from `instrumentation-client.ts`. Deliberately **not** lazy-loaded: deferring init past hydration would have missed this exact crash, a render error on first load.
+
+Next 16 builds with Turbopack, which does not auto-import `sentry.client.config.ts` — client init must live in `instrumentation-client.ts`. Sentry's `bundleSizeOptimizations` (`excludeTracing`, `excludeDebugStatements`) are webpack DefinePlugin substitutions and do **nothing** here; builds with and without them are byte-identical. Kept, with that measurement written beside them.
+
+**Health data does not leave the app, and verifying that caught a real leak.** Reading an actual captured payload rather than trusting the config showed `request.url` correctly redacted — while the navigation breadcrumb stored the URL *again* under `{ from, to }`, innocuous key names whose values carried `?pain=8&peso=80&medicion=54`. The scrub only matched key names. `scrubValue` now redacts query strings from any string value, recursing into arrays for console `arguments`, and covers breadcrumb `message` and `extra` too. Re-verified end to end: `"from":"/sentry-check?[query redacted]"`, and a scan of the whole event for those three values finds nothing. Session Replay is off entirely — it records a screen showing pain scores. Tracing off too; the free tier's quota belongs to crashes. **This is the second time on this project that reading real output beat reading source** — the first was `a { color: inherit }` outside a Tailwind `@layer`.
+
+**Then it caught the bug, with a readable trace:**
+
+```
+at toStrengthSetLog (src/workouts/workout-repository.ts:41:15)
+at Array.map (<anonymous>)
+at buildProgressionSuggestion (src/workouts/progression-view.ts:73:29)
+at renderWithHooks (react-dom-client.production.js)
+```
+
+**Root cause.** `getPreviousPerformance` chose between its `"strength"` and `"duration"` branches on `mostRecent.prescriptionType` **alone**, never checking that the set rows actually carried weight/reps/RIR. `saveSet` writes those columns null for duration-type sets, so a set logged under a duration prescription that later read as strength — a mid-session substitution, or a prescription whose type changed after the fact — took the strength branch. `buildProgressionSuggestion` then mapped `toStrengthSetLog` over it, and because `session-runner.tsx` is a **client component**, the throw landed mid-React-render and blanked the whole workout instead of failing one card. Twelve lines above, the same function already guards `targetRepMax === null` with *"Shouldn't happen … but the DB column is nullable, so guard rather than assert."* Same class of problem; one guarded, one not.
+
+**Fix: make the narrowing honest.** A new `isStrengthSetLog` type predicate, and `getPreviousPerformance` returns `null` when the sets are not all strength-shaped — a state the UI already renders normally, so the exercise shows no suggestion rather than taking the session down. **Deliberately not filtering the bad sets out**: `allPlannedSetsCompleted` counts `sets.length`, so a filtered list would report an incomplete session as complete and suggest a load increase off it. Partial data is worse than none when the output is how much weight someone puts on a bar. `toStrengthSetLog` still throws — it is the assertion that catches genuine programming errors; the guard just stops us handing it data we know it will reject.
+
+**Boundaries added**, because prevention is not enough: `entrenar/[sessionId]/error.tsx` offers Reintentar *and* a route back to `/entrenar`, since reloading re-renders the same bad data and fails identically — the way out has to be a different page. `global-error.tsx` styles inline, because a layout failure means you cannot assume the stylesheet loaded.
+
+Files touched: `src/workouts/workout-repository.ts` (+`isStrengthSetLog`, +the guard), `src/workouts/workout-repository.test.ts` (**new** — pure functions only; DB access stays untested by convention, and the file says so), `src/sentry-privacy.ts` (+`.test.ts`, 18 tests), `src/instrumentation-client.ts`, `src/instrumentation.ts`, `src/sentry.{server,edge}.config.ts`, `next.config.ts`, `src/app/global-error.tsx`, `src/app/entrenar/[sessionId]/error.tsx`, `.env.example`.
+
+**Known gaps, stated rather than hidden:**
+- **The malformed rows in production are untouched.** The guard stops the crash; it does not repair the data. Finding them needs the Neon console (production `DATABASE_URL` is Sensitive); the SQL is in `docs/product/crash-observability-kickoff-prompt.md`. Whether to delete or backfill is a decision about someone's real training history, not a cleanup.
+- **Which write path created them is still unproven** — substitution inheriting a slot's `prescriptionType` is the leading candidate.
+- `BrowserTracing` and `WebVitals` remain active integrations despite `tracesSampleRate: 0`; they send nothing but still run on every page.
+- The SDK logs an `onRouterTransitionStart` `ACTION REQUIRED` warning at build. Navigation-tracing only; adding the export would pull tracing back in.
+
+**Deploy note for next time:** `vercel deploy` uploads the local working tree, not git HEAD. The uncommitted `/entrenar/[sessionId]/finalizar` work was stashed before shipping so it would not go out unreviewed. Checked all production deployments back to Aug 11 including `dpl_4teZPcJrkn7pqTUCXJP3RUFE3VdK` — **`/finalizar` has never been deployed**; what shipped on 2026-08-18 was the inline finish panel inside `session-runner.tsx`, which the route replaces.
+
 ## 2026-08-18 — Landing on the exercise you navigated to, and an end-of-session action you can't hit by accident
 
 Status: shipped. Committed as `7b56686` on `main`, `lint`/`typecheck`/`test` (554 passing, +11 net)/`build` all green. Deployed via `npx vercel deploy --prod --yes` (`dpl_4teZPcJrkn7pqTUCXJP3RUFE3VdK`, aliased to `gym.jcvalerio.com`; `/entrenar` and `/progreso` both 307 confirmed live — the auth redirect, expected unauthenticated). No migration.

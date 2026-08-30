@@ -36,11 +36,15 @@ export type StrengthSetLog = SetLog & { actualWeightKg: string; actualReps: numb
  * this throws rather than silently defaulting nulls to 0, which would
  * quietly corrupt volume-load/progression math instead of surfacing a bug.
  */
+export function isStrengthSetLog(set: SetLog): set is StrengthSetLog {
+  return set.actualWeightKg !== null && set.actualReps !== null && set.rir !== null;
+}
+
 export function toStrengthSetLog(set: SetLog): StrengthSetLog {
-  if (set.actualWeightKg === null || set.actualReps === null || set.rir === null) {
+  if (!isStrengthSetLog(set)) {
     throw new Error("Expected a strength-type set (weight/reps/RIR), got a set with missing values.");
   }
-  return set as StrengthSetLog;
+  return set;
 }
 
 export type PreviousExercisePerformance =
@@ -268,6 +272,33 @@ export async function getPreviousExercisePerformance(
   if (mostRecent.targetRepMax === null) {
     // Shouldn't happen — a strength-type prescription always has a rep
     // range — but the DB column is nullable, so guard rather than assert.
+    return null;
+  }
+
+  if (!sets.every(isStrengthSetLog)) {
+    // The prescription says "strength", but at least one logged set has no
+    // weight/reps/RIR. `saveSet` writes those columns null for duration-type
+    // sets, so this is a set logged under a duration prescription that later
+    // read as strength — a mid-session substitution, or a prescription whose
+    // type changed after the fact.
+    //
+    // Claiming the "strength" branch here is what took down a whole workout
+    // in production: `buildProgressionSuggestion` maps `toStrengthSetLog`
+    // over these sets, `session-runner.tsx` is a client component, so the
+    // throw happened during React render and blanked the page rather than
+    // failing one card.
+    //
+    // Returning null means "no usable previous performance", a state the UI
+    // already renders normally — the exercise simply shows no suggestion.
+    // Deliberately not filtering the bad sets out instead: `targetSets`
+    // completion in `buildProgressionSuggestion` counts `sets.length`, so a
+    // filtered list would silently report an incomplete session as complete
+    // and suggest a load increase off it. Partial data is worse than none
+    // when the output is how much weight someone puts on a bar.
+    //
+    // `toStrengthSetLog` keeps throwing on purpose. It is the assertion that
+    // catches genuine programming errors; this guard just stops us handing
+    // it data we already know it will reject.
     return null;
   }
 
