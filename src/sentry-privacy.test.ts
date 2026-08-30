@@ -128,3 +128,57 @@ describe("scrubEvent", () => {
     expect(() => scrubEvent(eventWith({}))).not.toThrow();
   });
 });
+
+describe("scrubEvent — query strings hidden inside values", () => {
+  // Regression: a real captured payload showed the navigation breadcrumb
+  // storing the full URL, query string and all, under the innocuous keys
+  // `from`/`to`. Key-name matching alone missed it entirely.
+  it("redacts a query string inside a navigation breadcrumb's from/to", () => {
+    const event = eventWith({
+      breadcrumbs: [
+        {
+          category: "navigation",
+          data: { from: "/entrenar/abc?pain=8&peso=80", to: "/progreso?medicion=54" },
+        },
+      ],
+    });
+
+    const data = scrubEvent(event)?.breadcrumbs?.[0]?.data;
+    expect(data?.from).toBe("/entrenar/abc?[query redacted]");
+    expect(data?.to).toBe("/progreso?[query redacted]");
+  });
+
+  it("redacts a query string inside a breadcrumb message", () => {
+    const event = eventWith({
+      breadcrumbs: [{ category: "navigation", message: "/entrenar?pain=9" }],
+    });
+
+    expect(scrubEvent(event)?.breadcrumbs?.[0]?.message).toBe("/entrenar?[query redacted]");
+  });
+
+  it("redacts query strings inside console breadcrumb argument arrays", () => {
+    const event = eventWith({
+      breadcrumbs: [
+        { category: "console", data: { arguments: ["fetching /entrenar?pain=8", "ok"], logger: "console" } },
+      ],
+    });
+
+    const args = scrubEvent(event)?.breadcrumbs?.[0]?.data?.arguments as string[];
+    expect(args[0]).toBe("fetching /entrenar?[query redacted]");
+    expect(args[1]).toBe("ok");
+  });
+
+  it("redacts a query string inside extra", () => {
+    const event = eventWith({ extra: { lastPage: "/mediciones?cintura=80" } });
+
+    expect(scrubEvent(event)?.extra?.lastPage).toBe("/mediciones?[query redacted]");
+  });
+
+  it("leaves a breadcrumb value with no query string alone", () => {
+    const event = eventWith({
+      breadcrumbs: [{ category: "ui.click", message: "body > main > button[type=\"button\"]" }],
+    });
+
+    expect(scrubEvent(event)?.breadcrumbs?.[0]?.message).toBe('body > main > button[type="button"]');
+  });
+});

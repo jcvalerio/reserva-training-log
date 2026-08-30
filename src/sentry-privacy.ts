@@ -61,6 +61,24 @@ function scrubUrl(url: string): string {
   return `${url.slice(0, queryStart)}?[query redacted]`;
 }
 
+/**
+ * Scrubs a value that might itself carry a query string.
+ *
+ * Key-name matching is not enough, and a real captured payload proved it: the
+ * navigation breadcrumb stores `{ from, to }` — innocuous key names whose
+ * *values* were full URLs including `?pain=8&peso=80&medicion=54`. Caught only
+ * by reading an actual event, never by reading the config.
+ */
+function scrubValue(value: unknown): unknown {
+  if (typeof value === "string" && value.includes("?")) {
+    return scrubUrl(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(scrubValue);
+  }
+  return value;
+}
+
 export function scrubEvent(event: ErrorEvent): ErrorEvent | null {
   // Request payloads: drop bodies wholesale, scrub query strings and headers.
   if (event.request) {
@@ -91,23 +109,30 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent | null {
   // Breadcrumbs can carry form values from console logs and fetch bodies.
   if (event.breadcrumbs) {
     event.breadcrumbs = event.breadcrumbs.map((crumb) => {
+      const next = { ...crumb };
+
       if (crumb.data) {
         const scrubbed: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(crumb.data)) {
-          scrubbed[key] = isSensitiveKey(key) ? "[redacted]" : value;
+          scrubbed[key] = isSensitiveKey(key) ? "[redacted]" : scrubValue(value);
         }
-        return { ...crumb, data: scrubbed };
+        next.data = scrubbed;
       }
-      return crumb;
+
+      // A console breadcrumb's message is whatever was logged, and a
+      // navigation breadcrumb's is a URL. Both can carry a query string.
+      if (typeof next.message === "string") {
+        next.message = scrubValue(next.message) as string;
+      }
+
+      return next;
     });
   }
 
   // `extra` and `contexts` are free-form and easy to pollute by accident.
   if (event.extra) {
     for (const key of Object.keys(event.extra)) {
-      if (isSensitiveKey(key)) {
-        event.extra[key] = "[redacted]";
-      }
+      event.extra[key] = isSensitiveKey(key) ? "[redacted]" : scrubValue(event.extra[key]);
     }
   }
 
