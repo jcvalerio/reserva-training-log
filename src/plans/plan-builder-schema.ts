@@ -95,6 +95,14 @@ const commonExerciseRowFields = {
     (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : "Ajusta la carga y conserva técnica."),
     z.string().min(1).max(500),
   ),
+  // The id of the exercisePrescription row this form row came from, blank for
+  // a newly added row. This is what makes an exercise's identity survive a
+  // reorder: without it, `saveDraftSession` can only match existing rows by
+  // position, which silently reassigns logged history to a different exercise.
+  prescriptionId: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : null),
+    z.string().nullable(),
+  ),
   painSensitive: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
   substitutionOptionsEs: z.preprocess((value) => {
     if (typeof value !== "string" || value.trim() === "") {
@@ -163,6 +171,7 @@ export function parsePlanBuilderSessionFormData(formData: FormData): PlanBuilder
       planBuilderExerciseInputSchema.parse({
         prescriptionType,
         exerciseNameEs: nameValue,
+        prescriptionId: formData.get(`${prefix}:prescriptionId`),
         exerciseId: formData.get(`${prefix}:exerciseId`),
         phase: formData.get(`${prefix}:phase`),
         isUnilateral: formData.get(`${prefix}:isUnilateral`),

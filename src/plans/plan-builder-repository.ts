@@ -11,6 +11,7 @@ import type {
   PlanBuilderSessionInfoInput,
   PlanBuilderSetupInput,
 } from "./plan-builder-schema";
+import { planPrescriptionWrites } from "./plan-prescription-writes";
 import { getActivePlanForProfile, type ExercisePrescription, type PlanSessionTemplate, type WorkoutPlan } from "./plan-repository";
 
 export type DraftPlanSession = {
@@ -357,40 +358,52 @@ export async function saveDraftSession(
     };
   }
 
-  // Update existing rows in place by position instead of delete+reinsert.
-  // Once a session has been activated and logged against, exerciseLog rows
-  // reference exercisePrescription.id with onDelete: "restrict" — a blind
-  // delete-all here throws a raw FK violation the moment any exercise in
-  // this session has real set history. Updating in place never deletes a
-  // referenced row, so it's safe regardless of logged history.
+  // Rows are updated in place rather than delete+reinserted: once a session
+  // has been activated and logged against, exerciseLog rows reference
+  // exercisePrescription.id with onDelete: "restrict", so a blind delete-all
+  // throws a raw FK violation the moment any exercise here has set history.
+  //
+  // But *which* existing row each submitted exercise updates must be decided
+  // by identity, not by position. Matching by position is what caused a real
+  // data-integrity bug: reordering two exercises in the builder rewrote row
+  // A with exercise B's name, type and prescription while leaving A's
+  // exerciseLog history pointing at it. `getPreviousPerformance` filters on
+  // `exercisePrescription.exerciseNameEs`, so the athlete then saw one
+  // exercise's history under another's name — and when the two swapped
+  // exercises had different prescriptionTypes, a row claiming "strength"
+  // ended up owning duration-shaped sets, which crashed the session runner.
+  //
+  // The form now round-trips each row's `prescriptionId`, so an exercise
+  // keeps its own row (and its history) across any reordering, and only its
+  // orderIndex changes.
   const existingExercises = await db
     .select({ id: exercisePrescription.id, exerciseNameEs: exercisePrescription.exerciseNameEs })
     .from(exercisePrescription)
     .where(eq(exercisePrescription.planSessionTemplateId, templateId))
     .orderBy(asc(exercisePrescription.orderIndex));
 
-  const updateCount = Math.min(existingExercises.length, exercises.length);
+  const { updates, inserts, leftovers } = planPrescriptionWrites(existingExercises, exercises);
 
-  for (let index = 0; index < updateCount; index += 1) {
+  for (const { id, exerciseInput, orderIndex } of updates) {
     await db
       .update(exercisePrescription)
-      .set({ ...toExercisePrescriptionValues(exercises[index]!), orderIndex: index + 1 })
-      .where(eq(exercisePrescription.id, existingExercises[index]!.id));
+      .set({ ...toExercisePrescriptionValues(exerciseInput), orderIndex })
+      .where(eq(exercisePrescription.id, id));
   }
 
-  if (exercises.length > updateCount) {
+  if (inserts.length > 0) {
     await db.insert(exercisePrescription).values(
-      exercises.slice(updateCount).map((exerciseInput, offset) => ({
+      inserts.map(({ exerciseInput, orderIndex }) => ({
         id: randomUUID(),
         planSessionTemplateId: templateId,
-        orderIndex: updateCount + offset + 1,
+        orderIndex,
         ...toExercisePrescriptionValues(exerciseInput),
       })),
     );
   }
 
-  if (existingExercises.length > updateCount) {
-    const leftoverRows = existingExercises.slice(updateCount);
+  if (leftovers.length > 0) {
+    const leftoverRows = leftovers;
     const leftoverIds = leftoverRows.map((row) => row.id);
 
     // Check for blocking history up front rather than letting the delete

@@ -33,6 +33,7 @@ describe("SessionEditorForm", () => {
         initialFocus="Cuádriceps"
         initialExercises={[
           {
+            id: null,
             exerciseId: null,
     exerciseNameEs: "Prensa de piernas",
             phase: "main",
@@ -228,6 +229,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[
           {
+            id: null,
             exerciseId: null,
     exerciseNameEs: "Prensa de piernas",
             phase: "main",
@@ -286,6 +288,7 @@ describe("SessionEditorForm", () => {
         initialFocus="Cuádriceps"
         initialExercises={[
           {
+            id: null,
             exerciseId: null,
             exerciseNameEs: "Prensa de piernas",
             phase: "main",
@@ -329,6 +332,7 @@ describe("SessionEditorForm", () => {
         initialFocus=""
         initialExercises={[
           {
+            id: null,
             exerciseId: null,
             exerciseNameEs: "Primero",
             phase: "main",
@@ -347,6 +351,7 @@ describe("SessionEditorForm", () => {
             isCompound: null,
           },
           {
+            id: null,
             exerciseId: null,
             exerciseNameEs: "Segundo",
             phase: "main",

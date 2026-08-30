@@ -19,6 +19,10 @@ type Phase = "warmup" | "main" | "accessory" | "mobility";
 type PrescriptionType = "strength" | "duration";
 
 export type SessionEditorInitialExercise = {
+  /** exercisePrescription.id, null for a row the user just added. Round-trips
+   *  through a hidden input so a reorder keeps each exercise's own row — and
+   *  therefore its logged history — instead of matching by position. */
+  id: string | null;
   exerciseNameEs: string;
   exerciseId: string | null;
   phase: Phase;
@@ -59,6 +63,7 @@ function blankRow(key: string): ExerciseRowValue {
     loadMechanism: null,
     isCompound: null,
     prefilledFromHistory: false,
+    id: null,
   };
 }
 
@@ -363,6 +368,9 @@ function ExerciseRowFields({
       </summary>
 
       <div className="border-t border-zinc-800/80 px-4 pb-4 pt-4">
+        {/* Uncontrolled like every other field here, so it travels with the
+            DOM node when a row is reordered — which is exactly the point. */}
+        <input type="hidden" name={`${prefix}:prescriptionId`} defaultValue={value.id ?? ""} />
         <div className="flex items-end gap-2">
           <label className="grid flex-1 gap-1 text-sm font-medium text-zinc-300">
             <span>Nombre del ejercicio</span>

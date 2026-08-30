@@ -74,6 +74,7 @@ describe("parsePlanBuilderSessionFormData", () => {
     expect(parsePlanBuilderSessionFormData(formData)).toEqual([
       {
         exerciseNameEs: "Prensa de piernas",
+        prescriptionId: null,
         phase: "main",
         isUnilateral: true,
         prescriptionType: "strength",
@@ -103,6 +104,7 @@ describe("parsePlanBuilderSessionFormData", () => {
     expect(parsePlanBuilderSessionFormData(formData)).toEqual([
       {
         exerciseNameEs: "Extensión de piernas",
+        prescriptionId: null,
         phase: "main",
         isUnilateral: false,
         prescriptionType: "strength",
