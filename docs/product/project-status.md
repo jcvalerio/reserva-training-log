@@ -16,7 +16,7 @@ If you change `src/db/schema.ts`, update `docs/architecture/data-model.md` in th
 
 ## What this is
 
-A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building a training plan by hand and logging every set with weight, reps, RIR and a pain score. Three real users: the owner and two other athletes.
+A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building a training plan by hand and logging every set with weight, reps, RIR and a pain score. Built around three real athletes — the owner and two others — whose friction drove every early decision. Since going public it is used by people outside that group, so a change that would only suit the original three is no longer automatically the right change. It runs entirely on free tiers (Neon, Vercel, GitHub) and stays free.
 
 **It is not an "AI personal trainer"** — that was the original framing and the original repo name, both since retired. AI plan generation was evaluated and dropped (milestone M3, 2026-07-31). Plans come from a hardcoded template catalog or the manual builder. There is no AI anywhere in the product and no AI-derived insight on any screen — keep it that way unless the user says otherwise.
 

@@ -2,7 +2,8 @@
 
 **A Spanish-first iPhone training log where pain can veto progression.**
 
-Live at **[gym.jcvalerio.com](https://gym.jcvalerio.com)** · three real users, in the gym, since July 2026.
+Live and free at **[gym.jcvalerio.com](https://gym.jcvalerio.com)** · built from three athletes' requirements
+since July 2026, now open and used by others with the same problem.
 
 Build a hypertrophy plan by hand, log every set with weight, reps and RIR (*reps en reserva*), and get a
 next-session load suggestion computed from your own logged history — one that a pain score is allowed to
@@ -81,10 +82,16 @@ into a mobile app.
 
 ## Scope, stated honestly
 
-Spanish-first by default (English scaffolding exists and is unused). iPhone-only responsive web — no Apple
-Watch, no native app, no offline sync, no social features, no nutrition tracking, and no automatic rep
-detection. Three users is the entire user base, on purpose: the product decisions in the log are worth
-something *because* they came from real friction rather than imagined personas.
+Spanish-first. English is scaffolded throughout (`exerciseNameEn`, `notesEn`, `locale: "en"`) and is the next
+iteration — see [#9](https://github.com/jcvalerio/reserva-training-log/issues/9). iPhone-only responsive
+web — no Apple Watch, no native app, no offline sync, no social features, no nutrition tracking, and no
+automatic rep detection.
+
+**This is a hobby project that solved my own problem first.** Every decision in the log through its first
+months came from three athletes' real friction rather than imagined personas, which is exactly why those
+decisions are worth reading. It is now public and used by people I don't know who have the same problem, and
+it stays **free** — Neon, Vercel and GitHub free tiers, no accounts to sell, nothing to upsell. If it ever
+outgrows a free tier, that constraint gets solved without changing who can use it.
 
 ---
 
