@@ -1,5 +1,5 @@
 import { bestEstimated1Rm, totalVolumeLoadKg, type ExerciseImprovementRow } from "./improvement";
-import { toStrengthSetLog, type SetLog } from "./workout-repository";
+import { isStrengthSetLog, toStrengthSetLog, type SetLog } from "./workout-repository";
 
 export type SessionRecapExercise = {
   exerciseNameEs: string;
@@ -58,6 +58,16 @@ export function findPersonalRecords(
       continue;
     }
 
+    // Same guard as above, applied to both sides of the comparison. A record
+    // claimed against history we cannot read would be meaningless even if it
+    // did not throw.
+    if (
+      !exercise.loggedSets.every(isStrengthSetLog) ||
+      !priorInstances.every((sets) => sets.every(isStrengthSetLog))
+    ) {
+      continue;
+    }
+
     const currentSets = exercise.loggedSets.map(toStrengthSetLog);
     const currentVolumeLoadKg = totalVolumeLoadKg(currentSets);
     const currentBest1Rm = bestEstimated1Rm(currentSets);
@@ -111,8 +121,15 @@ export function buildSessionRecap(
       row.latestCompletedAt.getTime() === session.completedAt.getTime(),
   );
 
+  // `prescriptionType === "strength"` does not guarantee strength-shaped sets:
+  // a plan reorder used to rewrite a prescription row in place, leaving a row
+  // typed "strength" owning sets logged when it was a duration exercise (see
+  // plan-prescription-writes.ts). Mapping toStrengthSetLog over those threw
+  // and blanked the page. An exercise we cannot read contributes no volume —
+  // deliberately skipping the whole exercise rather than filtering its sets,
+  // since a partial set list understates volume load while looking complete.
   const strengthSets = exercises
-    .filter((exercise) => exercise.prescriptionType === "strength")
+    .filter((exercise) => exercise.prescriptionType === "strength" && exercise.loggedSets.every(isStrengthSetLog))
     .flatMap((exercise) => exercise.loggedSets.map(toStrengthSetLog));
 
   return {

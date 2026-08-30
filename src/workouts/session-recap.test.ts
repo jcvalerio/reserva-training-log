@@ -318,3 +318,52 @@ describe("findPersonalRecords", () => {
     expect(findPersonalRecords(exercises, priorInstancesByName)).toEqual([]);
   });
 });
+
+describe("buildSessionRecap — contaminated rows never throw", () => {
+  // Real production data: a plan reorder rewrote prescription rows in place,
+  // leaving rows typed "strength" that own sets logged when the row held a
+  // duration exercise. Five of Athlete B's rows are in this state. Mapping
+  // toStrengthSetLog over them threw inside the page render.
+  const durationShapedSet = {
+    id: "set-bad",
+    exerciseLogId: "log-1",
+    setNumber: 1,
+    side: "bilateral",
+    actualWeightKg: null,
+    actualReps: null,
+    rir: null,
+    actualDurationSeconds: 45,
+    painScore: 0,
+    painLocation: null,
+    notes: null,
+    completedAt: new Date("2026-08-07T13:21:30Z"),
+    updatedAt: null,
+  } as unknown as SetLog;
+
+  const session = { startedAt: new Date("2026-08-07T13:00:00Z"), completedAt: new Date("2026-08-07T14:00:00Z") };
+
+  it("does not throw when a strength-typed exercise owns duration-shaped sets", () => {
+    const exercises: SessionRecapExercise[] = [
+      { exerciseNameEs: "Extensión de espalda en máquina", prescriptionType: "strength", loggedSets: [durationShapedSet] },
+    ];
+
+    expect(() => buildSessionRecap(exercises, session, [])).not.toThrow();
+  });
+
+  it("excludes an unreadable exercise from volume rather than guessing at zero", () => {
+    const exercises: SessionRecapExercise[] = [
+      { exerciseNameEs: "Extensión de espalda en máquina", prescriptionType: "strength", loggedSets: [durationShapedSet] },
+    ];
+
+    expect(buildSessionRecap(exercises, session, []).totalVolumeLoadKg).toBe(0);
+  });
+
+  it("claims no personal record against history it cannot read", () => {
+    const exercises: SessionRecapExercise[] = [
+      { exerciseNameEs: "Pantorrillas", prescriptionType: "strength", loggedSets: [durationShapedSet] },
+    ];
+    const priorInstancesByName = new Map([["Pantorrillas", [[durationShapedSet]]]]);
+
+    expect(findPersonalRecords(exercises, priorInstancesByName)).toEqual([]);
+  });
+});
