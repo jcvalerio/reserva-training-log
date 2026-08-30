@@ -19,6 +19,20 @@ export default withSentryConfig(nextConfig, {
 
   silent: !process.env.CI,
 
+  // Tracing is off (tracesSampleRate: 0), so its code is dead weight in a
+  // bundle that ships to phones. These flags ask Sentry to tree-shake it.
+  //
+  // MEASURED 2026-08-30: they currently do nothing here — builds with and
+  // without them are byte-identical (439.5 KB brotli both ways). Sentry
+  // implements them as webpack DefinePlugin substitutions, and Next 16 builds
+  // with Turbopack. Kept because they are correct intent and cost nothing, and
+  // will start working if Sentry adds Turbopack support. Do not re-measure
+  // hoping for a different answer without checking that first.
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeTracing: true,
+  },
+
   // Source maps are uploaded to Sentry and deleted from the deployment, so
   // they are never served to the public from a public-facing app.
   sourcemaps: { deleteSourcemapsAfterUpload: true },
