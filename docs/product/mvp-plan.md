@@ -9,8 +9,8 @@ Build a Spanish-first iPhone web app that acts as a practical gym companion for 
 - Platform: iPhone-only web MVP first.
 - Native Apple Watch/iOS: deferred until web MVP proves the workflow.
 - Users: separate login per person.
-- Testers: Athlete A, Athlete B, Athlete C.
-- Gym: a fully-equipped commercial gym; full equipment, machines, cables, dumbbells up to 65 kg, powerlifting/functional areas.
+- Testers: Athlete A (mid-40s), Athlete B (around 40), Athlete C (mid-30s). Age bands matter: the type scale is raised for readability at 47+.
+- Gym: a fully-equipped commercial gym — machines, cables, dumbbells up to 65 kg, powerlifting/functional areas.
 - Training history: approximately 3 years consistent training; last year 4-5 days/week.
 - Level: intermediate recreational lifters, not beginners.
 - Frequency: 5 days/week.
@@ -31,11 +31,9 @@ Build a Spanish-first iPhone web app that acts as a practical gym companion for 
 
 - Priority: quadriceps and lower-body development.
 - Special focus: right/left asymmetry.
-- Current measurements:
+- Baseline asymmetry (absolute circumferences omitted; only the gap drives any rule):
   - Left thigh/quadriceps larger by 2 cm
   - Left calf larger by 3 cm
-  - (absolute circumferences omitted)
-  - (only the left/right gap drives any rule)
 - Plan implications:
   - Track unilateral lower-body exercises separately.
   - Start unilateral sets with the right/weaker side.

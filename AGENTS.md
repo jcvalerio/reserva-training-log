@@ -4,7 +4,7 @@
 
 Web MVP for an iPhone-first gym training log: build a plan by hand, log every set with weight, reps, RIR and pain, and read progress back per muscle group.
 
-**Not an "AI personal trainer" despite the repo name** — AI plan generation was evaluated and dropped (milestone M3, 2026-07-31), and there is no AI anywhere in the product. Start at `docs/product/project-status.md` for where things stand and what constrains a new feature.
+**There is no AI in the product, and that is deliberate** — AI plan generation was evaluated and dropped (milestone M3, 2026-07-31). Plans come from a template catalog or the manual builder. Do not reintroduce AI-generated plans or AI-derived insight on any screen unless the user asks. Start at `docs/product/project-status.md` for where things stand and what constrains a new feature.
 
 ## Product rules
 

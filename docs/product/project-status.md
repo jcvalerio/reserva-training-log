@@ -16,9 +16,9 @@ If you change `src/db/schema.ts`, update `docs/architecture/data-model.md` in th
 
 ## What this is
 
-A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building a training plan by hand and logging every set with weight, reps, RIR and a pain score. Three real users: the owner, Athlete B, Athlete C.
+A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building a training plan by hand and logging every set with weight, reps, RIR and a pain score. Three real users: the owner and two other athletes.
 
-**It is not an "AI personal trainer"**, despite the repo name and `AGENTS.md`'s opening line. AI plan generation was evaluated and dropped (milestone M3, 2026-07-31). Plans come from a hardcoded template catalog or the manual builder. There is no AI anywhere in the product and no AI-derived insight on any screen — keep it that way unless the user says otherwise.
+**It is not an "AI personal trainer"** — that was the original framing and the original repo name, both since retired. AI plan generation was evaluated and dropped (milestone M3, 2026-07-31). Plans come from a hardcoded template catalog or the manual builder. There is no AI anywhere in the product and no AI-derived insight on any screen — keep it that way unless the user says otherwise.
 
 ## What works today, end to end
 

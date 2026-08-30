@@ -97,8 +97,8 @@ Scope:
 Initial measurements for Athlete A:
 - Left thigh larger by 2 cm
 - Left calf larger by 3 cm
-- (absolute circumferences omitted)
-- (only the left/right gap drives any rule)
+
+(Absolute circumferences are intentionally not recorded here; the left/right gap is the only value any rule reads.)
 
 Acceptance:
 - App shows thigh and calf left/right gaps.
