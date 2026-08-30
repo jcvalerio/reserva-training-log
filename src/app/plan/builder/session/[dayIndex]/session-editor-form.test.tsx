@@ -417,3 +417,80 @@ describe("SessionEditorForm", () => {
     expect(reorderedNames).toEqual(["Segundo", "Primero"]);
   });
 });
+
+describe("SessionEditorForm — reordering moves the whole exercise, not just its name", () => {
+  // Reported from real use: reordering with the up/down arrows appeared to
+  // move only the exercise *name*, leaving sets/reps/RIR behind. The plan
+  // then held one exercise's name against another's prescription, so
+  // /entrenar showed the previous performance of a different exercise.
+  //
+  // The existing "reorders exercise rows" test above asserts only the names,
+  // which is exactly the half that works — which is how this shipped.
+  //
+  // The form is uncontrolled: every field is a `defaultValue` read from the
+  // DOM on submit, under an INDEX-based name (`exercise-${index}:field`),
+  // while React keys rows by a STABLE id. So what a swap does to the pairing
+  // of value-to-submitted-name is the whole question.
+  function renderTwoRows() {
+    render(
+      <SessionEditorForm
+        action={vi.fn()}
+        draftPlanId="draft-1"
+        dayIndex={1}
+        initialNameEs=""
+        initialFocus=""
+        initialExercises={[]}
+        knownExerciseNames={[]}
+        exerciseDefaultsByName={{}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Nombre del ejercicio"), { target: { value: "Primero" } });
+    fireEvent.change(screen.getByLabelText("Series"), { target: { value: "3" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar ejercicio" }));
+
+    const names = screen.getAllByLabelText("Nombre del ejercicio");
+    const sets = screen.getAllByLabelText("Series");
+    fireEvent.change(names[1] as HTMLElement, { target: { value: "Segundo" } });
+    fireEvent.change(sets[1] as HTMLElement, { target: { value: "5" } });
+  }
+
+  /** What the server action would actually receive, keyed by field name. */
+  function submittedValues(): Record<string, string> {
+    const form = document.querySelector("form");
+    const data: Record<string, string> = {};
+    for (const el of Array.from(form!.querySelectorAll("input, select, textarea"))) {
+      const named = el as HTMLInputElement;
+      if (named.name) {
+        data[named.name] = named.value;
+      }
+    }
+    return data;
+  }
+
+  it("keeps each exercise's series with its own name after moving a row down", () => {
+    renderTwoRows();
+
+    fireEvent.click((screen.getAllByRole("button", { name: "Mover abajo" })[0] as HTMLElement));
+
+    const submitted = submittedValues();
+    // "Segundo" (5 series) moved to position 0; "Primero" (3 series) to 1.
+    expect(submitted["exercise-0:exerciseNameEs"]).toBe("Segundo");
+    expect(submitted["exercise-0:targetSets"]).toBe("5");
+    expect(submitted["exercise-1:exerciseNameEs"]).toBe("Primero");
+    expect(submitted["exercise-1:targetSets"]).toBe("3");
+  });
+
+  it("keeps each exercise's series with its own name after moving a row up", () => {
+    renderTwoRows();
+
+    fireEvent.click((screen.getAllByRole("button", { name: "Mover arriba" })[1] as HTMLElement));
+
+    const submitted = submittedValues();
+    expect(submitted["exercise-0:exerciseNameEs"]).toBe("Segundo");
+    expect(submitted["exercise-0:targetSets"]).toBe("5");
+    expect(submitted["exercise-1:exerciseNameEs"]).toBe("Primero");
+    expect(submitted["exercise-1:targetSets"]).toBe("3");
+  });
+});
