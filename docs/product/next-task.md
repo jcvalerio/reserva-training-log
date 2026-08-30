@@ -2,7 +2,7 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: two `/entrenar` fixes are shipped and deployed (`fffa362`) — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
+## Status: two `/entrenar` fixes are shipped and deployed (`7b56686`) — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
 
 Reported live, mid-workout. Both were geometry problems, not styling ones. Full detail in `implementation-log.md`; the short version:
 
@@ -20,7 +20,7 @@ Reported live, mid-workout. Both were geometry problems, not styling ones. Full 
 
 **Deliberately deferred:** the `/entrenar/[sessionId]/finalizar` review screen — "5 de 7 ejercicios completos" plus a tappable list of unfinished exercises, which the inline panel can't offer. Worth building if the inline confirm still feels thin after real use. It needs `?ejercicio=<id>` + an `initialExerciseId` prop, or Cancelar drops you on the wrong exercise.
 
-## Prior status: the `/progreso` rebuild is complete — all three reports plus both structural cleanups. Committed (`a8b8be0`, `a0a33cc`, `516a32e`).
+## Prior status: the `/progreso` rebuild is complete — all three reports plus both structural cleanups. Committed (`5408da2`, `18edd45`, `c70a942`).
 
 The screen now reads: KPI row → **¿Está funcionando?** → Ejercicios que más mejoraron → Tendencia corporal → Series por grupo muscular → Equilibrio → Dónde te ha dolido → Ejercicios por grupo muscular → Consistencia semanal → Sin clasificar → Historial.
 
@@ -101,17 +101,17 @@ Note for whoever hits something like this again: the discard button already exis
 
 Open decision: should **Editar mi plan** *adopt* an existing draft instead of refusing? Left as a refusal on purpose — auto-discarding someone's unfinished work to unstick a button is data loss, and adopting it is a product call. The refusal is at least visible now.
 
-## Prior status: `setLog.painLocation` — shipped, deployed and committed (`daabc31`).
+## Prior status: `setLog.painLocation` — shipped, deployed and committed (`e671424`).
 
 Logging a set with pain above 0 now asks **where it hurts**: the seven joints, plus "Muscular (agujetas)" and "Otro". Below 0 pain nothing appears, so the normal flow is unchanged. `/progreso` states located pain plainly and marks older sets "(estimado)", since those can only be inferred from the joints an exercise loads.
 
 Thresholds are untouched on purpose: pain > 2 still blocks aggressive progression even when it is ordinary soreness. Deciding whether that should change is what this column makes answerable — with evidence rather than a guess.
 
-## Prior status: period views on Series por grupo muscular — shipped, deployed and committed (`61d3ae8`, `f3a9456`).
+## Prior status: period views on Series por grupo muscular — shipped, deployed and committed (`3485611`, `f2af442`).
 
 `/progreso`'s volume section now has four pills: **Esta semana · Semana pasada · 4 semanas · Todo**. "Semana pasada" exists because early in a week the current view is nearly empty and the averages smooth the last week away — there was no way to see how the week you just finished actually went. The multi-week views show the **average sets per week**, not a period total — a total sits several times above the weekly reference band and would read as healthy while you were undertrained. On the dev data, pecho reads 6 this week but averages 1.5/week against a 10–20 band; that gap is the reason the selector exists, and it is invisible from the weekly number alone. The body map follows the same period as the bars.
 
-## Prior status: the exercise taxonomy and a rebuilt `/progreso` — shipped, deployed and committed (`c123c28`).
+## Prior status: the exercise taxonomy and a rebuilt `/progreso` — shipped, deployed and committed (`6aa8e19`).
 
 **All five feedback items are now done in code.** Item 5 turned into something bigger than the original ask, because you reframed it: rather than only regrouping the dashboard, you decided to add the muscle-group taxonomy the project had declined twice before, so the app could produce real reports.
 
@@ -144,7 +144,7 @@ Migrations `0018`, `0019`, `0020` are applied to dev; production applies them au
 
 **Nothing is blocked or urgent.** All five user-feedback items and every milestone deliverable through M6 are shipped. Candidates, in rough order of value — the reasoning for each is in `project-status.md`:
 
-1. ~~A `painLocation` column on `setLog`.~~ **Shipped 2026-08-09** (`daabc31`). Logging pain above 0 now asks where, separating ordinary soreness from joint pain. It deliberately does not yet change the progression thresholds — **that is the next decision**, and it needs real logged pain to make responsibly. Every set to date carries pain 0.
+1. ~~A `painLocation` column on `setLog`.~~ **Shipped 2026-08-09** (`e671424`). Logging pain above 0 now asks where, separating ordinary soreness from joint pain. It deliberately does not yet change the progression thresholds — **that is the next decision**, and it needs real logged pain to make responsibly. Every set to date carries pain 0.
 2. **Use the dashboard for a few real weeks, then re-read the reference bands.** If the averages read as discouraging with genuine data, change the copy around the band rather than the numbers.
 3. **Read what is already written**: `workoutSession.notes` and `musclePriority` are captured and never surfaced.
 4. **M6's remaining acceptance** is field validation, not code: two weeks of real use per tester, friction documented, then the decision on web vs offline vs native.
