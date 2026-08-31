@@ -76,8 +76,18 @@ Pure logic is colocated with a `.test.ts`; DB repositories are untested by conve
 ```bash
 nvm use v24.18.0          # first, always — other versions break Vitest's config loader
 npm run lint && npm run typecheck && npm run test && npm run build
-npx vercel deploy --prod --yes    # npx, not bare vercel
 ```
+
+**Code ships through a PR** (`/pr`), not a direct push. Branch, verify, commit,
+open the PR, and hand back the PR link *and* its Vercel preview URL — the
+preview is the only surface where the work can be checked on a real iPhone.
+Merging to `main` deploys to production automatically, so a merge is a deploy:
+never merge unasked, and never while a session is `status = 'active'`.
+Docs-only changes still go straight to `main`.
+
+`npx vercel deploy --prod --yes` remains for an out-of-band production deploy
+(npx, not bare `vercel`) — but note it uploads the **working tree**, not `HEAD`,
+so uncommitted work ships with it unless stashed.
 
 Migrations apply automatically during the Vercel build (`vercel.json` chains `db:migrate && build`), so schema and code ship together and there is no separate migration step.
 

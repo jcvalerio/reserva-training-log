@@ -24,3 +24,13 @@ Web MVP for an iPhone-first gym training log: build a plan by hand, log every se
 4. Prefer deterministic validation/guardrails around AI output.
 5. Never commit secrets or `.env*` files.
 6. Use conventional commits.
+7. **Code lands through a pull request, never straight to `main`.** Branch as
+   `<type>/<short-kebab-summary>`, run `lint && typecheck && test && build`
+   before committing, and open the PR with `/pr`. Docs-only changes are the
+   exception and go direct.
+8. **Merging to `main` deploys to production automatically.** Treat a merge as
+   a deploy: never merge a PR you were not asked to merge, and never merge
+   while a workout session may be in progress (`status = 'active'`).
+9. Every PR gets a Vercel preview URL. Report it alongside the PR link — it is
+   the only way the work can be checked on a real iPhone, and this project has
+   shipped a bug that every local check passed and a device caught in minutes.
