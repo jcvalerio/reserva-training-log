@@ -24,7 +24,7 @@ A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building
 
 1. **Profile** (`/perfil`) — goals, limitations, muscle priorities, target training days.
 2. **Plan** — activate one of four hardcoded templates (`/plan/templates`) or build one by hand (`/plan/builder`). Plans can be shared to another account by email invite, which clones them.
-3. **Train** (`/entrenar`) — run a session, log every set with weight/reps/RIR/pain, get a pain-aware progression suggestion prefilled, log bonus sets past the target, correct or delete a logged set, and substitute an exercise mid-session when a machine is busy or something feels wrong.
+3. **Train** (`/entrenar`) — run a session, log every set with weight/reps/RIR/pain, get a pain-aware progression suggestion prefilled, log bonus sets past the target, correct or delete a logged set, and substitute an exercise mid-session when a machine is busy or something feels wrong. Ending a session goes through `/entrenar/[sessionId]/finalizar`, which states what is unfinished and offers a way back into it — nothing on the runner itself submits, so a mis-tap can only navigate.
 4. **Progress** (`/progreso`) — weekly effective sets per muscle group over four selectable periods, a front/back body map, balance ratios, pain grouped by where it hurt, exercises grouped by muscle group with per-exercise progression charts, recent improvements, weekly consistency, and body-measurement trends.
 5. **Guide** (`/guia`) — what RIR means, AMRAP, the progression math, and how sets per muscle group are counted.
 

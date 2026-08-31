@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-31 — The finish screen, and nothing on the runner submits any more
+
+Status: shipped. `lint`/`typecheck`/`test` (600 passing, +13)/`build` green. Deployed `4aos44tco`, aliased to `gym.jcvalerio.com`; `/entrenar/[sessionId]/finalizar` confirmed in the deployed route table and 307-ing (the auth redirect, expected unauthenticated). No migration.
+
+The route the 2026-08-18 entry scoped and deliberately deferred. Reported originally as: the calls to action looked alike, so reaching for the next exercise could end the workout instead.
+
+**The change that matters is not the new screen — it is that finishing is now a `Link`.** 2026-08-18 established why: three separate unmounts slid the finish control under a habituated thumb (the disclosure collapsing, the rest timer unmounting, the logging form collapsing), *two of them with no user action at all*, and WebKit implements no scroll anchoring. Restyling could never have fixed a control that was not stationary. With nothing on the runner submitting, those shifts are harmless — the worst a mis-tap can do is navigate.
+
+**A real route rather than a modal or an in-place swap**, and that is load-bearing: the iOS back-swipe and the shell's back link both become working cancel affordances for free. A modal has one exit; a view swap makes Back leave the session entirely. For a screen whose whole job is "are you sure", the exits are the feature.
+
+**It earns the extra tap instead of nagging.** It is the only screen that can say what you are about to abandon: `3 de 7 ejercicios completos`, then a tappable list of what is unfinished — each row a way back into the work, with per-side counts for unilateral exercises. Confirm sits *below* that list on purpose, so the thumb travels past what it is leaving; that travel is the safety mechanism, which is why it is deliberately not a sticky action bar. RPE and notes moved here expanded rather than collapsed — beside the old finish button they were easy to miss and easy to mistake for the button, and their collapsing was one of the three things that moved it.
+
+**The deferred trap, now pinned.** The 2026-08-18 entry warned that Cancelar remounts `SessionRunner` and reseeds `exerciseIndex` to first-incomplete, silently dropping you on exercise 2 after leaving from exercise 5. The round trip carries it: runner links `?volver=<id>` → the finish screen builds its back href as `?ejercicio=<id>` → `page.tsx` reads it into `initialExerciseId` → the runner resolves it, and a stale id (a URL outliving a plan edit) falls through to the heuristic rather than erroring. Five tests cover this, including one asserting the finish control is an `<a>` and not a `<button>`, so the safety argument cannot quietly regress.
+
+`buildFinishSummary` is deliberately **not** `buildSessionRecap`: that needs `getRecentExerciseInstancesByName` and `getPriorStrengthInstancesForNames` to say what improved and what was a record — results, which belong to the summary *after* finishing rather than a preview of it, and which would spend the ending's payoff before the ending. Every number here is a plain count or sum of what is already loaded to run the session. `isExerciseComplete` moved into `session-finish.ts` because three readings must now agree exactly — the opening exercise, the progress rail, and this list; two disagreeing would show a session as finishable while the rail still showed work left.
+
+Files: `src/app/entrenar/[sessionId]/finalizar/{page,finish-session-view}.tsx` (new), `src/workouts/session-finish.ts` + `.test.ts` (new), `session-runner.tsx` (−167 lines: the inline panel and `completeSessionAction` are gone; `RecapTile` now exported), `session-runner.test.tsx` (+5 tests), `page.tsx` (+`?ejercicio=` → `initialExerciseId`).
+
+**Known gap, stated rather than hidden: this has never been checked in a real browser.** jsdom does not measure geometry, and this repo has been caught twice — a finish control rendering 350px wide despite its class list, and a `{/* */}` comment that passed `tsc` and was rejected by SWC. Worth a 390×844 pass over tap targets, the unfinished list with a long exercise name, and horizontal overflow before relying on it mid-workout.
+
 ## 2026-08-30 (later) — Reordering a plan was rewriting exercises in place
 
 Status: shipped. `lint`/`typecheck`/`test` (595 passing, +15)/`build` green. Deployed `hulpy30lk`, aliased to `gym.jcvalerio.com`. No migration.

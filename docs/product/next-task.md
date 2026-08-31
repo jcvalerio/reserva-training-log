@@ -2,7 +2,29 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: two `/entrenar` fixes are shipped and deployed (`7b56686`) — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
+## Status: the plan-reorder data bug is fixed, Sentry is live, and the finish screen shipped (`fde3810`, deployed `4aos44tco`).
+
+Three things landed together, and two of them were the same bug.
+
+**A user could not open a session** — `/entrenar` → Continuar died with "This page couldn't load". **Root cause:** `saveDraftSession` matched existing `exercisePrescription` rows **by position**, so reordering exercises in the builder rewrote a row in place while its `exerciseLog` history stayed pointed at it. `getPreviousPerformance` filters on `exerciseNameEs`, so one exercise's history answered to another's name — and when a strength and a duration exercise swapped, a row typed `"strength"` ended up owning sets with null weight/reps/RIR, which threw inside a client component and blanked the page. The form now round-trips each row's `prescriptionId` (`planPrescriptionWrites`, pure, 10 tests); reordering changes only `orderIndex`.
+
+**Sentry is live**, with source maps — it turned `at ad (0zsaoe4nar2uk.js:40:55721)` into `workout-repository.ts:41`. Health data is scrubbed in three layers and verified against a real captured payload, which caught a leak the config alone did not: the navigation breadcrumb was carrying the query string under `{ from, to }`. Cost measured: **+63.4 KB brotli**, on every page. Deliberately not lazy-loaded — deferring init past hydration would have missed this exact crash.
+
+**The finish screen** (`/entrenar/[sessionId]/finalizar`) — see the newest implementation-log entry.
+
+**Now worth checking on your phone**, in this order:
+
+1. **The finish screen has never been opened in a real browser.** jsdom does not measure geometry and this repo has been caught twice. Check tap targets, the unfinished list with a long exercise name, and horizontal overflow at 390px, then Cancelar → confirm you land back on the exercise you left.
+2. **Reorder two exercises in the plan builder** and confirm the definitions move with the names — sets, reps and RIR should follow the exercise, not stay at the position.
+3. Open `/progreso`. Athlete B has five prescription rows carrying misattributed sets; the guards mean these are skipped, not thrown on, but the charts will have gaps.
+
+**Known data issue, deliberately left in place.** Athlete B's pre-2026-08-30 history is corrupted by the reorder bug — 18 structurally-detectable sets, plus an unknown number of strength-to-strength swaps that **no query can find** (she confirmed Fondos recorded at 5–7.5 kg when she pressed 40). She chose to keep the records and correct them by hand. Full inventory, the 18 set ids, and the unrun repair SQL are in `~/jcvalerio/dev/github/reserva-data-notes/` — deliberately outside this public repo, since it is one athlete's real training data.
+
+**That plan depends on a feature that does not exist yet.** There is no in-app way to reassign a logged exercise; today the only option is deleting each set and re-entering it. Filed as **issue #10**, and it is the highest-value next build: the operation is a single `exercise_log.exercise_prescription_id` update (the sets hang off the log and travel with it), it makes this whole class of mistake self-serviceable, and a real person is currently blocked on it.
+
+**Open issues:** #1–#8 are the physiotherapy review (pain prompting, limb symmetry index, RIR calibration, increment quantization, mobility outcome measures, weekly load guardrail, bursitis re-entry). #9 is English. #10 is the reassign feature above.
+
+## Prior status: two `/entrenar` fixes are shipped and deployed (`7b56686`) — scroll-on-exercise-change, and an end-of-session action that can't be hit by accident (plus `Reabrir sesión`).
 
 Reported live, mid-workout. Both were geometry problems, not styling ones. Full detail in `implementation-log.md`; the short version:
 
