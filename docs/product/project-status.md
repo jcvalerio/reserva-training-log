@@ -85,6 +85,18 @@ Merging to `main` deploys to production automatically, so a merge is a deploy:
 never merge unasked, and never while a session is `status = 'active'`.
 Docs-only changes still go straight to `main`.
 
+**Vercel is git-connected** (2026-08-31): merging to `main` deploys production
+automatically, and every PR gets a preview. Preview runs against its own Neon
+branch — `vercel.json` chains `db:migrate`, so a preview without its own
+`DATABASE_URL` fails the build rather than touching production, which is the
+safe failure but still a broken preview.
+
+Google OAuth needs an exact redirect URI, and preview URLs are dynamic, so
+`BETTER_AUTH_URL` is pinned to `https://preview.gym.jcvalerio.com` for Preview
+and that URI is registered in Google. To sign in on a preview, alias it first:
+`npx vercel alias <preview-url> preview.gym.jcvalerio.com`. Unauthenticated
+pages (`/`, `/privacidad`) work on any preview URL without aliasing.
+
 `npx vercel deploy --prod --yes` remains for an out-of-band production deploy
 (npx, not bare `vercel`) — but note it uploads the **working tree**, not `HEAD`,
 so uncommitted work ships with it unless stashed.
