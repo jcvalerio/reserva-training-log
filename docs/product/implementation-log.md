@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-31 (later) — Reassigning a logged exercise, swapping two of them, and a privacy page
+
+Status: shipped and confirmed working by the athlete. `lint`/`typecheck`/`test` (623 passing, +40)/`build` green. Deployed `fq144kihg`, then `95iza6p83` for the swap. Closes issue #10. No migration.
+
+**The correction for logging against the wrong exercise.** Raised by the owner while cleaning up after the plan-reorder corruption, but it stands alone: tapping the card above the one you meant is ordinary, and until now the only remedies were deleting every set and re-entering them, or living with it — the second of which silently corrupts progression, since `getPreviousPerformance` reads whatever is filed under that exercise. The reorder incident produced this state at scale and cleaning it up needed database access, hand-written SQL and a conversation about what the athlete remembered lifting. This makes the class of mistake self-serviceable.
+
+**Shipped once, wrong, then corrected by real use.** The first version refused any target that already had sets, to stop two `exerciseLog` rows for one exercise double-counting it in every `/progreso` read. The athlete tried it and every candidate was refused: the reorder bug had shifted a whole day's values *one position*, so every exercise held its neighbour's work and **no target was ever empty**. The one operation the data needed was the one being refused.
+
+A target with sets is now a **swap** — the two exercises trade their work, which still leaves exactly one log per exercise, so the double-counting the refusal existed to prevent still cannot happen. The refusal was solving the right problem the wrong way. Since any permutation decomposes into transpositions, repeated pair swaps reach any correct arrangement.
+
+**A swap must be legal in both directions.** `setsFitPrescription` is a one-way check run twice — my sets against that exercise, and its sets against mine. Strength/duration pairs stay refused, which is what keeps the crash from 2026-08-30 out.
+
+**Implemented by moving the sets, not the prescriptions.** Swapping `exerciseLog.exercisePrescriptionId` is the obvious approach and is impossible: `exercise_log_session_prescription_unique` covers (workoutSessionId, exercisePrescriptionId), so the first of two updates always collides with the row it is about to displace, and a Postgres unique **index** cannot be deferred. Moving `setLog.exerciseLogId` has no such constraint, and a single `CASE` statement makes it one atomic write with no intermediate state.
+
+`reassignExerciseLog` re-validates everything server-side against the database rather than trusting the posted list, and additionally pins both prescriptions to the session's own template so a crafted post cannot move a log onto another day's exercise. One error message for every refusal, so a probe learns nothing about which check it tripped. Refused targets are *shown* with their reason rather than hidden — someone hunting for the exercise they meant needs to read why it will not take the sets.
+
+**Privacy page** (`/privacidad`, static, reachable without signing in — a policy behind a login is not one). The app records pain scores, pain locations and body measurements, and has been public to strangers with nothing stated. Plain Spanish: what is stored, who can see it, that sharing a plan copies the plan and never the history, where it lives (Vercel, Neon, Google, Sentry), and that Sentry reports are filtered to exclude identity, form contents and every health value — which is true because it was verified against a real captured payload, not assumed. Deletion is an email address handled by a person, stated as such, because there is no automated flow and promising one would be a lie. Linked from the foot of every page carrying the brand chrome, not the active session runner where vertical space is scarce.
+
+**Known gap this exposed:** after a swap, an exercise can legitimately end with **no sets** — the athlete hit exactly this on "Fondos en máquina" — and a completed session has no way to add one. The screen already supports editing and deleting sets there; adding is the missing third of that trio. `Reabrir sesión` is a working detour, but it nulls `completedAt`, which drops the session out of every `/progreso` report until it is completed again, and it can be refused outright by `hasOtherActiveSessionForTemplate`. Worth closing. Note that `/progreso` buckets a set into a week by **`session.completedAt`**, not the set's own timestamp, so a set added later lands in the session's original week rather than today's.
+
 ## 2026-08-31 — The finish screen, and nothing on the runner submits any more
 
 Status: shipped. `lint`/`typecheck`/`test` (600 passing, +13)/`build` green. Deployed `4aos44tco`, aliased to `gym.jcvalerio.com`; `/entrenar/[sessionId]/finalizar` confirmed in the deployed route table and 307-ing (the auth redirect, expected unauthenticated). No migration.

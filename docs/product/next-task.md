@@ -2,7 +2,25 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the plan-reorder data bug is fixed, Sentry is live, and the finish screen shipped (`fde3810`, deployed `4aos44tco`).
+## Status: an athlete can now correct their own mis-filed history (#10 closed), and there is a privacy page. Deployed `95iza6p83`.
+
+**Reassign / swap a logged exercise**, on a completed session. Confirmed working by the athlete on real data. Move it onto an exercise with nothing logged, or **swap** with one that already has sets — the two trade their work, which is how a whole day's mis-filed values get corrected pair by pair. Repeated swaps reach any arrangement.
+
+Shipped once wrong, and real use corrected it: the first version refused any target that already had sets, and every candidate she saw was refused, because the reorder bug had shifted a whole day one position so nothing was ever empty. Worth remembering as a pattern — the guard was solving the right problem (double-counting) the wrong way.
+
+**Privacy page** at `/privacidad`, static and readable without signing in.
+
+**The next thing, and it came from using the fix:** after a swap, an exercise can legitimately end with **no sets** — she hit this on "Fondos en máquina" — and there is no way to log one on a finished session. The screen already lets you edit and delete sets there; adding is the missing third of that trio.
+
+`Reabrir sesión` is a working detour but a poor one: it nulls `completedAt`, which drops the session out of every `/progreso` report until it is completed again, and `hasOtherActiveSessionForTemplate` can refuse it outright. Two things make the real fix small — `saveSetForSession` has no status check, so the write path already allows it, and `/progreso` buckets a set into a week by **`session.completedAt`** rather than the set's own timestamp, so a set added weeks later still lands in the right week. What is missing is only the UI.
+
+**Still unverified in a real browser:** the finish screen, the reassign panel and the privacy page have all shipped without a 390px pass. jsdom does not measure geometry and this repo has been caught by that twice.
+
+**Open issues:** #1–#8 are the physiotherapy review (pain prompting, limb symmetry index, RIR calibration, increment quantization, mobility outcome measures, weekly load guardrail, bursitis re-entry). #9 is English.
+
+**Known data issue, unchanged:** Athlete B's pre-2026-08-30 history is still corrupted and she chose to keep it and correct it by hand — which is now possible for anything a swap can fix. Sets whose original exercise no longer exists in her plan (Plancha lateral, the day-1 finisher) still have nowhere to go until those exercises are added back. Inventory and unrun repair SQL live in `~/jcvalerio/dev/github/reserva-data-notes/`, outside this public repo.
+
+## Prior status: the plan-reorder data bug is fixed, Sentry is live, and the finish screen shipped (`fde3810`, deployed `4aos44tco`).
 
 Three things landed together, and two of them were the same bug.
 

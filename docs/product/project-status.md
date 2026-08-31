@@ -24,9 +24,10 @@ A Spanish-first, iPhone-only web app at `https://gym.jcvalerio.com` for building
 
 1. **Profile** (`/perfil`) — goals, limitations, muscle priorities, target training days.
 2. **Plan** — activate one of four hardcoded templates (`/plan/templates`) or build one by hand (`/plan/builder`). Plans can be shared to another account by email invite, which clones them.
-3. **Train** (`/entrenar`) — run a session, log every set with weight/reps/RIR/pain, get a pain-aware progression suggestion prefilled, log bonus sets past the target, correct or delete a logged set, and substitute an exercise mid-session when a machine is busy or something feels wrong. Ending a session goes through `/entrenar/[sessionId]/finalizar`, which states what is unfinished and offers a way back into it — nothing on the runner itself submits, so a mis-tap can only navigate.
+3. **Train** (`/entrenar`) — run a session, log every set with weight/reps/RIR/pain, get a pain-aware progression suggestion prefilled, log bonus sets past the target, correct or delete a logged set, and substitute an exercise mid-session when a machine is busy or something feels wrong. Ending a session goes through `/entrenar/[sessionId]/finalizar`, which states what is unfinished and offers a way back into it — nothing on the runner itself submits, so a mis-tap can only navigate. On a completed session, sets stay editable and deletable, and a logged exercise can be **reassigned** to another exercise in that session — or **swapped** with one that already has sets, which is how a whole day's mis-filed work gets corrected pair by pair.
 4. **Progress** (`/progreso`) — weekly effective sets per muscle group over four selectable periods, a front/back body map, balance ratios, pain grouped by where it hurt, exercises grouped by muscle group with per-exercise progression charts, recent improvements, weekly consistency, and body-measurement trends.
-5. **Guide** (`/guia`) — what RIR means, AMRAP, the progression math, and how sets per muscle group are counted.
+5. **Privacy** (`/privacidad`) — what is stored, who sees it, where it lives, and how to ask for deletion. Static and readable without signing in.
+6. **Guide** (`/guia`) — what RIR means, AMRAP, the progression math, and how sets per muscle group are counted.
 
 All five items of the 2026-08 user-feedback batch are shipped. Milestone M6's dashboard deliverable is done; its remaining acceptance criteria are field-validation, not code.
 
