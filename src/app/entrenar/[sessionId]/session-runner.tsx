@@ -9,7 +9,7 @@ import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } 
 import type { DurationUnit } from "@/training/duration";
 import { painLocationLabelsEs, painLocations } from "@/training/muscle-taxonomy";
 import { rirValues, toDisplayRir } from "@/training/rir";
-import { rpeLabelsEs, rpeValues } from "@/training/rpe";
+import { rpeLabelsEs } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
 import type { ProgressionAction, ProgressionRiskFlag } from "@/training/progression";
 import {
@@ -18,6 +18,7 @@ import {
   splitPlannedAndBonusSets,
   suggestNextWeightKg,
 } from "@/workouts/progression-view";
+import { isExerciseComplete } from "@/workouts/session-finish";
 import type { PersonalRecord, PersonalRecordKind, SessionRecap } from "@/workouts/session-recap";
 import {
   isSymptomReason,
@@ -50,7 +51,6 @@ export function SessionRunner({
   exercises,
   recap,
   saveSetAction,
-  completeSessionAction,
   reopenSessionAction,
   updateTargetSetsAction,
   updateSetAction,
@@ -59,6 +59,7 @@ export function SessionRunner({
   substitutesByExerciseId,
   planSubstituteChoices,
   smallerSideHint,
+  initialExerciseId = null,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -66,7 +67,6 @@ export function SessionRunner({
   /** Only computed by the server page when session.status === "completed". */
   recap: SessionRecap | null;
   saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
-  completeSessionAction: (formData: FormData) => Promise<void>;
   reopenSessionAction: (
     prevState: ReopenSessionActionState,
     formData: FormData,
@@ -84,8 +84,22 @@ export function SessionRunner({
   substitutesByExerciseId: Record<string, { exerciseNameEs: string }[]>;
   planSubstituteChoices: { exerciseNameEs: string }[];
   smallerSideHint: "left" | "right" | null;
+  /**
+   * Which exercise to open on, overriding the first-incomplete default.
+   * Set when returning from /finalizar so cancelling puts you back where you
+   * were rather than on the first thing you happen not to have finished.
+   */
+  initialExerciseId?: string | null;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
+    // A stale or unknown id falls through to the normal heuristic rather than
+    // erroring — the value arrives from a URL and can outlive a plan edit.
+    const requested = initialExerciseId
+      ? exercises.findIndex((exercise) => exercise.id === initialExerciseId)
+      : -1;
+    if (requested !== -1) {
+      return requested;
+    }
     const firstIncomplete = exercises.findIndex((exercise) => !isExerciseComplete(exercise));
     return firstIncomplete === -1 ? Math.max(exercises.length - 1, 0) : firstIncomplete;
   });
@@ -708,9 +722,9 @@ export function SessionRunner({
         ≥7 significa detener y buscar orientación profesional si persiste.
       </div>
 
-      <FinishSessionPanel
+      <FinishSessionLink
         sessionId={session.id}
-        completeSessionAction={completeSessionAction}
+        currentExerciseId={currentExercise.id}
         remainingCount={remainingExerciseCount}
       />
     </AppShell>
@@ -732,118 +746,50 @@ export function SessionRunner({
  * Restyling alone could not have fixed that — a habituated thumb aims at a
  * remembered position, and the remembered position was never stable.
  *
- * So the always-present submit is gone. What sits here is low-emphasis text
- * that only *reveals*, which is why the shifts above are now harmless: the
- * worst a mis-tap can do is open this panel. The RPE and notes fields moved
- * inside it rather than being deleted — they are the only capture point for
- * workoutSession.sessionRpe/notes, and they were never really a peer of the
- * navigation controls. Deliberately no new colour: fill → ring → coloured
+ * So nothing here submits. This is a link to /finalizar, which means the
+ * shifts above are harmless: the worst a mis-tap can do is navigate to a
+ * screen with its own "Volver al entrenamiento". The RPE and notes fields
+ * live there now rather than beside the navigation controls, where they were
+ * never really a peer. Deliberately no new colour: fill → ring → coloured
  * text → plain text was a four-rung ladder the screen was using one rung of,
  * and amber/red stays the pain channel.
  *
- * Mirrors the confirm-in-place pattern EditableSetRow already uses for
- * "Borrar este set" — a smaller claim than ending a whole workout, and until
- * now the only one of the two that asked.
+ * `volver` carries the exercise you were on, because navigating away and back
+ * remounts this component and the opening index is otherwise recomputed as
+ * "first incomplete" — which would silently drop you on exercise 2 after you
+ * cancelled out of finishing on exercise 5.
  */
-function FinishSessionPanel({
+function FinishSessionLink({
   sessionId,
-  completeSessionAction,
+  currentExerciseId,
   remainingCount,
 }: {
   sessionId: string;
-  completeSessionAction: (formData: FormData) => Promise<void>;
+  currentExerciseId: string;
   remainingCount: number;
 }) {
-  const [isConfirming, setIsConfirming] = useState(false);
-  const panelRef = useRef<HTMLFormElement | null>(null);
-
-  // The panel opens below the fold from a control that sits at the very end
-  // of a long document, so bring it into view — same reasoning (and same
-  // instant behaviour) as the exercise-change scroll.
-  useEffect(() => {
-    if (isConfirming) {
-      panelRef.current?.scrollIntoView({ block: "start" });
-    }
-  }, [isConfirming]);
-
   const remainingHintId = useId();
-  const remainingLabel =
-    remainingCount === 1 ? "falta 1 ejercicio" : `faltan ${remainingCount} ejercicios`;
+  const remainingLabel = remainingCount === 1 ? "falta 1 ejercicio" : `faltan ${remainingCount} ejercicios`;
 
-  if (!isConfirming) {
-    // A column, not one long label. The remaining work has to be stated —
-    // that is what makes this readable when tapped in peripheral vision —
-    // but folding it into the button text made the button 350px wide in a
-    // real browser, re-inflating the very target this restructure exists to
-    // shrink. As a caption it still reads, and the button stays small.
-    // aria-describedby keeps the two associated for a screen reader.
-    return (
-      <div className="mt-8 mb-10 flex flex-col items-center gap-1 border-t border-zinc-800 pt-5">
-        {remainingCount > 0 ? (
-          <p id={remainingHintId} className="text-xs leading-5 text-zinc-500">
-            Todavía te {remainingLabel}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setIsConfirming(true)}
-          aria-describedby={remainingCount > 0 ? remainingHintId : undefined}
-          className="min-h-11 rounded-xl px-3 text-sm font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-        >
-          Terminar entrenamiento
-        </button>
-      </div>
-    );
-  }
-
+  // A column, not one long label. The remaining work has to be stated — that
+  // is what makes this readable when tapped in peripheral vision — but
+  // folding it into the control's text made it 350px wide in a real browser,
+  // re-inflating the very target this restructure exists to shrink.
   return (
-    <form
-      ref={panelRef}
-      action={completeSessionAction}
-      className="mt-8 mb-10 grid scroll-mt-16 gap-3 border-t border-zinc-800 pt-5"
-    >
-      <input type="hidden" name="workoutSessionId" value={sessionId} />
-      <h2 className="text-lg font-semibold text-zinc-100">Terminar entrenamiento</h2>
+    <div className="mt-8 mb-10 flex flex-col items-center gap-1 border-t border-zinc-800 pt-5">
       {remainingCount > 0 ? (
-        <p className="text-sm leading-6 text-zinc-400">
-          Todavía te {remainingLabel}. Al terminar, la sesión se cierra y las series que falten quedan sin
-          registrar.
+        <p id={remainingHintId} className="text-xs leading-5 text-zinc-500">
+          Todavía te {remainingLabel}
         </p>
-      ) : (
-        <p className="text-sm leading-6 text-zinc-400">Completaste todos los ejercicios de la sesión.</p>
-      )}
-      <label className="grid gap-1 text-sm font-medium text-zinc-300">
-        <span>Esfuerzo percibido (RPE)</span>
-        <select name="sessionRpe" defaultValue="" className="input">
-          <option value="">Sin especificar</option>
-          {rpeValues.map((value) => (
-            <option key={value} value={value}>
-              {value} — {rpeLabelsEs[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm font-medium text-zinc-300">
-        <span>Notas de la sesión</span>
-        <textarea name="notes" rows={2} className="input resize-none" placeholder="¿Algo a considerar para la próxima?" />
-      </label>
-      <p className="text-xs leading-5 text-zinc-500">Los dos campos son opcionales.</p>
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setIsConfirming(false)}
-          className="min-h-12 rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-        >
-          Volver al entrenamiento
-        </button>
-        <SubmitButton
-          pendingChildren="Terminando…"
-          className="min-h-12 rounded-2xl bg-emerald-300 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
-        >
-          Terminar entrenamiento
-        </SubmitButton>
-      </div>
-    </form>
+      ) : null}
+      <Link
+        href={`/entrenar/${sessionId}/finalizar?volver=${encodeURIComponent(currentExerciseId)}`}
+        aria-describedby={remainingCount > 0 ? remainingHintId : undefined}
+        className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+      >
+        Terminar entrenamiento
+      </Link>
+    </div>
   );
 }
 
@@ -1093,7 +1039,8 @@ function SessionRecapCard({ recap }: { recap: SessionRecap }) {
   );
 }
 
-function RecapTile({ label, value }: { label: string; value: string }) {
+/** Also used by the finish screen, so the two read as the same object. */
+export function RecapTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-zinc-950 px-2 py-3 ring-1 ring-zinc-800">
       <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
@@ -1614,20 +1561,6 @@ function LoggedSetsList({
       ) : null}
     </div>
   );
-}
-
-/**
- * A unilateral exercise's targetSets means sets per side, not a shared total
- * — completing 3 left-side sets says nothing about the right side.
- */
-function isExerciseComplete(exercise: ExerciseWithLoggedSets): boolean {
-  if (!exercise.isUnilateral) {
-    return exercise.loggedSets.length >= exercise.targetSets;
-  }
-
-  const leftCount = exercise.loggedSets.filter((set) => set.side === "left").length;
-  const rightCount = exercise.loggedSets.filter((set) => set.side === "right").length;
-  return leftCount >= exercise.targetSets && rightCount >= exercise.targetSets;
 }
 
 function DurationSetInput({ defaultSeconds }: { defaultSeconds: number | "" }) {

@@ -16,7 +16,6 @@ import type {
 import { SessionRunner } from "./session-runner";
 
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
-const noopCompleteSessionAction = vi.fn(async () => {});
 const noopReopenSessionAction = vi.fn(async (): Promise<ReopenSessionActionState> => ({ status: "idle" }));
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
@@ -145,7 +144,6 @@ function renderRunner({
   session = buildSession(),
   recap = null,
   saveSetAction = noopSaveSetAction,
-  completeSessionAction = noopCompleteSessionAction,
   reopenSessionAction = noopReopenSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
   updateSetAction = noopUpdateSetAction,
@@ -154,12 +152,12 @@ function renderRunner({
   substitutesByExerciseId = {},
   planSubstituteChoices = [],
   smallerSideHint = null,
+  initialExerciseId = null,
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
   recap?: SessionRecap | null;
   saveSetAction?: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
-  completeSessionAction?: (formData: FormData) => Promise<void>;
   reopenSessionAction?: (
     prevState: ReopenSessionActionState,
     formData: FormData,
@@ -177,6 +175,7 @@ function renderRunner({
   substitutesByExerciseId?: Record<string, { exerciseNameEs: string }[]>;
   planSubstituteChoices?: { exerciseNameEs: string }[];
   smallerSideHint?: "left" | "right" | null;
+  initialExerciseId?: string | null;
 }) {
   return render(
     <SessionRunner
@@ -185,7 +184,6 @@ function renderRunner({
       exercises={exercises}
       recap={recap}
       saveSetAction={saveSetAction}
-      completeSessionAction={completeSessionAction}
       reopenSessionAction={reopenSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}
@@ -194,6 +192,7 @@ function renderRunner({
       substitutesByExerciseId={substitutesByExerciseId}
       planSubstituteChoices={planSubstituteChoices}
       smallerSideHint={smallerSideHint}
+      initialExerciseId={initialExerciseId}
     />,
   );
 }
@@ -508,135 +507,6 @@ describe("SessionRunner", () => {
     expect(screen.getByText("Nuevo récord personal")).toBeVisible();
     expect(screen.getByText("Prensa de piernas — volumen: 880kg")).toBeVisible();
     expect(screen.getByText("Sentadilla — 1RM estimado: 112.5kg")).toBeVisible();
-  });
-
-  // The RPE/notes fields used to sit in an always-present <details> beside
-  // the finish button. They moved inside the confirm panel rather than being
-  // deleted — they remain the only capture point for sessionRpe/notes.
-  it("offers the optional RPE and notes fields once the finish panel is open", () => {
-    const exercise = buildExercise({ loggedSets: [] });
-
-    renderRunner({ exercises: [exercise] });
-
-    expect(screen.queryByLabelText("Esfuerzo percibido (RPE)")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Terminar entrenamiento/ }));
-
-    expect(screen.getByLabelText("Esfuerzo percibido (RPE)")).toBeInTheDocument();
-    expect(screen.getByLabelText("Notas de la sesión")).toBeInTheDocument();
-  });
-
-  // The reported mis-tap: "Completar entrenamiento" was a full-width submit
-  // one gap below "Siguiente ejercicio", with a lookalike disclosure between
-  // them, ending the session irreversibly on a single tap.
-  describe("ending the session", () => {
-    it("does not put a session-ending submit in the navigation cluster", () => {
-      renderRunner({ exercises: [buildExercise({ loggedSets: [] })] });
-
-      // The control that remains only reveals; nothing here submits.
-      const finish = screen.getByRole("button", { name: /Terminar entrenamiento/ });
-      expect(finish).toHaveAttribute("type", "button");
-      expect(screen.queryByRole("button", { name: "Completar entrenamiento" })).not.toBeInTheDocument();
-    });
-
-    // Stated as a caption beside the button, not folded into its label: a
-    // real-browser check showed the combined string made the button 350px
-    // wide, re-inflating the target this restructure exists to shrink.
-    it("states the remaining work next to the control, singular and plural", () => {
-      const done = buildExercise({ id: "done", targetSets: 1, loggedSets: [buildSet({ setNumber: 1 })] });
-      const pendingA = buildExercise({ id: "pending-a", targetSets: 3, loggedSets: [] });
-      const pendingB = buildExercise({ id: "pending-b", targetSets: 3, loggedSets: [] });
-
-      const { unmount } = renderRunner({ exercises: [done, pendingA, pendingB] });
-      expect(screen.getByText("Todavía te faltan 2 ejercicios")).toBeVisible();
-      unmount();
-
-      renderRunner({ exercises: [done, pendingA] });
-      expect(screen.getByText("Todavía te falta 1 ejercicio")).toBeVisible();
-    });
-
-    it("describes the finish control by the remaining work, for a screen reader", () => {
-      const done = buildExercise({ id: "done", targetSets: 1, loggedSets: [buildSet({ setNumber: 1 })] });
-      const pending = buildExercise({ id: "pending", targetSets: 3, loggedSets: [] });
-
-      renderRunner({ exercises: [done, pending] });
-
-      const finish = screen.getByRole("button", { name: "Terminar entrenamiento" });
-      const describedBy = finish.getAttribute("aria-describedby");
-      expect(describedBy).toBeTruthy();
-      expect(document.getElementById(describedBy!)).toHaveTextContent("Todavía te falta 1 ejercicio");
-    });
-
-    it("says nothing about remaining work once every exercise is complete", () => {
-      const done = buildExercise({ id: "done", targetSets: 1, loggedSets: [buildSet({ setNumber: 1 })] });
-
-      renderRunner({ exercises: [done] });
-
-      expect(screen.getByRole("button", { name: "Terminar entrenamiento" })).toBeVisible();
-      expect(screen.queryByText(/Todavía te falta/)).not.toBeInTheDocument();
-    });
-
-    it("carries the session id and the optional fields once confirmed, and can be backed out of", () => {
-      renderRunner({ exercises: [buildExercise({ targetSets: 3, loggedSets: [] })] });
-
-      fireEvent.click(screen.getByRole("button", { name: /Terminar entrenamiento/ }));
-
-      const form = screen.getByLabelText("Esfuerzo percibido (RPE)").closest("form");
-      if (!form) {
-        throw new Error("Expected the finish panel to be a form.");
-      }
-      expect(new FormData(form).get("workoutSessionId")).toBe("session-1");
-      expect(screen.getByText(/las series que falten quedan sin registrar/)).toBeVisible();
-
-      fireEvent.click(screen.getByRole("button", { name: "Volver al entrenamiento" }));
-
-      expect(screen.queryByLabelText("Esfuerzo percibido (RPE)")).not.toBeInTheDocument();
-    });
-  });
-
-  // Disabled with the emerald fill intact still read as a bright, tappable
-  // button — you tap, nothing happens, and the reflex is to tap again lower.
-  it("renders Siguiente ejercicio as plainly inert on the last exercise, not as a dimmed primary button", () => {
-    renderRunner({ exercises: [buildExercise({ loggedSets: [] })] });
-
-    const next = screen.getByRole("button", { name: "Siguiente ejercicio" });
-    expect(next).toBeDisabled();
-    expect(next.className).not.toContain("bg-emerald-300");
-  });
-
-  it("keeps the exercise name and position visible in a sticky rail, with one dot per exercise", () => {
-    const done = buildExercise({ id: "done", exerciseNameEs: "Prensa de piernas", targetSets: 1, loggedSets: [buildSet({ setNumber: 1 })] });
-    const current = buildExercise({ id: "current", exerciseNameEs: "Extensión de piernas", targetSets: 3, loggedSets: [] });
-
-    renderRunner({ exercises: [done, current] });
-
-    const rail = screen.getByLabelText("Progreso de ejercicios");
-    expect(within(rail).getByLabelText("Prensa de piernas: Completo")).toBeInTheDocument();
-    expect(within(rail).getByLabelText("Extensión de piernas: En curso")).toBeInTheDocument();
-    expect(screen.getByText(/2\/2/)).toBeVisible();
-  });
-
-  // Completion used to be a one-way door: the only route onward was a new,
-  // empty session, leaving the sets already logged stranded in the completed
-  // one and the same workout counted twice in every report.
-  it("offers a confirmed way to reopen a session completed by accident", () => {
-    const exercise = buildExercise({ loggedSets: [buildSet({ setNumber: 1 })] });
-
-    renderRunner({ exercises: [exercise], session: buildSession({ status: "completed" }) });
-
-    expect(screen.getByText(/Si la terminaste sin querer/)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Reabrir sesión" }));
-
-    const confirm = screen.getByRole("button", { name: "Sí, reabrir" });
-    const form = confirm.closest("form");
-    if (!form) {
-      throw new Error("Expected the reopen confirmation to be a form.");
-    }
-    expect(new FormData(form).get("workoutSessionId")).toBe("session-1");
-    expect(screen.getByText(/sale de tus reportes hasta que la termines otra vez/)).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(screen.queryByRole("button", { name: "Sí, reabrir" })).not.toBeInTheDocument();
   });
 
   it("shows previous performance and a suggestion, prefilling weight/reps from it, before the first set is logged", () => {
@@ -1268,5 +1138,70 @@ describe("SessionRunner", () => {
 
       expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
     });
+  });
+});
+
+describe("SessionRunner — returning from /finalizar", () => {
+  // The 2026-08-18 log flagged this as the trap if the finish screen were ever
+  // built: "Cancelar" navigates away and back, which REMOUNTS SessionRunner and
+  // reseeds exerciseIndex to first-incomplete — silently dropping you on
+  // exercise 2 after you deliberately left from exercise 5. `?ejercicio=`
+  // carries the id; these pin that it is honoured.
+  function twoExercises() {
+    return [
+      buildExercise({
+        id: "exercise-a",
+        exerciseNameEs: "Prensa de piernas",
+        targetSets: 2,
+        loggedSets: [],
+      }),
+      buildExercise({
+        id: "exercise-b",
+        exerciseNameEs: "Extensión de cuádriceps",
+        targetSets: 2,
+        loggedSets: [],
+      }),
+    ];
+  }
+
+  it("opens on the exercise named by initialExerciseId, overriding first-incomplete", () => {
+    renderRunner({ exercises: twoExercises(), initialExerciseId: "exercise-b" });
+
+    // Both are incomplete, so the heuristic alone would have opened on A.
+    expect(screen.getByRole("heading", { name: "Extensión de cuádriceps" })).toBeVisible();
+  });
+
+  it("falls back to first-incomplete when the id is unknown", () => {
+    // The value arrives from a URL and can outlive a plan edit, so a stale id
+    // must degrade rather than error or render an empty screen.
+    renderRunner({ exercises: twoExercises(), initialExerciseId: "exercise-deleted" });
+
+    expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
+  });
+
+  it("still uses first-incomplete when no id is given", () => {
+    renderRunner({ exercises: twoExercises(), initialExerciseId: null });
+
+    expect(screen.getByRole("heading", { name: "Prensa de piernas" })).toBeVisible();
+  });
+
+  it("carries the exercise you are on to /finalizar, so cancelling returns you to it", () => {
+    renderRunner({ exercises: twoExercises(), initialExerciseId: "exercise-b" });
+
+    expect(screen.getByRole("link", { name: "Terminar entrenamiento" })).toHaveAttribute(
+      "href",
+      "/entrenar/session-1/finalizar?volver=exercise-b",
+    );
+  });
+
+  it("offers finishing as a link, never a submit — a mis-tap can only navigate", () => {
+    // The whole safety argument for this screen. Three separate unmounts used
+    // to slide an irreversible submit under a habituated thumb; a link makes
+    // that harmless, so this must not quietly become a button again.
+    renderRunner({ exercises: twoExercises() });
+
+    const finish = screen.getByRole("link", { name: "Terminar entrenamiento" });
+    expect(finish.tagName).toBe("A");
+    expect(screen.queryByRole("button", { name: "Terminar entrenamiento" })).toBeNull();
   });
 });

@@ -14,7 +14,6 @@ import {
 } from "@/workouts/workout-repository";
 
 import {
-  completeSessionAction,
   deleteSetAction,
   reopenSessionAction,
   saveSetAction,
@@ -24,8 +23,18 @@ import {
 } from "../actions";
 import { SessionRunner } from "./session-runner";
 
-export default async function SessionRunPage({ params }: { params: Promise<{ sessionId: string }> }) {
+export default async function SessionRunPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ sessionId: string }>;
+  // Set by /finalizar's "Volver al entrenamiento" and by its unfinished-list
+  // rows, so returning here lands on the exercise you meant rather than on
+  // whatever the first-incomplete heuristic picks.
+  searchParams: Promise<{ ejercicio?: string }>;
+}) {
   const { sessionId } = await params;
+  const { ejercicio } = await searchParams;
   const user = await requireCurrentUser();
   const profile = await getAthleteProfileForUser(user.id);
 
@@ -68,8 +77,8 @@ export default async function SessionRunPage({ params }: { params: Promise<{ ses
       exercises={exercises}
       recap={recap}
       saveSetAction={saveSetAction}
-      completeSessionAction={completeSessionAction}
       reopenSessionAction={reopenSessionAction}
+      initialExerciseId={ejercicio ?? null}
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
