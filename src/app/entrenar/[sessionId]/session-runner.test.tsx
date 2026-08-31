@@ -1263,6 +1263,36 @@ describe("SessionRunner — reassigning a logged exercise (completed session)", 
     expect(document.querySelector('input[name="sourcePrescriptionId"]')).toHaveValue("presc-a");
   });
 
+  it("offers an exercise that already has sets as a swap, not a refusal", () => {
+    // The real production case: the entries under one exercise belong to
+    // another, and vice versa. Refusing this made the feature useless.
+    const session = buildSession({ status: "completed" as const });
+    const exercises = [
+      buildExercise({
+        id: "presc-a",
+        exerciseNameEs: "Biceps en polea",
+        targetSets: 3,
+        loggedSets: [buildSet({ id: "set-1", setNumber: 1 })],
+      }),
+      buildExercise({
+        id: "presc-b",
+        exerciseNameEs: "Curl martillo con mancuernas",
+        targetSets: 3,
+        loggedSets: [buildSet({ id: "set-2", setNumber: 1 })],
+      }),
+    ];
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getAllByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" })[0]!);
+
+    expect(
+      within(screen.getByRole("combobox", { name: "Mover a" })).getByRole("option", {
+        name: /Curl martillo con mancuernas — intercambiar/,
+      }),
+    ).toBeInTheDocument();
+    // And the swap is explained, so it is never a surprise.
+    expect(screen.getByText(/se queda con las del otro/)).toBeVisible();
+  });
+
   it("shows a refused target with its reason rather than hiding it", () => {
     // Someone hunting for the exercise they meant needs to see why it will not
     // take the sets, not wonder where it went.

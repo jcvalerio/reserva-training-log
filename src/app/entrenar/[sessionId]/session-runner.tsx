@@ -920,6 +920,13 @@ function ReassignExercisePanel({
       <p className="mt-1 text-xs leading-5 text-zinc-300">
         Las series se mueven tal cual — no se pierde ningún dato.
       </p>
+      {available.some((option) => option.ok && option.mode === "swap") ? (
+        <p className="mt-1 text-xs leading-5 text-zinc-300">
+          Si el otro ejercicio ya tiene series, se{" "}
+          <span className="font-medium text-zinc-100">intercambian</span>: cada uno se queda con las del otro. Repetí
+          el intercambio de par en par hasta que todo quede en su lugar.
+        </p>
+      ) : null}
 
       {available.length === 0 ? (
         <p className="mt-3 text-xs leading-5 text-zinc-400">
@@ -935,6 +942,7 @@ function ReassignExercisePanel({
             {available.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.exerciseNameEs}
+                {option.ok && option.mode === "swap" ? " — intercambiar" : ""}
               </option>
             ))}
           </select>
@@ -957,6 +965,13 @@ function ReassignExercisePanel({
       {state.status === "error" ? (
         <p role="alert" className="mt-3 text-xs leading-5 text-amber-200">
           {state.message}
+        </p>
+      ) : null}
+      {state.status === "reassigned" ? (
+        <p role="status" className="mt-3 text-xs leading-5 text-emerald-300">
+          {state.mode === "swap"
+            ? `Listo — se intercambiaron ${state.movedSetCount} y ${state.swappedSetCount} series.`
+            : `Listo — se movieron ${state.movedSetCount} series.`}
         </p>
       ) : null}
 
@@ -1009,7 +1024,7 @@ function CompletedSessionSummary({
     exerciseNameEs: exercise.exerciseNameEs,
     prescriptionType: exercise.prescriptionType,
     isUnilateral: exercise.isUnilateral,
-    loggedSetCount: exercise.loggedSets.length,
+    loggedSets: exercise.loggedSets,
   }));
 
   return (

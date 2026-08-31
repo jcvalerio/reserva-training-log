@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -773,7 +773,8 @@ export type ExerciseInstance = {
  * session-over-session improvement on /progreso.
  */
 /**
- * Moves a logged exercise onto a different prescription in the same session.
+ * Moves a logged exercise onto a different prescription in the same session,
+ * or swaps its sets with the exercise already there.
  *
  * One row changes: `exerciseLog.exercisePrescriptionId`. The sets hang off the
  * exerciseLog, so they travel with it untouched — no set is rewritten, no
@@ -792,7 +793,7 @@ export async function reassignExerciseLog(
   workoutSessionId: string,
   sourcePrescriptionId: string,
   targetPrescriptionId: string,
-): Promise<{ movedSetCount: number } | null> {
+): Promise<{ movedSetCount: number; mode: "move" | "swap"; swappedSetCount: number } | null> {
   const [session] = await db
     .select({ id: workoutSession.id, planSessionTemplateId: workoutSession.planSessionTemplateId })
     .from(workoutSession)
@@ -838,8 +839,6 @@ export async function reassignExerciseLog(
     return null;
   }
 
-  // A second log for the same exercise in one session double-counts it in
-  // every /progreso read, so refuse rather than merge.
   const [targetLog] = await db
     .select({ id: exerciseLog.id })
     .from(exerciseLog)
@@ -850,20 +849,22 @@ export async function reassignExerciseLog(
       ),
     );
 
-  if (targetLog) {
-    return null;
-  }
-
   const sets = await db.select().from(setLog).where(eq(setLog.exerciseLogId, sourceLog.id));
   if (sets.length === 0) {
     return null;
   }
 
+  const targetSets = targetLog
+    ? await db.select().from(setLog).where(eq(setLog.exerciseLogId, targetLog.id))
+    : [];
+
+  const sourcePrescription = prescriptions.find((row) => row.id === sourcePrescriptionId)!;
+
   const check = canReassignTo(
     {
       id: sourcePrescriptionId,
-      prescriptionType: prescriptions.find((row) => row.id === sourcePrescriptionId)!.prescriptionType,
-      isUnilateral: prescriptions.find((row) => row.id === sourcePrescriptionId)!.isUnilateral,
+      prescriptionType: sourcePrescription.prescriptionType,
+      isUnilateral: sourcePrescription.isUnilateral,
       loggedSets: sets,
     },
     {
@@ -871,7 +872,7 @@ export async function reassignExerciseLog(
       exerciseNameEs: "",
       prescriptionType: target.prescriptionType,
       isUnilateral: target.isUnilateral,
-      loggedSetCount: 0,
+      loggedSets: targetSets,
     },
   );
 
@@ -879,12 +880,34 @@ export async function reassignExerciseLog(
     return null;
   }
 
+  if (check.mode === "swap" && targetLog) {
+    // The two logs trade their sets rather than trading prescriptions.
+    //
+    // Swapping `exercisePrescriptionId` would be the obvious move and is not
+    // possible: `exercise_log_session_prescription_unique` covers
+    // (workoutSessionId, exercisePrescriptionId), so the first of two updates
+    // always collides with the row it is about to displace, and a Postgres
+    // unique *index* cannot be deferred.
+    //
+    // Moving the sets instead has no such constraint, and a single CASE
+    // statement means there is never an intermediate state where both logs
+    // point anywhere wrong — it is one atomic write, not two.
+    await db
+      .update(setLog)
+      .set({
+        exerciseLogId: sql`CASE WHEN ${setLog.exerciseLogId} = ${sourceLog.id} THEN ${targetLog.id} ELSE ${sourceLog.id} END`,
+      })
+      .where(inArray(setLog.exerciseLogId, [sourceLog.id, targetLog.id]));
+
+    return { movedSetCount: sets.length, mode: "swap", swappedSetCount: targetSets.length };
+  }
+
   await db
     .update(exerciseLog)
     .set({ exercisePrescriptionId: targetPrescriptionId })
     .where(eq(exerciseLog.id, sourceLog.id));
 
-  return { movedSetCount: sets.length };
+  return { movedSetCount: sets.length, mode: "move", swappedSetCount: 0 };
 }
 
 export async function getRecentExerciseInstancesByName(

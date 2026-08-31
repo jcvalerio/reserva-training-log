@@ -268,7 +268,7 @@ export async function substituteExerciseAction(
 export type ReassignExerciseActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "reassigned"; movedSetCount: number };
+  | { status: "reassigned"; movedSetCount: number; mode: "move" | "swap"; swappedSetCount: number };
 
 /**
  * Moves a logged exercise's sets onto a different exercise in the same session.
@@ -322,7 +322,12 @@ export async function reassignExerciseAction(
   revalidatePath(`/entrenar/${workoutSessionId as string}`);
   revalidatePath("/progreso");
 
-  return { status: "reassigned", movedSetCount: moved.movedSetCount };
+  return {
+    status: "reassigned",
+    movedSetCount: moved.movedSetCount,
+    mode: moved.mode,
+    swappedSetCount: moved.swappedSetCount,
+  };
 }
 
 export type UpdateTargetSetsActionState =

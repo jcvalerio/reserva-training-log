@@ -22,7 +22,8 @@ export type ReassignCandidate = {
   exerciseNameEs: string;
   prescriptionType: "strength" | "duration";
   isUnilateral: boolean;
-  loggedSetCount: number;
+  /** Needed in full, not as a count: a swap must be legal in both directions. */
+  loggedSets: SetLog[];
 };
 
 export type ReassignSource = {
@@ -32,7 +33,21 @@ export type ReassignSource = {
   loggedSets: SetLog[];
 };
 
-export type ReassignCheck = { ok: true } | { ok: false; reasonEs: string };
+/**
+ * `move` — the target has nothing logged, so its `exerciseLog` does not exist
+ * yet and the source log simply changes which prescription it points at.
+ *
+ * `swap` — the target already has sets, and they are very likely the ones that
+ * belong *here*. Refusing that case made the feature useless for the situation
+ * it was built for: the plan-reorder bug shifted a whole day's values one
+ * position, so every exercise held its neighbour's work and no target was ever
+ * empty. A swap fixes a pair at a time, and since any permutation decomposes
+ * into transpositions, repeated swaps can reach any correct arrangement —
+ * A↔B, then B↔C, until everything is home.
+ */
+export type ReassignMode = "move" | "swap";
+
+export type ReassignCheck = { ok: true; mode: ReassignMode } | { ok: false; reasonEs: string };
 
 /** A set that records a duration and no load is duration-shaped, and vice versa. */
 function hasDurationShapedSets(sets: SetLog[]): boolean {
@@ -47,6 +62,40 @@ function hasPerSideSets(sets: SetLog[]): boolean {
   return sets.some((set) => set.side === "left" || set.side === "right");
 }
 
+/**
+ * Whether `sets` can live under a prescription of this shape. Both the strength
+ * and unilateral rules are one-directional checks, so a swap runs this twice —
+ * once each way — and is only allowed if both hold.
+ */
+function setsFitPrescription(
+  sets: SetLog[],
+  prescription: { prescriptionType: "strength" | "duration"; isUnilateral: boolean },
+  subjectEs: "Tus series" | "Sus series",
+): ReassignCheck | null {
+  // The rule this exists to enforce. Strength-shaped sets under a duration
+  // prescription — or the reverse — is exactly the state that threw inside a
+  // client component and blanked a whole workout (see the 2026-08-30 entries).
+  // Refuse the move rather than allow it and rely on the downstream guards.
+  if (prescription.prescriptionType === "duration" && hasStrengthShapedSets(sets)) {
+    return { ok: false, reasonEs: `${subjectEs} tienen peso y reps; ese ejercicio se mide por tiempo.` };
+  }
+  if (prescription.prescriptionType === "strength" && hasDurationShapedSets(sets)) {
+    return { ok: false, reasonEs: `${subjectEs} están medidas por tiempo; ese ejercicio se mide con peso y reps.` };
+  }
+
+  // targetSets means sets *per side* for a unilateral exercise, so per-side
+  // sets on a bilateral exercise would read as one shared total — and
+  // bilateral sets on a unilateral one leave a side permanently empty.
+  if (!prescription.isUnilateral && hasPerSideSets(sets)) {
+    return { ok: false, reasonEs: `${subjectEs} están registradas por lado; ese ejercicio no es unilateral.` };
+  }
+  if (prescription.isUnilateral && !hasPerSideSets(sets)) {
+    return { ok: false, reasonEs: `Ese ejercicio es unilateral y ${subjectEs.toLowerCase()} no tienen lado.` };
+  }
+
+  return null;
+}
+
 export function canReassignTo(source: ReassignSource, target: ReassignCandidate): ReassignCheck {
   if (target.id === source.id) {
     return { ok: false, reasonEs: "Es el mismo ejercicio." };
@@ -56,37 +105,28 @@ export function canReassignTo(source: ReassignSource, target: ReassignCandidate)
     return { ok: false, reasonEs: "Este ejercicio no tiene series registradas." };
   }
 
-  // Two exerciseLog rows for one exercise in one session would double-count it
-  // in every /progreso read. Merging is a different feature with its own
-  // questions (which set numbers win, what order), so this refuses rather than
-  // guessing.
-  if (target.loggedSetCount > 0) {
-    return { ok: false, reasonEs: "Ese ejercicio ya tiene series en esta sesión." };
+  const sourceFitsTarget = setsFitPrescription(source.loggedSets, target, "Tus series");
+  if (sourceFitsTarget) {
+    return sourceFitsTarget;
   }
 
-  // The rule this exists to enforce. Strength-shaped sets under a duration
-  // prescription — or the reverse — is exactly the state that threw inside a
-  // client component and blanked a whole workout (see the 2026-08-30 entries).
-  // Refuse the move rather than allow it and rely on the downstream guards.
-  if (target.prescriptionType === "duration" && hasStrengthShapedSets(source.loggedSets)) {
-    return { ok: false, reasonEs: "Tus series tienen peso y reps; ese ejercicio se mide por tiempo." };
-  }
-  if (target.prescriptionType === "strength" && hasDurationShapedSets(source.loggedSets)) {
-    return { ok: false, reasonEs: "Tus series están medidas por tiempo; ese ejercicio se mide con peso y reps." };
+  // Nothing on the other side: the source log just changes which prescription
+  // it points at.
+  if (target.loggedSets.length === 0) {
+    return { ok: true, mode: "move" };
   }
 
-  // targetSets means sets *per side* for a unilateral exercise, so moving
-  // per-side sets onto a bilateral exercise would make its completion maths
-  // read a single total — and moving bilateral sets onto a unilateral one
-  // leaves a side with nothing logged, showing as permanently half-done.
-  if (!target.isUnilateral && hasPerSideSets(source.loggedSets)) {
-    return { ok: false, reasonEs: "Registraste series por lado; ese ejercicio no es unilateral." };
-  }
-  if (target.isUnilateral && !hasPerSideSets(source.loggedSets)) {
-    return { ok: false, reasonEs: "Ese ejercicio es unilateral y tus series no tienen lado." };
+  // The target has work of its own, which in the case this was built for is
+  // very likely the work that belongs here. A swap keeps exactly one log per
+  // exercise, so nothing is ever double-counted — but it has to be legal in
+  // BOTH directions, so the target's sets are checked against this exercise
+  // too.
+  const targetFitsSource = setsFitPrescription(target.loggedSets, source, "Sus series");
+  if (targetFitsSource) {
+    return targetFitsSource;
   }
 
-  return { ok: true };
+  return { ok: true, mode: "swap" };
 }
 
 export type ReassignOption = ReassignCandidate & ReassignCheck;

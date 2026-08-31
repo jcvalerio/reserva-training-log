@@ -48,14 +48,14 @@ function candidate(overrides: Partial<ReassignCandidate> = {}): ReassignCandidat
     exerciseNameEs: "Fondos en máquina",
     prescriptionType: "strength",
     isUnilateral: false,
-    loggedSetCount: 0,
+    loggedSets: [],
     ...overrides,
   };
 }
 
 describe("canReassignTo", () => {
   it("allows a straightforward move to an empty exercise of the same shape", () => {
-    expect(canReassignTo(source(), candidate())).toEqual({ ok: true });
+    expect(canReassignTo(source(), candidate())).toEqual({ ok: true, mode: "move" });
   });
 
   it("refuses moving an exercise onto itself", () => {
@@ -71,12 +71,14 @@ describe("canReassignTo", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("refuses a target that already has sets, which would double-count it", () => {
-    // Two exerciseLog rows for one exercise in one session inflate every
-    // /progreso read. Merging is a different feature with its own questions.
-    const result = canReassignTo(source(), candidate({ loggedSetCount: 3 }));
+  it("offers a SWAP when the target already has sets", () => {
+    // Refusing this made the feature useless for the case it was built for:
+    // the plan-reorder bug shifted a whole day's values one position, so every
+    // exercise held its neighbour's work and no target was ever empty.
+    // A swap keeps exactly one log per exercise, so nothing double-counts.
+    const result = canReassignTo(source(), candidate({ loggedSets: [strengthSet({ id: "other-1" })] }));
 
-    expect(result).toEqual({ ok: false, reasonEs: "Ese ejercicio ya tiene series en esta sesión." });
+    expect(result).toEqual({ ok: true, mode: "swap" });
   });
 
   it("REGRESSION: refuses strength sets onto a duration exercise", () => {
@@ -104,7 +106,7 @@ describe("canReassignTo", () => {
         source({ prescriptionType: "duration", loggedSets: [durationSet()] }),
         candidate({ prescriptionType: "duration", exerciseNameEs: "Escalera (finalizador)" }),
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, mode: "move" });
   });
 
   it("refuses per-side sets onto a bilateral exercise", () => {
@@ -115,7 +117,10 @@ describe("canReassignTo", () => {
       candidate({ isUnilateral: false }),
     );
 
-    expect(result).toEqual({ ok: false, reasonEs: "Registraste series por lado; ese ejercicio no es unilateral." });
+    expect(result).toEqual({
+      ok: false,
+      reasonEs: "Tus series están registradas por lado; ese ejercicio no es unilateral.",
+    });
   });
 
   it("refuses bilateral sets onto a unilateral exercise", () => {
@@ -131,7 +136,7 @@ describe("canReassignTo", () => {
         source({ isUnilateral: true, loggedSets: [strengthSet({ side: "left" }), strengthSet({ side: "right" })] }),
         candidate({ isUnilateral: true }),
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, mode: "move" });
   });
 
   it("treats a set carrying only reps as strength-shaped", () => {
@@ -145,12 +150,52 @@ describe("canReassignTo", () => {
   });
 });
 
+describe("canReassignTo — swaps must be legal in BOTH directions", () => {
+  it("refuses a swap when the target's sets would not fit here", () => {
+    // Curl martillo (strength) ↔ Escalera (duration): moving my sets there is
+    // already refused, but so is bringing its timed sets back to a strength
+    // exercise. Either half being illegal makes the whole swap illegal.
+    const result = canReassignTo(
+      source({ prescriptionType: "strength" }),
+      candidate({ prescriptionType: "duration", loggedSets: [durationSet({ id: "other-1" })] }),
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("refuses a swap when the target's per-side sets would not fit a bilateral exercise", () => {
+    const result = canReassignTo(
+      source({ isUnilateral: false }),
+      candidate({
+        isUnilateral: true,
+        loggedSets: [strengthSet({ id: "o1", side: "left" }), strengthSet({ id: "o2", side: "right" })],
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows the real case: two bilateral strength exercises holding each other's work", () => {
+    // Reported from production — the entries under "Biceps en polea" belong to
+    // "Curl martillo con mancuernas", and vice versa.
+    const result = canReassignTo(
+      source({ loggedSets: [strengthSet({ actualWeightKg: "10" })] }),
+      candidate({
+        exerciseNameEs: "Curl martillo con mancuernas",
+        loggedSets: [strengthSet({ id: "other-1", actualWeightKg: "45" })],
+      }),
+    );
+
+    expect(result).toEqual({ ok: true, mode: "swap" });
+  });
+});
+
 describe("reassignOptionsFor", () => {
   const candidates: ReassignCandidate[] = [
     candidate({ id: "presc-source", exerciseNameEs: "Curl martillo" }),
     candidate({ id: "presc-a", exerciseNameEs: "Fondos en máquina" }),
     candidate({ id: "presc-b", exerciseNameEs: "Escalera (finalizador)", prescriptionType: "duration" }),
-    candidate({ id: "presc-c", exerciseNameEs: "Biceps en polea", loggedSetCount: 3 }),
+    candidate({ id: "presc-c", exerciseNameEs: "Biceps en polea", loggedSets: [strengthSet({ id: "other-1" })] }),
   ];
 
   it("excludes the source but keeps every other exercise, in plan order", () => {
@@ -166,10 +211,7 @@ describe("reassignOptionsFor", () => {
 
     expect(options.find((option) => option.id === "presc-a")).toMatchObject({ ok: true });
     expect(options.find((option) => option.id === "presc-b")).toMatchObject({ ok: false });
-    expect(options.find((option) => option.id === "presc-c")).toMatchObject({
-      ok: false,
-      reasonEs: "Ese ejercicio ya tiene series en esta sesión.",
-    });
+    expect(options.find((option) => option.id === "presc-c")).toMatchObject({ ok: true, mode: "swap" });
   });
 
   it("returns an empty list when the session has only this exercise", () => {
