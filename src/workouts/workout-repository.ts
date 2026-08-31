@@ -842,7 +842,18 @@ export async function getRecentExerciseInstancesByName(
   for (const [exerciseNameEs, group] of rowsByExerciseName) {
     instancesByExerciseName.set(
       exerciseNameEs,
-      group.slice(0, instancesPerExercise).map((row) => {
+      group
+        // Every consumer of this — buildExerciseSeries, computeExerciseImprovement —
+        // maps toStrengthSetLog over `sets` on the stated invariant that scoping the
+        // query to prescriptionType='strength' guarantees strength-shaped sets.
+        // Production data broke that invariant: the plan-reorder bug rewrote
+        // prescription rows in place, so rows typed "strength" own sets logged when
+        // they held a duration exercise. Restore the invariant here rather than
+        // teach every consumer to doubt it — an instance we cannot read is not an
+        // instance, so it is dropped rather than half-plotted.
+        .filter((row) => (setsByLogId.get(row.exerciseLogId) ?? []).every(isStrengthSetLog))
+        .slice(0, instancesPerExercise)
+        .map((row) => {
         const fallback = row.exerciseId ? null : findCatalogEntryByName(row.exerciseNameEs);
         return {
           exerciseNameEs,
