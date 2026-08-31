@@ -1328,3 +1328,95 @@ describe("SessionRunner — reassigning a logged exercise (completed session)", 
     expect(screen.queryByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" })).toBeNull();
   });
 });
+
+describe("SessionRunner — adding a missing set to a completed session", () => {
+  // A swap can legitimately leave an exercise with nothing logged (the athlete
+  // hit this on "Fondos en máquina"), and she then knows exactly what she
+  // lifted with nowhere to put it. The screen already allowed editing and
+  // deleting sets here; adding was the missing third.
+  function completedSession() {
+    return {
+      session: buildSession({ status: "completed" as const }),
+      exercises: [
+        buildExercise({
+          id: "presc-a",
+          exerciseNameEs: "Fondos en máquina",
+          targetSets: 3,
+          targetRepMax: 12,
+          targetRir: 2,
+          loggedSets: [],
+        }),
+      ],
+    };
+  }
+
+  it("offers the control even on an exercise with no sets — that is the whole case", () => {
+    const { session, exercises } = completedSession();
+    renderRunner({ session, exercises });
+
+    expect(screen.getByRole("button", { name: "+ Agregar una serie que falta" })).toBeVisible();
+  });
+
+  it("stays collapsed until asked", () => {
+    const { session, exercises } = completedSession();
+    renderRunner({ session, exercises });
+
+    expect(screen.queryByRole("button", { name: "Guardar serie" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+    expect(screen.getByRole("button", { name: "Guardar serie" })).toBeVisible();
+  });
+
+  it("prefills from the plan's targets, since there is nothing logged to copy", () => {
+    const { session, exercises } = completedSession();
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+
+    expect(screen.getByLabelText("Reps")).toHaveValue(12);
+    expect(screen.getByLabelText("RIR")).toHaveValue("2");
+  });
+
+  it("says the set belongs to this session's date, not today's", () => {
+    // /progreso buckets by session.completedAt, so this is true — and it is
+    // the question an athlete will have before tapping save.
+    const { session, exercises } = completedSession();
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+
+    expect(screen.getByText(/no en la de hoy/)).toBeVisible();
+  });
+
+  it("carries the session and exercise so the server writes it to the right place", () => {
+    const { session, exercises } = completedSession();
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+
+    expect(document.querySelector('input[name="exercisePrescriptionId"]')).toHaveValue("presc-a");
+    expect(document.querySelector('input[name="prescriptionType"]')).toHaveValue("strength");
+  });
+
+  it("asks for a duration instead of weight and reps on a timed exercise", () => {
+    const session = buildSession({ status: "completed" as const });
+    const exercises = [
+      buildExercise({
+        id: "presc-d",
+        exerciseNameEs: "Escalera (finalizador)",
+        prescriptionType: "duration" as const,
+        durationSeconds: 540,
+        targetSets: 1,
+        loggedSets: [],
+      }),
+    ];
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+
+    expect(screen.getByLabelText("Duración (segundos)")).toHaveValue(540);
+    expect(screen.queryByLabelText("Peso (kg)")).toBeNull();
+  });
+
+  it("is absent on an active session, which has its own logging form", () => {
+    const { exercises } = completedSession();
+    renderRunner({ session: buildSession(), exercises });
+
+    expect(screen.queryByRole("button", { name: "+ Agregar una serie que falta" })).toBeNull();
+  });
+});

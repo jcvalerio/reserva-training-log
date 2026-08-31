@@ -20,7 +20,13 @@ A target with sets is now a **swap** — the two exercises trade their work, whi
 
 **Privacy page** (`/privacidad`, static, reachable without signing in — a policy behind a login is not one). The app records pain scores, pain locations and body measurements, and has been public to strangers with nothing stated. Plain Spanish: what is stored, who can see it, that sharing a plan copies the plan and never the history, where it lives (Vercel, Neon, Google, Sentry), and that Sentry reports are filtered to exclude identity, form contents and every health value — which is true because it was verified against a real captured payload, not assumed. Deletion is an email address handled by a person, stated as such, because there is no automated flow and promising one would be a lie. Linked from the foot of every page carrying the brand chrome, not the active session runner where vertical space is scarce.
 
-**Known gap this exposed:** after a swap, an exercise can legitimately end with **no sets** — the athlete hit exactly this on "Fondos en máquina" — and a completed session has no way to add one. The screen already supports editing and deleting sets there; adding is the missing third of that trio. `Reabrir sesión` is a working detour, but it nulls `completedAt`, which drops the session out of every `/progreso` report until it is completed again, and it can be refused outright by `hasOtherActiveSessionForTemplate`. Worth closing. Note that `/progreso` buckets a set into a week by **`session.completedAt`**, not the set's own timestamp, so a set added later lands in the session's original week rather than today's.
+**The gap this exposed, closed in the same day.** After a swap an exercise can legitimately end with **no sets** — the athlete hit exactly this on "Fondos en máquina" — and a completed session had no way to add one. Editing and deleting were already allowed there, so adding was the missing third of the trio, not a new boundary being crossed.
+
+Two facts made it small, both checked rather than assumed: `saveSetForSession` has no status check, so the write path already permitted it; and `/progreso` buckets a set into a week by the **session's** `completedAt`, not the set's own timestamp — so a set added weeks later lands in the week it was actually trained. The panel says so ("con su fecha — no en la de hoy"), because that is the question an athlete has before tapping save.
+
+Prefilled from the plan's targets rather than from the last logged set: the case this exists for is an exercise with nothing logged to copy from. Duration exercises get a duration field instead of weight/reps/RIR.
+
+`Reabrir sesión` remains, but is no longer the only route. It was a poor one for this: it nulls `completedAt`, dropping the session out of every report until completed again, and `hasOtherActiveSessionForTemplate` can refuse it outright.
 
 ## 2026-08-31 — The finish screen, and nothing on the runner submits any more
 

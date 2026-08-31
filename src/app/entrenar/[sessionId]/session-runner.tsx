@@ -220,6 +220,7 @@ export function SessionRunner({
         template={template}
         exercises={exercises}
         recap={recap}
+        saveSetAction={saveSetAction}
         updateSetAction={updateSetAction}
         deleteSetAction={deleteSetAction}
         reopenSessionAction={reopenSessionAction}
@@ -864,6 +865,168 @@ function ExerciseProgressBar({
  * the next session's suggestion right.
  */
 /**
+ * Logging a set onto a session that is already finished.
+ *
+ * The completed view has always let you edit and delete sets — history is read
+ * live rather than snapshotted at completion — so not being able to *add* one
+ * was an inconsistency, not a boundary. Swapping two mis-filed exercises made
+ * it bite: a swap can legitimately leave an exercise with nothing logged, and
+ * the athlete then knows exactly what she lifted and has nowhere to put it.
+ *
+ * `Reabrir sesión` is a working detour and a poor one: it nulls `completedAt`,
+ * dropping the session out of every /progreso report until it is completed
+ * again, and `hasOtherActiveSessionForTemplate` can refuse it outright.
+ *
+ * Safe to do late because /progreso buckets a set into a week by the
+ * SESSION's `completedAt`, not the set's own — so a set added weeks later
+ * still lands in the week it was actually trained.
+ *
+ * Prefilled from the plan's targets rather than from the last logged set:
+ * the case this exists for is an exercise with nothing logged to copy.
+ */
+function AddSetToCompletedPanel({
+  sessionId,
+  exercise,
+  saveSetAction,
+}: {
+  sessionId: string;
+  exercise: ExerciseWithLoggedSets;
+  saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction] = useActionState(saveSetAction, { status: "idle" } as SaveSetActionState);
+  const isDuration = exercise.prescriptionType === "duration";
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2 min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+      >
+        + Agregar una serie que falta
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="mt-3 rounded-2xl bg-zinc-800/60 p-3 ring-1 ring-zinc-700">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="exercisePrescriptionId" value={exercise.id} />
+      <input type="hidden" name="prescriptionType" value={exercise.prescriptionType} />
+
+      <p className="text-sm font-semibold text-zinc-100">Agregar una serie</p>
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
+        Se registra en esta sesión, con su fecha — no en la de hoy.
+      </p>
+
+      <div className="mt-3 grid gap-3">
+        {exercise.isUnilateral ? (
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Lado</span>
+            <select name="side" defaultValue="left" className="input">
+              <option value="left">Izquierdo</option>
+              <option value="right">Derecho</option>
+            </select>
+          </label>
+        ) : (
+          <input type="hidden" name="side" value="bilateral" />
+        )}
+
+        {isDuration ? (
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Duración (segundos)</span>
+            <input
+              name="actualDurationSeconds"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              defaultValue={exercise.durationSeconds ?? undefined}
+              className="input"
+              required
+            />
+          </label>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Peso (kg)</span>
+              <input name="actualWeightKg" type="number" inputMode="decimal" min={0} step="0.5" className="input" required />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>Reps</span>
+              <input
+                name="actualReps"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                defaultValue={exercise.targetRepMax ?? undefined}
+                className="input"
+                required
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-zinc-300">
+              <span>RIR</span>
+              <select name="rir" defaultValue={String(exercise.targetRir ?? 2)} className="input">
+                {rirValues.map((value) => (
+                  <option key={value} value={value}>
+                    {toDisplayRir(value)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>Dolor (0–10)</span>
+            <input name="painScore" type="number" inputMode="numeric" min={0} max={10} defaultValue={0} className="input" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>¿Dónde?</span>
+            <select name="painLocation" defaultValue="" className="input">
+              <option value="">Sin dolor</option>
+              {painLocations.map((location) => (
+                <option key={location} value={location}>
+                  {painLocationLabelsEs[location]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {state.status === "error" ? (
+        <p role="alert" className="mt-3 text-xs leading-5 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
+      {state.status === "saved" ? (
+        <p role="status" className="mt-3 text-xs leading-5 text-emerald-300">
+          Serie agregada.
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="min-h-11 rounded-xl px-2 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        >
+          Cancelar
+        </button>
+        <SubmitButton
+          pendingChildren="Guardando…"
+          className="min-h-11 rounded-xl bg-emerald-300 px-2 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100"
+        >
+          Guardar serie
+        </SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+/**
  * Correcting an exercise you logged against the wrong card.
  *
  * Reveal-then-confirm, like every other consequential control on this screen:
@@ -999,6 +1162,7 @@ function CompletedSessionSummary({
   template,
   exercises,
   recap,
+  saveSetAction,
   updateSetAction,
   deleteSetAction,
   reopenSessionAction,
@@ -1008,6 +1172,7 @@ function CompletedSessionSummary({
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
   recap: SessionRecap | null;
+  saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   reopenSessionAction: (
@@ -1079,6 +1244,7 @@ function CompletedSessionSummary({
                 )}
               />
             )}
+            <AddSetToCompletedPanel sessionId={session.id} exercise={exercise} saveSetAction={saveSetAction} />
             {exercise.loggedSets.length > 0 ? (
               <ReassignExercisePanel
                 sessionId={session.id}

@@ -10,9 +10,9 @@ Shipped once wrong, and real use corrected it: the first version refused any tar
 
 **Privacy page** at `/privacidad`, static and readable without signing in.
 
-**The next thing, and it came from using the fix:** after a swap, an exercise can legitimately end with **no sets** — she hit this on "Fondos en máquina" — and there is no way to log one on a finished session. The screen already lets you edit and delete sets there; adding is the missing third of that trio.
+**Adding a missing set to a finished session** also shipped, closing the gap the swap exposed: after a swap an exercise can end with no sets, and she hit that on "Fondos en máquina". Editing and deleting were already allowed on a completed session, so adding was the missing third. Prefilled from the plan's targets, since the case is an exercise with nothing to copy from, and the set lands in the session's own week rather than today's — `/progreso` buckets by `session.completedAt`, not the set's timestamp.
 
-`Reabrir sesión` is a working detour but a poor one: it nulls `completedAt`, which drops the session out of every `/progreso` report until it is completed again, and `hasOtherActiveSessionForTemplate` can refuse it outright. Two things make the real fix small — `saveSetForSession` has no status check, so the write path already allows it, and `/progreso` buckets a set into a week by **`session.completedAt`** rather than the set's own timestamp, so a set added weeks later still lands in the right week. What is missing is only the UI.
+**Athlete B can now fully repair her own history**: swap the mis-filed pairs, then add whatever a swap leaves empty. The only thing still beyond reach is work whose exercise no longer exists in her plan.
 
 **Still unverified in a real browser:** the finish screen, the reassign panel and the privacy page have all shipped without a 390px pass. jsdom does not measure geometry and this repo has been caught by that twice.
 
