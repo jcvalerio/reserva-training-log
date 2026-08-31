@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-30 (later) — Reordering a plan was rewriting exercises in place
+
+Status: shipped. `lint`/`typecheck`/`test` (595 passing, +15)/`build` green. Deployed `hulpy30lk`, aliased to `gym.jcvalerio.com`. No migration.
+
+**The athlete diagnosed her own root cause.** She reported that the up/down arrows in the plan builder appeared to move only the exercise *name*, and that /entrenar then showed her the previous record of a different exercise. She was right, and it is the same defect that produced the crash logged above.
+
+**The client reorder was never at fault.** Tests that fill two rows with distinguishing values, reorder, and read what the form would actually submit all pass — React keys rows by a stable id, so a swap moves the real DOM nodes and the uncontrolled values travel with them. The pre-existing "reorders exercise rows" test asserted only that *names* reorder, which is precisely the half that works; that is how this shipped.
+
+**`saveDraftSession` paired `existing[i]` with `submitted[i]`.** Deliberately — a delete+reinsert trips the `onDelete: "restrict"` FK from `exerciseLog` the moment a session has history. Right about the constraint, wrong about identity: it treated *position* as identity when the identity is the exercise. Moving Press above Curl overwrote the row that owned every logged Press set with Curl's name, type and prescription. `getPreviousPerformance` filters on `exercisePrescription.exerciseNameEs`, so the history answered to the wrong name. And when the two swapped exercises had different `prescriptionType`, a row claiming "strength" ended up owning duration-shaped sets — the exact state that threw in a client component and blanked the session runner.
+
+The form now round-trips each row's `prescriptionId` through a hidden input, uncontrolled like every other field so it travels with the DOM node. `planPrescriptionWrites` (new, pure, 10 tests) decides which row each submitted exercise writes to; reordering changes only `orderIndex`. It deliberately does **not** fall back to name-matching when an id is absent or stale — guessing by name is the same silent misattribution being removed, so an unmatched exercise becomes a fresh row with no history. A duplicated id is claimed by the first row only.
+
+**Three more unguarded call sites, found by asking what production data actually looked like.** `f345004` guarded `getPreviousPerformance`; the same corrupt rows also reach `findPersonalRecords`, `buildSessionRecap`'s volume total, `buildExerciseSeries` and `computeExerciseImprovement`. `improvement.ts` had documented the assumption outright — *"this throws only if that invariant is ever broken"* — and it was broken in production. Fixed at the source in `getRecentExerciseInstancesByName` rather than at each consumer: restore the invariant those functions are entitled to rely on instead of teaching every caller to doubt it. The filter runs before `.slice(instancesPerExercise)`, so a dropped instance pulls an older readable one into the window rather than shortening it.
+
+**What production actually holds.** Five prescription rows, all on one athlete (`6aace940`), carry **18 misattributed sets**; the other two athletes are clean. Each affected row is *mixed* — it accumulated sets under both types, the fingerprint of a strength and a duration exercise trading places.
+
+**The data is not recoverable from the database.** `exerciseLog` stores no exercise name, `exercisePrescription` has no timestamps, and `lineage_key` — the one field the buggy update never overwrote, and which is copied verbatim into clones — is **null on all three plans**, because none was ever shared. There is no second copy to reconstruct from.
+
+Left in place for now, deliberately. The guards make it inert, and the trade is honest: those five exercises are permanently PR-blind (`findPersonalRecords` skips an exercise if *any* prior instance is unreadable) and have gaps in their progression charts, and August's weekly volume is inflated because a duration-shaped set under a strength prescription still counts as an effective set. Next-session suggestions self-heal after one clean session. Diagnostic and review queries are in `scratchpad/list-mismatched-sets.sql`; the delete is scoped to explicit set ids rather than a predicate, and is not to be run until the athlete has looked at the 18 rows. Some may be recognisable from what else she logged that day, in which case repointing beats deleting.
+
 ## 2026-08-30 — Error monitoring, and the first bug it caught
 
 Status: Sentry shipped and verified in production; the crash fix built and tested, deploy pending. `lint`/`typecheck`/`test` (580 passing, +27 net)/`build` all green. No migration.
