@@ -2,6 +2,37 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-31 (later still) — The 390px pass that three shipped screens never had, and the one defect it found
+
+Status: fix built, `lint`/`typecheck`/`test` (631 passing)/`build` green. No migration. Closes the "never checked in a real browser" gap the two previous entries both flagged.
+
+**The gap being closed.** `/entrenar/[sessionId]/finalizar`, the reassign panel, the add-set panel and `/privacidad` all shipped inside 24 hours without one of them being opened at 390×844. Both prior entries said so explicitly. jsdom does not measure geometry, and this repo has been caught by that twice — a finish control that rendered 350px wide despite its class list, and a `{/* */}` comment that passed `tsc` and was rejected by SWC.
+
+**Measured, not eyeballed.** Every screen was checked for `document.scrollWidth === clientWidth` at 390, for any element whose right edge crossed the viewport, and for every `a`/`button`/`select`/`input` under 44px. Results:
+
+| Screen | Overflow at 390 | Sub-44px targets |
+|---|---|---|
+| `/privacidad` | none | only the inline `mailto:` in body copy (21px) |
+| `/` (signed out) | none | none |
+| Completed-session summary | none | none |
+| Reassign panel, open | none | none |
+| Add-set panel, strength and duration | none | none |
+| `/finalizar`, 6 unfinished exercises | none | none |
+
+The finish screen's confirm sits at y=1196 against an 844px viewport — below the unfinished list, so the thumb still has to travel past what it is abandoning. That was the safety argument when it shipped; it survives contact with a real layout. `Terminar entrenamiento` renders 169×48, not the widest target on the screen.
+
+**Long exercise names are safe.** The catalog's longest is 42 characters (*Extensión de tríceps en máquina o polea*). Substituted into an unfinished row it wraps and grows the row vertically; a deliberately absurd 67-character name grew the row to 72px. `scrollWidth` stayed 390 in every case — the list grows down, never sideways.
+
+**The `?ejercicio=` round trip works in a browser.** Loading the runner at the *last* exercise's id opened on that exercise rather than falling back to first-incomplete, which is the trap the 2026-08-18 entry deferred and the 2026-08-31 entry claimed to have pinned. Confirmed against a real DOM, not only in jsdom.
+
+**The one defect: `← Volver a el entrenamiento`.** `AppShell` renders `← Volver a {backTo.label}`, and the finish screen was the only one of eighteen call sites passing a label with a definite article. Spanish contracts *a el* into *al*, so the top of the screen was ungrammatical while the button at the bottom of the same screen read *Volver al entrenamiento* correctly. Spanish-first is a standing constraint, and this is exactly the class of thing no test asserts and no reviewer reading a diff notices — the string is correct in isolation; only the concatenation is wrong.
+
+Fixed by making the label a bare noun phrase (`tu entrenamiento`) like every other call site, rather than by teaching `AppShell` to contract `a el` → `al`. A shared component that rewrites its callers' Spanish is a worse thing to own than a convention that labels are bare nouns, and the contraction rule would have to grow *a la*, *de el* and the rest the moment a second case appeared.
+
+**Deliberately not done.** The naming inconsistency this surfaced is left alone: the `<title>` is still `Entrenador Personal`, the brand row still says `MVP personal · iPhone Web`, and `/privacidad` is the only screen calling the app **Reserva**. That is three names for one app, and the tab title is the retired framing — but renaming what the app calls itself is a product decision, not a copy fix, so it is reported rather than bundled here.
+
+**Known gaps.** The pass ran in headless Chromium at 390×844, not iOS Safari; the WebKit-specific behaviour that caused the 2026-08-18 scroll bug (no scroll anchoring) is still only reachable on a real device. The finish screen was exercised on the dev branch with a throwaway session, which was deleted afterwards — production was browsed strictly read-only, with no session started and nothing confirmed. And the add-set panel renders its `¿Dónde?` pain-location select unconditionally, defaulted to *Sin dolor*, where the session runner only reveals it once pain goes above 0; harmless today, and worth folding into issue #1 rather than fixing in isolation.
+
 ## 2026-08-31 (later) — Reassigning a logged exercise, swapping two of them, and a privacy page
 
 Status: shipped and confirmed working by the athlete. `lint`/`typecheck`/`test` (623 passing, +40)/`build` green. Deployed `fq144kihg`, then `95iza6p83` for the swap. Closes issue #10. No migration.
