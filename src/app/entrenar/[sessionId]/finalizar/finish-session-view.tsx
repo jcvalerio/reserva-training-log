@@ -29,9 +29,12 @@ export function FinishSessionView({
   const hasUnfinished = summary.unfinished.length > 0;
 
   return (
+    // AppShell renders "← Volver a {label}", so the label must read as a bare
+    // noun phrase. "el entrenamiento" produced "Volver a el entrenamiento",
+    // which Spanish contracts to "al"; every other call site passes a bare noun.
     <AppShell
       activeHref="/entrenar"
-      backTo={{ href: backHref, label: "el entrenamiento" }}
+      backTo={{ href: backHref, label: "tu entrenamiento" }}
       showBrandBar={false}
     >
       <header className="space-y-2">
