@@ -18,6 +18,7 @@ import {
   splitPlannedAndBonusSets,
   suggestNextWeightKg,
 } from "@/workouts/progression-view";
+import { reassignOptionsFor, type ReassignOption } from "@/workouts/exercise-reassignment";
 import { isExerciseComplete } from "@/workouts/session-finish";
 import type { PersonalRecord, PersonalRecordKind, SessionRecap } from "@/workouts/session-recap";
 import {
@@ -33,6 +34,7 @@ import { SubmitButton } from "../../submit-button";
 import { YoutubeTechniqueLink } from "../../youtube-technique-link";
 import type {
   EditSetActionState,
+  ReassignExerciseActionState,
   ReopenSessionActionState,
   SaveSetActionState,
   SubstituteExerciseActionState,
@@ -60,6 +62,7 @@ export function SessionRunner({
   planSubstituteChoices,
   smallerSideHint,
   initialExerciseId = null,
+  reassignExerciseAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -90,6 +93,10 @@ export function SessionRunner({
    * were rather than on the first thing you happen not to have finished.
    */
   initialExerciseId?: string | null;
+  reassignExerciseAction: (
+    prevState: ReassignExerciseActionState,
+    formData: FormData,
+  ) => Promise<ReassignExerciseActionState>;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
     // A stale or unknown id falls through to the normal heuristic rather than
@@ -216,6 +223,7 @@ export function SessionRunner({
         updateSetAction={updateSetAction}
         deleteSetAction={deleteSetAction}
         reopenSessionAction={reopenSessionAction}
+        reassignExerciseAction={reassignExerciseAction}
       />
     );
   }
@@ -855,6 +863,122 @@ function ExerciseProgressBar({
  * from a snapshot taken at completion — so a later correction simply makes
  * the next session's suggestion right.
  */
+/**
+ * Correcting an exercise you logged against the wrong card.
+ *
+ * Reveal-then-confirm, like every other consequential control on this screen:
+ * the trigger is low-emphasis text, and nothing moves data until a second,
+ * deliberate tap. Collapsed by default because the common case is reading a
+ * finished session, not repairing one.
+ *
+ * Refused targets are listed with their reason rather than hidden — someone
+ * hunting for the exercise they meant needs to see it and read why it will not
+ * take these sets, instead of wondering where it went.
+ */
+function ReassignExercisePanel({
+  sessionId,
+  source,
+  options,
+  reassignExerciseAction,
+}: {
+  sessionId: string;
+  source: ExerciseWithLoggedSets;
+  options: ReassignOption[];
+  reassignExerciseAction: (
+    prevState: ReassignExerciseActionState,
+    formData: FormData,
+  ) => Promise<ReassignExerciseActionState>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction] = useActionState(reassignExerciseAction, { status: "idle" } as ReassignExerciseActionState);
+  const available = options.filter((option) => option.ok);
+
+  if (options.length === 0) {
+    return null;
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2 min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+      >
+        ¿Registraste esto en el ejercicio equivocado?
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="mt-3 rounded-2xl bg-amber-300/10 p-3 ring-1 ring-amber-400/30">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="sourcePrescriptionId" value={source.id} />
+
+      <p className="text-sm font-semibold text-amber-200">
+        Mover {source.loggedSets.length} {source.loggedSets.length === 1 ? "serie" : "series"} a otro ejercicio
+      </p>
+      <p className="mt-1 text-xs leading-5 text-zinc-300">
+        Las series se mueven tal cual — no se pierde ningún dato.
+      </p>
+
+      {available.length === 0 ? (
+        <p className="mt-3 text-xs leading-5 text-zinc-400">
+          Ningún otro ejercicio de esta sesión puede recibir estas series.
+        </p>
+      ) : (
+        <label className="mt-3 grid gap-1 text-sm font-medium text-zinc-200">
+          <span>Mover a</span>
+          <select name="targetPrescriptionId" defaultValue="" className="input" required>
+            <option value="" disabled>
+              Elegí un ejercicio
+            </option>
+            {available.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.exerciseNameEs}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {options.some((option) => !option.ok) ? (
+        <ul className="mt-3 grid gap-1">
+          {options
+            .filter((option) => !option.ok)
+            .map((option) => (
+              <li key={option.id} className="text-xs leading-5 text-zinc-500">
+                <span className="font-medium text-zinc-400">{option.exerciseNameEs}</span> —{" "}
+                {"reasonEs" in option ? option.reasonEs : null}
+              </li>
+            ))}
+        </ul>
+      ) : null}
+
+      {state.status === "error" ? (
+        <p role="alert" className="mt-3 text-xs leading-5 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="min-h-11 rounded-xl px-2 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        >
+          Cancelar
+        </button>
+        <SubmitButton
+          pendingChildren="Moviendo…"
+          className="min-h-11 rounded-xl bg-amber-300 px-2 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100 disabled:opacity-40"
+        >
+          Mover series
+        </SubmitButton>
+      </div>
+    </form>
+  );
+}
+
 function CompletedSessionSummary({
   session,
   template,
@@ -863,6 +987,7 @@ function CompletedSessionSummary({
   updateSetAction,
   deleteSetAction,
   reopenSessionAction,
+  reassignExerciseAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -874,7 +999,19 @@ function CompletedSessionSummary({
     prevState: ReopenSessionActionState,
     formData: FormData,
   ) => Promise<ReopenSessionActionState>;
+  reassignExerciseAction: (
+    prevState: ReassignExerciseActionState,
+    formData: FormData,
+  ) => Promise<ReassignExerciseActionState>;
 }) {
+  const reassignCandidates = exercises.map((exercise) => ({
+    id: exercise.id,
+    exerciseNameEs: exercise.exerciseNameEs,
+    prescriptionType: exercise.prescriptionType,
+    isUnilateral: exercise.isUnilateral,
+    loggedSetCount: exercise.loggedSets.length,
+  }));
+
   return (
     <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }}>
       <header className="space-y-2">
@@ -927,6 +1064,14 @@ function CompletedSessionSummary({
                 )}
               />
             )}
+            {exercise.loggedSets.length > 0 ? (
+              <ReassignExercisePanel
+                sessionId={session.id}
+                source={exercise}
+                options={reassignOptionsFor(exercise, reassignCandidates)}
+                reassignExerciseAction={reassignExerciseAction}
+              />
+            ) : null}
           </article>
         ))}
       </div>

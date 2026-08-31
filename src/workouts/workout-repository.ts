@@ -13,6 +13,7 @@ import {
 } from "@/training/muscle-taxonomy";
 import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-repository";
 
+import { canReassignTo } from "./exercise-reassignment";
 import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
 import { renumberSets } from "./set-editing";
 
@@ -771,6 +772,121 @@ export type ExerciseInstance = {
  * (most recent first) across the athlete's whole history — used to compute
  * session-over-session improvement on /progreso.
  */
+/**
+ * Moves a logged exercise onto a different prescription in the same session.
+ *
+ * One row changes: `exerciseLog.exercisePrescriptionId`. The sets hang off the
+ * exerciseLog, so they travel with it untouched — no set is rewritten, no
+ * set number renumbered, and nothing can be lost in a partial write.
+ *
+ * Re-validates server-side rather than trusting the client's list. The UI
+ * computes the same rules from the same module, but a form post is not a
+ * promise: allowing a strength-shaped log onto a duration prescription would
+ * recreate the crash that blanked a whole workout.
+ *
+ * Returns null on any refusal so the caller can report it without leaking
+ * which of ownership, existence or shape failed.
+ */
+export async function reassignExerciseLog(
+  athleteProfileId: string,
+  workoutSessionId: string,
+  sourcePrescriptionId: string,
+  targetPrescriptionId: string,
+): Promise<{ movedSetCount: number } | null> {
+  const [session] = await db
+    .select({ id: workoutSession.id, planSessionTemplateId: workoutSession.planSessionTemplateId })
+    .from(workoutSession)
+    .where(and(eq(workoutSession.id, workoutSessionId), eq(workoutSession.athleteProfileId, athleteProfileId)));
+
+  if (!session) {
+    return null;
+  }
+
+  // Both prescriptions must belong to THIS session's template. Without this a
+  // crafted post could move a log onto another day's exercise — or another
+  // athlete's — and the session would then hold an exercise it never planned.
+  const prescriptions = await db
+    .select({
+      id: exercisePrescription.id,
+      prescriptionType: exercisePrescription.prescriptionType,
+      isUnilateral: exercisePrescription.isUnilateral,
+    })
+    .from(exercisePrescription)
+    .where(
+      and(
+        eq(exercisePrescription.planSessionTemplateId, session.planSessionTemplateId),
+        inArray(exercisePrescription.id, [sourcePrescriptionId, targetPrescriptionId]),
+      ),
+    );
+
+  const target = prescriptions.find((row) => row.id === targetPrescriptionId);
+  if (prescriptions.length !== 2 || !target) {
+    return null;
+  }
+
+  const [sourceLog] = await db
+    .select({ id: exerciseLog.id })
+    .from(exerciseLog)
+    .where(
+      and(
+        eq(exerciseLog.workoutSessionId, workoutSessionId),
+        eq(exerciseLog.exercisePrescriptionId, sourcePrescriptionId),
+      ),
+    );
+
+  if (!sourceLog) {
+    return null;
+  }
+
+  // A second log for the same exercise in one session double-counts it in
+  // every /progreso read, so refuse rather than merge.
+  const [targetLog] = await db
+    .select({ id: exerciseLog.id })
+    .from(exerciseLog)
+    .where(
+      and(
+        eq(exerciseLog.workoutSessionId, workoutSessionId),
+        eq(exerciseLog.exercisePrescriptionId, targetPrescriptionId),
+      ),
+    );
+
+  if (targetLog) {
+    return null;
+  }
+
+  const sets = await db.select().from(setLog).where(eq(setLog.exerciseLogId, sourceLog.id));
+  if (sets.length === 0) {
+    return null;
+  }
+
+  const check = canReassignTo(
+    {
+      id: sourcePrescriptionId,
+      prescriptionType: prescriptions.find((row) => row.id === sourcePrescriptionId)!.prescriptionType,
+      isUnilateral: prescriptions.find((row) => row.id === sourcePrescriptionId)!.isUnilateral,
+      loggedSets: sets,
+    },
+    {
+      id: targetPrescriptionId,
+      exerciseNameEs: "",
+      prescriptionType: target.prescriptionType,
+      isUnilateral: target.isUnilateral,
+      loggedSetCount: 0,
+    },
+  );
+
+  if (!check.ok) {
+    return null;
+  }
+
+  await db
+    .update(exerciseLog)
+    .set({ exercisePrescriptionId: targetPrescriptionId })
+    .where(eq(exerciseLog.id, sourceLog.id));
+
+  return { movedSetCount: sets.length };
+}
+
 export async function getRecentExerciseInstancesByName(
   athleteProfileId: string,
   instancesPerExercise = 2,

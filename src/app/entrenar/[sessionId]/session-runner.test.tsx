@@ -8,6 +8,7 @@ import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/
 
 import type {
   EditSetActionState,
+  ReassignExerciseActionState,
   ReopenSessionActionState,
   SaveSetActionState,
   SubstituteExerciseActionState,
@@ -17,6 +18,7 @@ import { SessionRunner } from "./session-runner";
 
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
 const noopReopenSessionAction = vi.fn(async (): Promise<ReopenSessionActionState> => ({ status: "idle" }));
+const noopReassignExerciseAction = vi.fn(async (): Promise<ReassignExerciseActionState> => ({ status: "idle" }));
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
 const noopDeleteSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
@@ -153,6 +155,7 @@ function renderRunner({
   planSubstituteChoices = [],
   smallerSideHint = null,
   initialExerciseId = null,
+  reassignExerciseAction = noopReassignExerciseAction,
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
@@ -176,6 +179,10 @@ function renderRunner({
   planSubstituteChoices?: { exerciseNameEs: string }[];
   smallerSideHint?: "left" | "right" | null;
   initialExerciseId?: string | null;
+  reassignExerciseAction?: (
+    prevState: ReassignExerciseActionState,
+    formData: FormData,
+  ) => Promise<ReassignExerciseActionState>;
 }) {
   return render(
     <SessionRunner
@@ -193,6 +200,7 @@ function renderRunner({
       planSubstituteChoices={planSubstituteChoices}
       smallerSideHint={smallerSideHint}
       initialExerciseId={initialExerciseId}
+      reassignExerciseAction={reassignExerciseAction}
     />,
   );
 }
@@ -1203,5 +1211,90 @@ describe("SessionRunner — returning from /finalizar", () => {
     const finish = screen.getByRole("link", { name: "Terminar entrenamiento" });
     expect(finish.tagName).toBe("A");
     expect(screen.queryByRole("button", { name: "Terminar entrenamiento" })).toBeNull();
+  });
+});
+
+describe("SessionRunner — reassigning a logged exercise (completed session)", () => {
+  function completedWithTwo() {
+    return {
+      session: buildSession({ status: "completed" as const }),
+      exercises: [
+        buildExercise({
+          id: "presc-a",
+          exerciseNameEs: "Curl martillo",
+          targetSets: 3,
+          loggedSets: [buildSet({ id: "set-1", setNumber: 1 })],
+        }),
+        buildExercise({
+          id: "presc-b",
+          exerciseNameEs: "Fondos en máquina",
+          targetSets: 3,
+          loggedSets: [],
+        }),
+      ],
+    };
+  }
+
+  it("offers the correction only on exercises that actually have sets", () => {
+    const { session, exercises } = completedWithTwo();
+    renderRunner({ session, exercises });
+
+    // One trigger, for Curl martillo. Fondos has nothing to move.
+    expect(screen.getAllByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" })).toHaveLength(1);
+  });
+
+  it("stays collapsed until asked — reading a finished session is the common case", () => {
+    const { session, exercises } = completedWithTwo();
+    renderRunner({ session, exercises });
+
+    expect(screen.queryByRole("button", { name: "Mover series" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" }));
+
+    expect(screen.getByRole("button", { name: "Mover series" })).toBeVisible();
+  });
+
+  it("lists a valid target and carries the source prescription id", () => {
+    const { session, exercises } = completedWithTwo();
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" }));
+
+    expect(within(screen.getByRole("combobox", { name: "Mover a" })).getByRole("option", { name: "Fondos en máquina" })).toBeInTheDocument();
+    expect(document.querySelector('input[name="sourcePrescriptionId"]')).toHaveValue("presc-a");
+  });
+
+  it("shows a refused target with its reason rather than hiding it", () => {
+    // Someone hunting for the exercise they meant needs to see why it will not
+    // take the sets, not wonder where it went.
+    const session = buildSession({ status: "completed" as const });
+    const exercises = [
+      buildExercise({
+        id: "presc-a",
+        exerciseNameEs: "Curl martillo",
+        targetSets: 3,
+        loggedSets: [buildSet({ id: "set-1", setNumber: 1 })],
+      }),
+      buildExercise({
+        id: "presc-b",
+        exerciseNameEs: "Escalera (finalizador)",
+        prescriptionType: "duration" as const,
+        targetSets: 1,
+        loggedSets: [],
+      }),
+    ];
+    renderRunner({ session, exercises });
+    fireEvent.click(screen.getByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" }));
+
+    // Not offered as a choice…
+    expect(screen.queryByRole("option", { name: "Escalera (finalizador)" })).toBeNull();
+    // …but visible, with why.
+    expect(screen.getByText(/se mide por tiempo/)).toBeVisible();
+  });
+
+  it("is absent on an active session — this is a correction, not a mid-workout control", () => {
+    const { exercises } = completedWithTwo();
+    renderRunner({ session: buildSession(), exercises });
+
+    expect(screen.queryByRole("button", { name: "¿Registraste esto en el ejercicio equivocado?" })).toBeNull();
   });
 });

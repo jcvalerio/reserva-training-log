@@ -15,6 +15,7 @@ import {
 
 import {
   deleteSetAction,
+  reassignExerciseAction,
   reopenSessionAction,
   saveSetAction,
   substituteExerciseAction,
@@ -78,6 +79,7 @@ export default async function SessionRunPage({
       recap={recap}
       saveSetAction={saveSetAction}
       reopenSessionAction={reopenSessionAction}
+      reassignExerciseAction={reassignExerciseAction}
       initialExerciseId={ejercicio ?? null}
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}

@@ -23,6 +23,7 @@ import {
   getWorkoutSessionForProfile,
   hasOtherActiveSessionForTemplate,
   markExerciseChosenForSession,
+  reassignExerciseLog,
   reopenWorkoutSession,
   saveSetForSession,
   startOrResumeWorkoutSession,
@@ -262,6 +263,66 @@ export async function substituteExerciseAction(
   revalidatePath("/plan/rutina");
 
   return { status: "substituted", originalPrescriptionId, exerciseNameEs };
+}
+
+export type ReassignExerciseActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "reassigned"; movedSetCount: number };
+
+/**
+ * Moves a logged exercise's sets onto a different exercise in the same session.
+ *
+ * The correction for an ordinary mistake: logging against the card above the
+ * one you meant. Before this, the only remedies were deleting every set and
+ * re-entering them, or living with it — and living with it silently corrupts
+ * progression, since `getPreviousPerformance` reads whatever is filed under
+ * that exercise.
+ *
+ * Allowed on a completed session as well as an active one, deliberately: the
+ * mistake is usually noticed afterwards, reading the summary. That matches the
+ * precedent this screen already sets, where sets stay editable after
+ * completion because history is read live rather than snapshotted.
+ */
+export async function reassignExerciseAction(
+  _previousState: ReassignExerciseActionState,
+  formData: FormData,
+): Promise<ReassignExerciseActionState> {
+  const workoutSessionId = formData.get("workoutSessionId");
+  const guard = await requireEditableSession(workoutSessionId);
+  if ("error" in guard) {
+    return { status: "error", message: guard.error };
+  }
+
+  const sourcePrescriptionId = formData.get("sourcePrescriptionId");
+  const targetPrescriptionId = formData.get("targetPrescriptionId");
+
+  if (typeof sourcePrescriptionId !== "string" || !sourcePrescriptionId) {
+    return { status: "error", message: "No se encontró el ejercicio que querés mover." };
+  }
+  if (typeof targetPrescriptionId !== "string" || !targetPrescriptionId) {
+    return { status: "error", message: "Elegí el ejercicio al que querés mover estas series." };
+  }
+
+  const moved = await reassignExerciseLog(
+    guard.profileId,
+    workoutSessionId as string,
+    sourcePrescriptionId,
+    targetPrescriptionId,
+  );
+
+  if (!moved) {
+    // Deliberately one message for every refusal. The repository re-checks
+    // ownership, template membership, set shape and whether the target is
+    // already used; distinguishing them here would tell a crafted request
+    // which of those it tripped.
+    return { status: "error", message: "No se pudieron mover estas series a ese ejercicio." };
+  }
+
+  revalidatePath(`/entrenar/${workoutSessionId as string}`);
+  revalidatePath("/progreso");
+
+  return { status: "reassigned", movedSetCount: moved.movedSetCount };
 }
 
 export type UpdateTargetSetsActionState =

@@ -49,6 +49,20 @@ export function AppShell({
           </Link>
         ) : null}
         {children}
+
+        {/* A privacy policy nobody can reach is not one. Foot of every page
+            that shows the brand chrome — deliberately not the active session
+            runner, where vertical space is the scarce thing. */}
+        {showBrandBar ? (
+          <p className="mt-auto pt-8 text-center text-xs text-zinc-600">
+            <Link
+              href="/privacidad"
+              className="inline-flex min-h-11 items-center px-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            >
+              Privacidad y tus datos
+            </Link>
+          </p>
+        ) : null}
       </main>
       <MobileBottomNav items={getHomeNavItems()} activeHref={activeHref} />
     </div>
