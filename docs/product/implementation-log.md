@@ -26,6 +26,10 @@ Two facts made it small, both checked rather than assumed: `saveSetForSession` h
 
 Prefilled from the plan's targets rather than from the last logged set: the case this exists for is an exercise with nothing logged to copy from. Duration exercises get a duration field instead of weight/reps/RIR.
 
+**Shipped broken, caught on a real device.** The form opened and then refused to save: *"Esta sesión no está disponible para registrar series."* `saveSetForSession` has no status check — which is what was verified — but `saveSetAction` does, requiring `status === "active"`, and that was missed. The repository was the wrong layer to check.
+
+Fixed with a **mirrored action, not a relaxed guard**. The active-only rule earns its keep: a phone left open on a session completed elsewhere must not silently append sets to it. So `addSetToCompletedSessionAction` refuses an *active* session instead, and the active runner keeps its own form. Each action guards its own precondition and neither can stand in for the other. Pinned by a test asserting the completed panel calls the completed action and never `saveSetAction`.
+
 `Reabrir sesión` remains, but is no longer the only route. It was a poor one for this: it nulls `completedAt`, dropping the session out of every report until completed again, and `hasOtherActiveSessionForTemplate` can refuse it outright.
 
 ## 2026-08-31 — The finish screen, and nothing on the runner submits any more

@@ -63,6 +63,7 @@ export function SessionRunner({
   smallerSideHint,
   initialExerciseId = null,
   reassignExerciseAction,
+  addSetToCompletedSessionAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -97,6 +98,10 @@ export function SessionRunner({
     prevState: ReassignExerciseActionState,
     formData: FormData,
   ) => Promise<ReassignExerciseActionState>;
+  addSetToCompletedSessionAction: (
+    prevState: SaveSetActionState,
+    formData: FormData,
+  ) => Promise<SaveSetActionState>;
 }) {
   const [exerciseIndex, setExerciseIndex] = useState(() => {
     // A stale or unknown id falls through to the normal heuristic rather than
@@ -220,11 +225,11 @@ export function SessionRunner({
         template={template}
         exercises={exercises}
         recap={recap}
-        saveSetAction={saveSetAction}
         updateSetAction={updateSetAction}
         deleteSetAction={deleteSetAction}
         reopenSessionAction={reopenSessionAction}
         reassignExerciseAction={reassignExerciseAction}
+        addSetToCompletedSessionAction={addSetToCompletedSessionAction}
       />
     );
   }
@@ -1162,17 +1167,16 @@ function CompletedSessionSummary({
   template,
   exercises,
   recap,
-  saveSetAction,
   updateSetAction,
   deleteSetAction,
   reopenSessionAction,
   reassignExerciseAction,
+  addSetToCompletedSessionAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
   exercises: ExerciseWithLoggedSets[];
   recap: SessionRecap | null;
-  saveSetAction: (prevState: SaveSetActionState, formData: FormData) => Promise<SaveSetActionState>;
   updateSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   deleteSetAction: (prevState: EditSetActionState, formData: FormData) => Promise<EditSetActionState>;
   reopenSessionAction: (
@@ -1183,6 +1187,10 @@ function CompletedSessionSummary({
     prevState: ReassignExerciseActionState,
     formData: FormData,
   ) => Promise<ReassignExerciseActionState>;
+  addSetToCompletedSessionAction: (
+    prevState: SaveSetActionState,
+    formData: FormData,
+  ) => Promise<SaveSetActionState>;
 }) {
   const reassignCandidates = exercises.map((exercise) => ({
     id: exercise.id,
@@ -1244,7 +1252,7 @@ function CompletedSessionSummary({
                 )}
               />
             )}
-            <AddSetToCompletedPanel sessionId={session.id} exercise={exercise} saveSetAction={saveSetAction} />
+            <AddSetToCompletedPanel sessionId={session.id} exercise={exercise} saveSetAction={addSetToCompletedSessionAction} />
             {exercise.loggedSets.length > 0 ? (
               <ReassignExercisePanel
                 sessionId={session.id}

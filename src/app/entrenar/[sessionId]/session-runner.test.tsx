@@ -19,6 +19,7 @@ import { SessionRunner } from "./session-runner";
 const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
 const noopReopenSessionAction = vi.fn(async (): Promise<ReopenSessionActionState> => ({ status: "idle" }));
 const noopReassignExerciseAction = vi.fn(async (): Promise<ReassignExerciseActionState> => ({ status: "idle" }));
+const noopAddSetToCompletedSessionAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
 const noopDeleteSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
@@ -156,6 +157,7 @@ function renderRunner({
   smallerSideHint = null,
   initialExerciseId = null,
   reassignExerciseAction = noopReassignExerciseAction,
+  addSetToCompletedSessionAction = noopAddSetToCompletedSessionAction,
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
@@ -183,6 +185,10 @@ function renderRunner({
     prevState: ReassignExerciseActionState,
     formData: FormData,
   ) => Promise<ReassignExerciseActionState>;
+  addSetToCompletedSessionAction?: (
+    prevState: SaveSetActionState,
+    formData: FormData,
+  ) => Promise<SaveSetActionState>;
 }) {
   return render(
     <SessionRunner
@@ -201,6 +207,7 @@ function renderRunner({
       smallerSideHint={smallerSideHint}
       initialExerciseId={initialExerciseId}
       reassignExerciseAction={reassignExerciseAction}
+      addSetToCompletedSessionAction={addSetToCompletedSessionAction}
     />,
   );
 }
@@ -1418,5 +1425,34 @@ describe("SessionRunner — adding a missing set to a completed session", () => 
     renderRunner({ session: buildSession(), exercises });
 
     expect(screen.queryByRole("button", { name: "+ Agregar una serie que falta" })).toBeNull();
+  });
+});
+
+describe("SessionRunner — the completed-session add form uses its own action", () => {
+  // Regression: it originally posted to saveSetAction, which requires
+  // session.status === "active" and refused with "Esta sesión no está
+  // disponible para registrar series." The active guard is deliberate — a
+  // phone left open on a session completed elsewhere must not silently append
+  // sets — so the fix was a mirrored action, not a relaxed guard.
+  it("posts to addSetToCompletedSessionAction, never to saveSetAction", () => {
+    const addSetToCompletedSessionAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
+    const saveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
+
+    renderRunner({
+      session: buildSession({ status: "completed" as const }),
+      exercises: [
+        buildExercise({ id: "presc-a", exerciseNameEs: "Fondos en máquina", targetSets: 3, loggedSets: [] }),
+      ],
+      saveSetAction,
+      addSetToCompletedSessionAction,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar una serie que falta" }));
+    fireEvent.change(screen.getByLabelText("Peso (kg)"), { target: { value: "40" } });
+    fireEvent.change(screen.getByLabelText("Reps"), { target: { value: "10" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Guardar serie" }).closest("form")!);
+
+    expect(addSetToCompletedSessionAction).toHaveBeenCalled();
+    expect(saveSetAction).not.toHaveBeenCalled();
   });
 });

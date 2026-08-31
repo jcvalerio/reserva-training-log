@@ -104,6 +104,67 @@ export async function saveSetAction(
   return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
 }
 
+/**
+ * Logging a set onto a session that is already finished.
+ *
+ * Deliberately NOT a relaxation of `saveSetAction`'s `status === "active"`
+ * guard. That guard earns its keep: a phone left open on a session that was
+ * completed elsewhere must not silently append sets to it. This is the
+ * opposite situation — an athlete looking at a finished session and correcting
+ * it on purpose, usually after a swap left an exercise with nothing logged.
+ *
+ * So the precondition is mirrored rather than removed: this refuses an ACTIVE
+ * session, which has its own logging form. Each action guards its own case and
+ * neither can stand in for the other.
+ */
+export async function addSetToCompletedSessionAction(
+  _previousState: SaveSetActionState,
+  formData: FormData,
+): Promise<SaveSetActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const workoutSessionId = formData.get("workoutSessionId");
+  const exercisePrescriptionId = formData.get("exercisePrescriptionId");
+
+  if (typeof workoutSessionId !== "string" || typeof exercisePrescriptionId !== "string") {
+    return { status: "error", message: "Falta información de la sesión o el ejercicio." };
+  }
+
+  const session = await getWorkoutSessionForProfile(workoutSessionId, profile.id);
+  if (!session || session.status !== "completed") {
+    return { status: "error", message: "Esta sesión no está terminada, registrá la serie desde el entrenamiento." };
+  }
+
+  let input;
+  try {
+    input = parseSetLogFormData(formData);
+  } catch {
+    return { status: "error", message: "Revisa los datos del set: hay valores fuera de rango." };
+  }
+
+  const { setNumber } = await saveSetForSession({
+    workoutSessionId,
+    exercisePrescriptionId,
+    ...input,
+    notes: input.notes ?? null,
+    painLocation: input.painLocation ?? null,
+  });
+
+  // The set keeps the SESSION's week in every report — /progreso buckets by
+  // workoutSession.completedAt, not setLog.completedAt — so a set added weeks
+  // later still lands where it was trained. /progreso is revalidated because
+  // adding a set changes volume and consistency for that week.
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+  revalidatePath("/progreso");
+
+  return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
+}
+
 export type EditSetActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
