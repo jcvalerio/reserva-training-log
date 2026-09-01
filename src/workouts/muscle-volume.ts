@@ -39,9 +39,13 @@ export type MuscleVolumeBucket = MuscleGroup | typeof UNCLASSIFIED_BUCKET;
 export type VolumeSetInput = {
   setNumber: number;
   side: "bilateral" | "left" | "right";
-  painScore: number;
+  /** Null when the athlete was never asked about this set — the normal case
+   *  since pain moved to one question per exercise. Never read as 0: that
+   *  would turn "not asked" into a reported absence of pain. */
+  painScore: number | null;
   /** Where the athlete said it hurt. Null on sets logged before the column
-   *  existed, and on pain-free sets. */
+   *  existed, on sets nobody was asked about, and when an escalation skipped
+   *  the question. */
   painLocation: PainLocation | null;
   /** Reps left in the tank. Null on duration-type sets, which have no RIR at
    *  all — and null must never be read as 0, which is the opposite claim
@@ -394,7 +398,10 @@ export function buildMuscleVolumeSummary(
     // Per SET, not per instance, because location is now a per-set fact: the
     // same exercise can hurt the shoulder on one set and nowhere on the next.
     for (const set of instance.sets) {
-      if (set.painScore <= 0) {
+      // `null <= 0` is true, so the old form skipped never-asked sets by
+      // coincidence. Spelled out, because the two cases mean different things
+      // and only one of them is evidence.
+      if (set.painScore === null || set.painScore <= 0) {
         continue;
       }
       // Reported location wins outright. Only when a set predates the column

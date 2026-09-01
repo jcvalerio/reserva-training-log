@@ -34,6 +34,85 @@ describe("suggestProgression", () => {
     ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
   });
 
+  // Pain is now asked once per exercise, so most sets carry no answer at all.
+  // null must never read as a reported 0 — Math.max coerces it, and this is
+  // the function that decides how much weight someone puts on a bar.
+  describe("sets nobody was asked about", () => {
+    it("treats a null pain score as no signal rather than as zero", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: null },
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: null },
+          ],
+        }),
+      ).toMatchObject({ action: "increase", riskFlag: "none" });
+    });
+
+    it("still finds the one set carrying the exercise's answer", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: null },
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: null },
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 5, painLocation: "hombro" },
+          ],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+  });
+
+  // Ordinary soreness is the expected response to effective hypertrophy work.
+  // Forcing a load reduction on it is how you teach someone to stop reporting
+  // it, which is the failure this whole change exists to undo.
+  describe("muscular soreness versus joint pain", () => {
+    it("does not reduce load for muscular soreness that would block joint pain", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: null },
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 5, painLocation: "muscular" },
+          ],
+        }),
+      ).toMatchObject({ action: "increase", riskFlag: "none" });
+    });
+
+    it("still reduces for the same score in a joint", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: null },
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 5, painLocation: "rodilla" },
+          ],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+
+    it("treats a reported pain with no location as joint pain, not as soreness", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [{ actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 5, painLocation: null }],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+
+    it("stops for severe pain even when the athlete calls it muscular", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 8, painLocation: "muscular" },
+          ],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+  });
+
   it("does not increase when reps drop sharply", () => {
     expect(
       suggestProgression({

@@ -35,6 +35,7 @@ import { YoutubeTechniqueLink } from "../../youtube-technique-link";
 import type {
   EditSetActionState,
   ReassignExerciseActionState,
+  RecordExercisePainActionState,
   ReopenSessionActionState,
   SaveSetActionState,
   SubstituteExerciseActionState,
@@ -64,6 +65,7 @@ export function SessionRunner({
   initialExerciseId = null,
   reassignExerciseAction,
   addSetToCompletedSessionAction,
+  recordExercisePainAction,
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -98,6 +100,10 @@ export function SessionRunner({
     prevState: ReassignExerciseActionState,
     formData: FormData,
   ) => Promise<ReassignExerciseActionState>;
+  recordExercisePainAction: (
+    prevState: RecordExercisePainActionState,
+    formData: FormData,
+  ) => Promise<RecordExercisePainActionState>;
   addSetToCompletedSessionAction: (
     prevState: SaveSetActionState,
     formData: FormData,
@@ -132,10 +138,6 @@ export function SessionRunner({
   // Both resets adjust state during render (React's documented pattern),
   // matching the exerciseIndex-reset approach useRestTimer already uses
   // below, instead of a setState-in-effect.
-  // Drives whether the "¿dónde te duele?" select is shown. Local rather than
-  // read off the form, because the input is uncontrolled and this is the only
-  // thing that needs to react to it.
-  const [painScoreInput, setPainScoreInput] = useState(0);
   const [showBonusForm, setShowBonusForm] = useState(false);
   // The swap panel follows the same reset rule: moving to another exercise
   // should never leave a half-filled "cambiar ejercicio" form open against the
@@ -602,42 +604,11 @@ export function SessionRunner({
               />
             )}
 
-            <label className="grid gap-1 text-sm font-medium text-zinc-300">
-              <span>Dolor (0-10)</span>
-              <input
-                name="painScore"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={10}
-                defaultValue={0}
-                required
-                className="input"
-                onChange={(event) => setPainScoreInput(Number(event.target.value) || 0)}
-              />
-            </label>
-
-            {/* Only once there is pain to locate. Every set logged to date
-                carries pain 0, so in the normal flow this never appears and
-                costs nothing — but when it does appear it turns the
-                pain-by-joint report from an inference into a measurement. */}
-            {painScoreInput > 0 ? (
-              <label className="grid gap-1 text-sm font-medium text-zinc-300">
-                <span>¿Dónde te duele?</span>
-                <select name="painLocation" defaultValue="" className="input">
-                  <option value="">Sin especificar</option>
-                  {painLocations.map((location) => (
-                    <option key={location} value={location}>
-                      {painLocationLabelsEs[location]}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs leading-5 text-zinc-400">
-                  Las agujetas y el dolor articular no son lo mismo. Anotarlo deja ver si una articulación se queja
-                  siempre en el mismo movimiento.
-                </span>
-              </label>
-            ) : null}
+            {/* No pain field here any more, deliberately. Asking 0–10 on every
+                set — pre-filled with 0, and required — produced 58 of 58 real
+                sets at exactly 0 across three athletes and a month of
+                training. The question is now asked once, after the exercise,
+                where an answer costs one tap and means something. */}
 
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Notas (opcional)</span>
@@ -650,15 +621,9 @@ export function SessionRunner({
               </p>
             ) : null}
             {justSavedThisExercise ? (
-              saveState.painScore >= 7 ? (
-                <p role="status" className="text-sm leading-6 text-amber-200">
-                  Dolor alto registrado. Considera reducir carga, modificar el ejercicio o detenerte si persiste.
-                </p>
-              ) : (
-                <p role="status" className="text-sm leading-6 text-emerald-300">
-                  Set {saveState.setNumber} guardado.
-                </p>
-              )
+              <p role="status" className="text-sm leading-6 text-emerald-300">
+                Set {saveState.setNumber} guardado.
+              </p>
             ) : null}
 
             <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
@@ -668,6 +633,16 @@ export function SessionRunner({
         ) : (
           <div className="mt-4 grid gap-3">
             <p className="text-sm leading-6 text-emerald-300">Series objetivo completadas para este ejercicio.</p>
+
+            {/* The one pain question. Here rather than on every set, and here
+                rather than on the finish screen: this is the moment the
+                exercise is over and the memory of it is still first-hand. */}
+            <ExercisePainQuestion
+              key={currentExercise.id}
+              sessionId={session.id}
+              exercise={currentExercise}
+              recordExercisePainAction={recordExercisePainAction}
+            />
             {isBonusSetJustSaved ? (
               targetSetsState.status === "updated" &&
               targetSetsState.exercisePrescriptionId === currentExercise.id &&
@@ -732,8 +707,12 @@ export function SessionRunner({
       </div>
 
       <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
-        Dolor &gt;2 bloquea aumentos agresivos, dolor &gt;3 exige reducir, modificar o cambiar el movimiento, dolor
-        ≥7 significa detener y buscar orientación profesional si persiste.
+        {/* Kept honest against suggestProgression: agujetas stopped blocking
+            on 2026-08-31, and a rule stated here that the app no longer
+            applies is worse than no rule at all. */}
+        Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el movimiento.
+        Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar orientación
+        profesional si persiste.
       </div>
 
       <FinishSessionLink
@@ -773,6 +752,146 @@ export function SessionRunner({
  * "first incomplete" — which would silently drop you on exercise 2 after you
  * cancelled out of finishing on exercise 5.
  */
+/**
+ * The one pain question, asked once per exercise instead of once per set.
+ *
+ * The old design asked for a 0–10 score on every set, pre-filled with 0 and
+ * marked required. Across three athletes and a month of real training that
+ * produced 58 of 58 sets at exactly 0 and not one recorded pain location —
+ * the app's most differentiated feature generating no signal at all. Two
+ * things were wrong and only one of them was the frequency: a form that
+ * arrives pre-filled with the answer is not asking a question.
+ *
+ * So: no prompt by default, one binary here, and the 0–10 scale only after a
+ * "sí". Both answers are recorded — "no" stores a real 0, which is why the
+ * column had to become nullable to keep "never asked" distinguishable from
+ * "asked, nothing hurt".
+ *
+ * Deliberately not a blocking step. It renders below "series objetivo
+ * completadas" alongside the bonus-set and navigation controls, so an athlete
+ * who ignores it loses nothing they had before — this replaces a field that
+ * was answered reflexively, and a gate that must be cleared to continue would
+ * re-create exactly the reflex being removed.
+ */
+function ExercisePainQuestion({
+  sessionId,
+  exercise,
+  recordExercisePainAction,
+}: {
+  sessionId: string;
+  exercise: ExerciseWithLoggedSets;
+  recordExercisePainAction: (
+    prevState: RecordExercisePainActionState,
+    formData: FormData,
+  ) => Promise<RecordExercisePainActionState>;
+}) {
+  const [state, formAction] = useActionState(recordExercisePainAction, {
+    status: "idle",
+  } as RecordExercisePainActionState);
+  const [escalated, setEscalated] = useState(false);
+
+  // Already answered, either just now or on a previous visit to this exercise
+  // — a set carrying a non-null painScore is the record of that answer.
+  const answeredScore =
+    state.status === "saved" && state.exercisePrescriptionId === exercise.id
+      ? state.painScore
+      : (exercise.loggedSets.find((set) => set.painScore !== null)?.painScore ?? null);
+
+  if (answeredScore !== null) {
+    return (
+      <div className="rounded-2xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
+        {answeredScore >= 7 ? (
+          <p role="status" className="text-sm leading-6 text-amber-200">
+            Dolor {answeredScore} registrado. Detén el patrón, reduce carga y consulta a un profesional si persiste.
+          </p>
+        ) : answeredScore > 0 ? (
+          <p role="status" className="text-sm leading-6 text-amber-200">
+            Molestia {answeredScore} registrada en este ejercicio.
+          </p>
+        ) : (
+          <p role="status" className="text-sm leading-6 text-zinc-400">
+            Sin molestias en este ejercicio.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="grid gap-3 rounded-2xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="exercisePrescriptionId" value={exercise.id} />
+
+      <p className="text-sm font-semibold text-zinc-100">¿Algo te molestó en este ejercicio?</p>
+
+      {escalated ? (
+        <>
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>¿Cuánto? (0-10)</span>
+            <input
+              name="painScore"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10}
+              defaultValue={3}
+              className="input"
+            />
+          </label>
+
+          <label className="grid gap-1 text-sm font-medium text-zinc-300">
+            <span>¿Dónde?</span>
+            <select name="painLocation" defaultValue="" className="input">
+              <option value="">Sin especificar</option>
+              {painLocations.map((location) => (
+                <option key={location} value={location}>
+                  {painLocationLabelsEs[location]}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs leading-5 text-zinc-400">
+              Las agujetas y el dolor articular no son lo mismo. Anotarlo deja ver si una articulación se queja
+              siempre en el mismo movimiento — y las agujetas ya no bloquean tu progresión.
+            </span>
+          </label>
+
+          <input type="hidden" name="bothered" value="si" />
+          <SubmitButton className="min-h-11 rounded-xl bg-amber-200 px-4 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100">
+            Guardar molestia
+          </SubmitButton>
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {/* "No" submits immediately — one tap, and it stores a real 0.
+              "Sí" only reveals the scale, so nothing is written until the
+              athlete says how much and where. */}
+          <button
+            type="submit"
+            name="bothered"
+            value="no"
+            className="min-h-11 flex-1 rounded-xl bg-zinc-950 px-4 text-sm font-semibold text-zinc-200 ring-1 ring-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            No, todo bien
+          </button>
+          <button
+            type="button"
+            onClick={() => setEscalated(true)}
+            className="min-h-11 flex-1 rounded-xl bg-zinc-950 px-4 text-sm font-semibold text-amber-200 ring-1 ring-amber-200/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+          >
+            Sí, algo me molestó
+          </button>
+        </div>
+      )}
+
+      {state.status === "error" ? (
+        <p role="alert" className="text-sm leading-6 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
 function FinishSessionLink({
   sessionId,
   currentExerciseId,
@@ -1701,16 +1820,19 @@ function EditableSetRow({
         />
       )}
 
+      {/* Correcting a set keeps a pain field, unlike logging one: a set that
+          already carries the exercise's answer must be fixable. Left empty
+          when nobody was asked, and no longer `required` — submitting it
+          empty stores null ("not asked") rather than forcing a fabricated 0. */}
       <label className="grid gap-1 text-sm font-medium text-zinc-300">
-        <span>Dolor (0-10)</span>
+        <span>Dolor (0-10, opcional)</span>
         <input
           name="painScore"
           type="number"
           inputMode="numeric"
           min={0}
           max={10}
-          defaultValue={set.painScore}
-          required
+          defaultValue={set.painScore ?? ""}
           className="input"
         />
       </label>
@@ -1807,6 +1929,11 @@ function LoggedSetRow({
   // worth a second look. Actual above target (more left in the tank) isn't a
   // caution, so it stays the same neutral color as every other number here.
   const rirHarderThanTarget = rirMismatch && (set.rir as number) < (targetRir as number);
+  // Omitted entirely when nobody was asked, which is now most sets — pain is
+  // recorded once per exercise. Rendering `dolor {null}` leaves a dangling
+  // "· dolor" label with no value, which reads as a missing number rather
+  // than as a question that was never put.
+  const painSuffix = set.painScore !== null ? <> · dolor {set.painScore}</> : null;
 
   return (
     <div className="rounded-xl bg-zinc-950 px-3 py-2 text-sm ring-1 ring-zinc-800">
@@ -1820,7 +1947,8 @@ function LoggedSetRow({
           <span className="font-semibold text-zinc-100">
             {set.actualDurationSeconds !== null ? (
               <>
-                {formatDurationSeconds(set.actualDurationSeconds)} · dolor {set.painScore}
+                {formatDurationSeconds(set.actualDurationSeconds)}
+                {painSuffix}
               </>
             ) : (
               <>
@@ -1828,8 +1956,8 @@ function LoggedSetRow({
                 <span className={rirHarderThanTarget ? "text-amber-200" : undefined}>
                   {formatStoredRir(set.rir ?? 0)}
                   {rirMismatch ? ` (obj. ${formatStoredRir(targetRir as number)})` : ""}
-                </span>{" "}
-                · dolor {set.painScore}
+                </span>
+                {painSuffix}
               </>
             )}
           </span>

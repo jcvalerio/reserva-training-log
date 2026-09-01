@@ -33,11 +33,32 @@ Primary working-set target for hypertrophy:
 
 ## Pain thresholds
 
-Authoritative MVP thresholds:
+Authoritative MVP thresholds. **Since 2026-08-31 these apply to `painLocation` other than `muscular`** — see "Soreness is not injury" below.
+
 - `pain <= 2`: progression is allowed if performance and notes also support it.
 - `pain > 2`: aggressive progression is blocked automatically; hold, repeat, or reduce depending on context.
 - `pain > 3`: next-session suggestion should reduce load, modify range, or swap exercise.
-- `pain >= 7`: stop/avoid the pattern and recommend professional guidance if persistent.
+- `pain >= 7`: stop/avoid the pattern and recommend professional guidance if persistent. **Applies at any location, muscular included** — someone calling an 8 "agujetas" does not make it one. This is the one rule location cannot soften, and it is now enforced in `suggestProgression` rather than only shown as a banner in the runner.
+
+### How pain is collected
+
+Pain is asked **once per exercise**, as a binary, and only a "sí" escalates to the 0–10 scale and a location. It is not asked per set.
+
+That changed on 2026-08-31 because the previous design — a required 0–10 field, pre-filled with 0, on every single set — produced **58 of 58 real sets at exactly 0** across three athletes and a month of training, and not one recorded pain location. A scale that is always asked stops being answered, and a field that arrives pre-filled with the answer is not a question. Fewer data points, far more true ones.
+
+`setLog.painScore` is therefore nullable, and `null` means *not asked* — never `0`. See note 10 in `docs/architecture/data-model.md`.
+
+### Soreness is not injury
+
+`painLocation = "muscular"` (agujetas / DOMS) no longer blocks progression the way joint pain does. DOMS is the expected response to effective hypertrophy work; forcing a load reduction on it teaches an athlete to stop reporting it, which is the exact failure the collection change above is undoing.
+
+Concretely, in `suggestProgression`:
+- `>= 7` at **any** location → `reduce_or_modify`.
+- `> 3` at a **non-muscular** location → `reduce_or_modify`.
+- `> 2` at a **non-muscular** location → `hold`.
+- Muscular soreness from 1–6 vetoes nothing; performance signals decide.
+
+A reported pain with **no location** is treated as joint pain, not as soreness — an unanswered "where" takes the conservative side.
 
 ## Basic progression algorithm v1
 
