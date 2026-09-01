@@ -304,6 +304,32 @@ describe("buildMuscleVolumeSummary — pain by location", () => {
     const summary = buildMuscleVolumeSummary([buildInstance({ jointLoads: ["hombro"] })], { now: NOW });
     expect(summary.painByLocation).toEqual([]);
   });
+
+  it("ignores sets nobody was asked about instead of reading them as pain-free", () => {
+    // Most sets carry null now that pain is asked once per exercise. `null <= 0`
+    // is true, so these were skipped by coincidence before the check was made
+    // explicit; this pins the behaviour rather than the coincidence.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({
+          exerciseNameEs: "Press de pecho en máquina",
+          jointLoads: ["hombro"],
+          sets: [
+            { setNumber: 1, side: "bilateral", painScore: null, painLocation: null, rir: 2 },
+            { setNumber: 2, side: "bilateral", painScore: null, painLocation: null, rir: 2 },
+            { setNumber: 3, side: "bilateral", painScore: 5, painLocation: "hombro", rir: 2 },
+          ],
+        }),
+      ],
+      { now: NOW },
+    );
+
+    const hombro = summary.painByLocation.find((row) => row.location === "hombro");
+    // One answer stays one set, not three.
+    expect(hombro?.setCount).toBe(1);
+    expect(hombro?.maxPainScore).toBe(5);
+    expect(hombro?.isInferred).toBe(false);
+  });
 });
 
 describe("week bucketing", () => {

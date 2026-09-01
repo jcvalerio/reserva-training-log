@@ -16,7 +16,7 @@ import {
   substitutionReasons,
 } from "@/workouts/exercise-substitution";
 import { parseSessionCompletionFormData } from "@/workouts/session-completion-schema";
-import { parseSetLogFormData } from "@/workouts/set-log-schema";
+import { parseExercisePainAnswer, parseSetLogFormData } from "@/workouts/set-log-schema";
 import {
   completeWorkoutSession,
   deleteSetForSession,
@@ -24,6 +24,7 @@ import {
   hasOtherActiveSessionForTemplate,
   markExerciseChosenForSession,
   reassignExerciseLog,
+  recordExercisePain,
   reopenWorkoutSession,
   saveSetForSession,
   startOrResumeWorkoutSession,
@@ -59,7 +60,15 @@ export async function startOrResumeSessionAction(formData: FormData) {
 export type SaveSetActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "saved"; exercisePrescriptionId: string; setNumber: number; painScore: number };
+  // No painScore any more: a set no longer carries one. The high-pain warning
+  // it used to drive now hangs off the once-per-exercise answer instead, in
+  // RecordExercisePainActionState.
+  | { status: "saved"; exercisePrescriptionId: string; setNumber: number };
+
+export type RecordExercisePainActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "saved"; exercisePrescriptionId: string; painScore: number };
 
 export async function saveSetAction(
   _previousState: SaveSetActionState,
@@ -101,7 +110,56 @@ export async function saveSetAction(
 
   revalidatePath(`/entrenar/${workoutSessionId}`);
 
-  return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
+  return { status: "saved", exercisePrescriptionId, setNumber };
+}
+
+/**
+ * The one pain question, answered once per exercise.
+ *
+ * Mirrors saveSetAction's guards rather than sharing them: this writes to a
+ * set on an active session, so it carries the same `status === "active"`
+ * requirement and the same profile ownership check, and the repository
+ * re-checks ownership against the database regardless of what was posted.
+ */
+export async function recordExercisePainAction(
+  _previousState: RecordExercisePainActionState,
+  formData: FormData,
+): Promise<RecordExercisePainActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const workoutSessionId = formData.get("workoutSessionId");
+  const exercisePrescriptionId = formData.get("exercisePrescriptionId");
+
+  if (typeof workoutSessionId !== "string" || typeof exercisePrescriptionId !== "string") {
+    return { status: "error", message: "Falta información de la sesión o el ejercicio." };
+  }
+
+  const session = await getWorkoutSessionForProfile(workoutSessionId, profile.id);
+  if (!session || session.status !== "active") {
+    return { status: "error", message: "Esta sesión no está disponible para registrar dolor." };
+  }
+
+  let answer;
+  try {
+    answer = parseExercisePainAnswer(formData);
+  } catch {
+    return { status: "error", message: "Revisa la respuesta de dolor: hay valores fuera de rango." };
+  }
+
+  const recorded = await recordExercisePain(profile.id, workoutSessionId, exercisePrescriptionId, answer);
+
+  if (!recorded) {
+    return { status: "error", message: "No se pudo guardar el dolor de este ejercicio." };
+  }
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "saved", exercisePrescriptionId, painScore: answer.painScore };
 }
 
 /**
@@ -162,7 +220,7 @@ export async function addSetToCompletedSessionAction(
   revalidatePath(`/entrenar/${workoutSessionId}`);
   revalidatePath("/progreso");
 
-  return { status: "saved", exercisePrescriptionId, setNumber, painScore: input.painScore };
+  return { status: "saved", exercisePrescriptionId, setNumber };
 }
 
 export type EditSetActionState =

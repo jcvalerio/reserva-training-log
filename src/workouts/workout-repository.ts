@@ -390,7 +390,10 @@ export async function getPriorStrengthInstancesForNames(
  */
 export type UpdateSetInput = {
   side: "bilateral" | "left" | "right";
-  painScore: number;
+  /** null means "not asked" — see the setLog.painScore schema comment. A
+   *  freshly logged set is always null now; the answer arrives afterwards via
+   *  recordExercisePain. */
+  painScore: number | null;
   painLocation: PainLocation | null;
   notes: string | null;
 } & (
@@ -419,11 +422,75 @@ export async function saveSetForSession(input: SaveSetInput): Promise<{ setNumbe
     rir: input.prescriptionType === "strength" ? input.rir : null,
     actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
     painScore: input.painScore,
-    painLocation: input.painScore > 0 ? input.painLocation : null,
+    painLocation: input.painScore !== null && input.painScore > 0 ? input.painLocation : null,
     notes: input.notes,
   });
 
   return { setNumber };
+}
+
+/**
+ * Attaches the one post-exercise pain answer to the most recently logged set
+ * of that exercise.
+ *
+ * Why the last set rather than all of them: the athlete answered once, about
+ * the exercise. Copying that number onto every set would fabricate per-set
+ * measurements nobody made, and would multiply one report into three in the
+ * pain-by-location report. Attaching it to the set that prompted the question
+ * keeps one answer as one row, and every existing reader — which takes a max
+ * across an exercise's sets — still finds it.
+ *
+ * Deliberately does NOT stamp updatedAt. That column means "this set was
+ * corrected after the fact" and drives the "editado" marker; answering the
+ * pain question is part of logging the exercise, not a correction of it.
+ *
+ * Returns false when the session isn't this athlete's, or when the exercise
+ * has no sets to attach the answer to.
+ */
+export async function recordExercisePain(
+  athleteProfileId: string,
+  workoutSessionId: string,
+  exercisePrescriptionId: string,
+  answer: { painScore: number; painLocation: PainLocation | null },
+): Promise<boolean> {
+  const [owned] = await db
+    .select({ exerciseLogId: exerciseLog.id })
+    .from(exerciseLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, exerciseLog.workoutSessionId))
+    .where(
+      and(
+        eq(exerciseLog.workoutSessionId, workoutSessionId),
+        eq(exerciseLog.exercisePrescriptionId, exercisePrescriptionId),
+        eq(workoutSession.athleteProfileId, athleteProfileId),
+      ),
+    );
+
+  if (!owned) {
+    return false;
+  }
+
+  const [lastSet] = await db
+    .select({ id: setLog.id })
+    .from(setLog)
+    .where(eq(setLog.exerciseLogId, owned.exerciseLogId))
+    .orderBy(desc(setLog.setNumber))
+    .limit(1);
+
+  if (!lastSet) {
+    return false;
+  }
+
+  await db
+    .update(setLog)
+    .set({
+      painScore: answer.painScore,
+      // A "no" clears any location, so a corrected answer cannot leave a
+      // stale joint behind for the report to keep counting.
+      painLocation: answer.painScore > 0 ? answer.painLocation : null,
+    })
+    .where(eq(setLog.id, lastSet.id));
+
+  return true;
 }
 
 /**
@@ -476,9 +543,9 @@ export async function updateSetForSession(
       rir: input.prescriptionType === "strength" ? input.rir : null,
       actualDurationSeconds: input.prescriptionType === "duration" ? input.actualDurationSeconds : null,
       painScore: input.painScore,
-      // Cleared when a correction drops the pain back to 0 — a pain-free set
-      // must not keep a stale location that the report would still count.
-      painLocation: input.painScore > 0 ? input.painLocation : null,
+      // Cleared when a correction drops the pain back to 0 or to "not asked"
+      // — neither must keep a stale location that the report would count.
+      painLocation: input.painScore !== null && input.painScore > 0 ? input.painLocation : null,
       notes: input.notes,
       updatedAt: new Date(),
     })

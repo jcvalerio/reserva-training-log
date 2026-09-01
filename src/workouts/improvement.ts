@@ -198,8 +198,18 @@ export function totalVolumeLoadKg(sets: StrengthSetLog[]): number {
   return sets.reduce((total, set) => total + set.actualReps * Number(set.actualWeightKg), 0);
 }
 
+/**
+ * Nulls are dropped before the max rather than coerced: `Math.max(...[null])`
+ * is 0, which would report "no pain" for an exercise nobody was asked about.
+ * Still returns 0 when nothing was reported — this feeds a display aggregate,
+ * not a safety gate, and every caller already renders 0 as "no pain".
+ */
 function maxPain(sets: SetLog[]): number {
-  return sets.length ? Math.max(...sets.map((set) => set.painScore)) : 0;
+  const reported = sets
+    .map((set) => set.painScore)
+    .filter((score): score is number => score !== null);
+
+  return reported.length ? Math.max(...reported) : 0;
 }
 
 export function average(values: number[]): number {

@@ -1,0 +1,1 @@
+ALTER TABLE "set_log" ALTER COLUMN "pain_score" DROP NOT NULL;

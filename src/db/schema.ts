@@ -578,21 +578,44 @@ export const setLog = pgTable(
     actualReps: integer("actual_reps"),
     rir: integer("rir"),
     actualDurationSeconds: integer("actual_duration_seconds"),
-    painScore: integer("pain_score").notNull(),
-    // Where it hurt. Nullable by design, and in two distinct senses: sets
-    // logged before this column existed have none, and a pain-free set has
-    // nothing to locate — the input only appears once painScore > 0, so it
-    // costs nothing on a normal set.
+    // Nullable since 2026-08-31, and the null carries meaning: NOT ASKED.
+    //
+    // Until then this was `notNull` with a pre-filled 0 on every set-logging
+    // form, and the result was 58 of 58 real sets logged at exactly 0 across
+    // three athletes and a month of training. A scale that is always asked
+    // stops being answered, and a field that arrives pre-filled with the
+    // answer is not a question at all. Pain is now asked ONCE per exercise,
+    // as a binary, and only a "sí" escalates to this 0–10 scale.
+    //
+    // So the three states are distinct and must stay that way:
+    //   null → never asked (every set but the one carrying the answer)
+    //   0    → asked, and the athlete said nothing bothered them
+    //   1-10 → asked, and this is what they reported
+    //
+    // Rows predating the change also hold 0, which cannot be told apart from
+    // a genuine "no" and is deliberately not backfilled: 0 blocks nothing in
+    // suggestProgression, so reading those as "no pain" changes no behaviour.
+    // Do NOT let a reader coerce null into 0 — `Math.max(null)` and
+    // `null <= 0` both silently do, and one of those readers is a safety
+    // brake. Skip nulls explicitly.
+    painScore: integer("pain_score"),
+    // Where it hurt, asked only when the binary above comes back "sí".
+    // Nullable in three senses now: sets logged before this column existed,
+    // sets never asked, and an escalation where the athlete skipped the
+    // location.
     //
     // Replaces an inference. Before this, the pain-by-joint report attributed
     // a set's pain to every joint its exercise loads, which would report
     // "hombro" for someone whose wrist hurt; that fallback still runs for
     // historical rows, and the UI says which is which.
     //
-    // Deliberately does NOT feed the progression thresholds yet — "muscular"
-    // (ordinary soreness) still blocks aggressive progression exactly like
-    // joint pain does. Loosening a safety rule wants real logged evidence,
-    // and every set logged to date carries pain 0.
+    // This DOES feed the progression thresholds as of 2026-08-31: "muscular"
+    // (ordinary soreness) no longer forces a load reduction the way joint
+    // pain does, because DOMS is the expected response to effective
+    // hypertrophy work and vetoing progression on it teaches under-reporting.
+    // A missing location is treated as joint pain, not as muscular — the
+    // conservative side — and pain >= 7 still stops everything regardless of
+    // where it is. See suggestProgression in src/training/progression.ts.
     painLocation: painLocationEnum("pain_location"),
     notes: text("notes"),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),

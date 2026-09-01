@@ -9,6 +9,7 @@ import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/
 import type {
   EditSetActionState,
   ReassignExerciseActionState,
+  RecordExercisePainActionState,
   ReopenSessionActionState,
   SaveSetActionState,
   SubstituteExerciseActionState,
@@ -20,6 +21,9 @@ const noopSaveSetAction = vi.fn(async (): Promise<SaveSetActionState> => ({ stat
 const noopReopenSessionAction = vi.fn(async (): Promise<ReopenSessionActionState> => ({ status: "idle" }));
 const noopReassignExerciseAction = vi.fn(async (): Promise<ReassignExerciseActionState> => ({ status: "idle" }));
 const noopAddSetToCompletedSessionAction = vi.fn(async (): Promise<SaveSetActionState> => ({ status: "idle" }));
+const noopRecordExercisePainAction = vi.fn(
+  async (): Promise<RecordExercisePainActionState> => ({ status: "idle" }),
+);
 const noopUpdateTargetSetsAction = vi.fn(async (): Promise<UpdateTargetSetsActionState> => ({ status: "idle" }));
 const noopUpdateSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
 const noopDeleteSetAction = vi.fn(async (): Promise<EditSetActionState> => ({ status: "idle" }));
@@ -89,7 +93,9 @@ function buildSet(overrides: Partial<SetLog> = {}): SetLog {
     actualReps: 10,
     rir: 2,
     actualDurationSeconds: null,
-    painScore: 0,
+    // Not asked, which is what a freshly logged set now carries: pain is
+    // recorded once per exercise, not once per set.
+    painScore: null,
     painLocation: null,
     notes: null,
     completedAt: new Date("2026-07-20T12:00:00Z"),
@@ -158,6 +164,7 @@ function renderRunner({
   initialExerciseId = null,
   reassignExerciseAction = noopReassignExerciseAction,
   addSetToCompletedSessionAction = noopAddSetToCompletedSessionAction,
+  recordExercisePainAction = noopRecordExercisePainAction,
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
@@ -189,6 +196,10 @@ function renderRunner({
     prevState: SaveSetActionState,
     formData: FormData,
   ) => Promise<SaveSetActionState>;
+  recordExercisePainAction?: (
+    prevState: RecordExercisePainActionState,
+    formData: FormData,
+  ) => Promise<RecordExercisePainActionState>;
 }) {
   return render(
     <SessionRunner
@@ -208,6 +219,7 @@ function renderRunner({
       initialExerciseId={initialExerciseId}
       reassignExerciseAction={reassignExerciseAction}
       addSetToCompletedSessionAction={addSetToCompletedSessionAction}
+      recordExercisePainAction={recordExercisePainAction}
     />,
   );
 }
@@ -1082,7 +1094,7 @@ describe("SessionRunner", () => {
 
       expect(editor.getByLabelText("Peso (kg)")).toHaveValue(62.5);
       expect(editor.getByLabelText("Reps")).toHaveValue(9);
-      expect(editor.getByLabelText("Dolor (0-10)")).toHaveValue(4);
+      expect(editor.getByLabelText("Dolor (0-10, opcional)")).toHaveValue(4);
       // The set's real RIR of 0 must win over the prescription's target of 2 —
       // and 0 is falsy, so this also guards the `?? targetRir` choice.
       expect(editor.getByRole("radio", { name: toDisplayRir(0) })).toBeChecked();
@@ -1454,5 +1466,94 @@ describe("SessionRunner — the completed-session add form uses its own action",
 
     expect(addSetToCompletedSessionAction).toHaveBeenCalled();
     expect(saveSetAction).not.toHaveBeenCalled();
+  });
+
+
+});
+
+describe("SessionRunner — the once-per-exercise pain question", () => {
+  it("does not ask for pain while logging a set", () => {
+    renderRunner({ exercises: [buildExercise({ loggedSets: [] })] });
+
+    // The field that produced 58 of 58 sets at pain 0 is gone. Its label is
+    // asserted by absence so re-adding it has to be a deliberate act.
+    expect(screen.queryByLabelText("Dolor (0-10)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Dolor \(0-10\)$/)).not.toBeInTheDocument();
+  });
+
+  it("asks once the exercise's target sets are done", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [buildSet({ setNumber: 1 }), buildSet({ id: "set-2", setNumber: 2 })],
+        }),
+      ],
+    });
+
+    expect(screen.getByText("¿Algo te molestó en este ejercicio?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No, todo bien" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, algo me molestó" })).toBeInTheDocument();
+  });
+
+  it("does not ask before the exercise is finished", () => {
+    renderRunner({
+      exercises: [buildExercise({ targetSets: 2, loggedSets: [buildSet({ setNumber: 1 })] })],
+    });
+
+    expect(screen.queryByText("¿Algo te molestó en este ejercicio?")).not.toBeInTheDocument();
+  });
+
+  it("only reveals the 0-10 scale after a 'si'", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [buildSet({ setNumber: 1 }), buildSet({ id: "set-2", setNumber: 2 })],
+        }),
+      ],
+    });
+
+    expect(screen.queryByLabelText("¿Cuánto? (0-10)")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, algo me molestó" }));
+
+    expect(screen.getByLabelText("¿Cuánto? (0-10)")).toBeInTheDocument();
+    // The accessible name of this label swallows its own option list and
+    // helper copy, so match the question rather than the whole string.
+    expect(screen.getByLabelText(/^¿Dónde\?/)).toBeInTheDocument();
+  });
+
+  it("reports an already-answered exercise instead of asking again", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [
+            buildSet({ setNumber: 1 }),
+            buildSet({ id: "set-2", setNumber: 2, painScore: 0 }),
+          ],
+        }),
+      ],
+    });
+
+    expect(screen.queryByText("¿Algo te molestó en este ejercicio?")).not.toBeInTheDocument();
+    expect(screen.getByText("Sin molestias en este ejercicio.")).toBeInTheDocument();
+  });
+
+  it("escalates its wording when a recorded score crosses the guidance threshold", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [
+            buildSet({ setNumber: 1 }),
+            buildSet({ id: "set-2", setNumber: 2, painScore: 8, painLocation: "hombro" }),
+          ],
+        }),
+      ],
+    });
+
+    expect(screen.getByText(/consulta a un profesional/)).toBeInTheDocument();
   });
 });

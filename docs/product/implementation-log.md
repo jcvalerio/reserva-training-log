@@ -2,6 +2,41 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-08-31 (evening) — Pain asked once per exercise, and agujetas stop blocking progression
+
+Status: built and verified end to end against the dev database in a real browser. `lint`/`typecheck`/`test` (651 passing, +20)/`build` green. **Migration `0022`** — one line, no data rewritten. Closes issue #1; opens the evidence path for #2.
+
+**The measurement that forced this.** 58 of 58 real sets logged at exactly `pain 0`, across three athletes and a month of training, with `painLocation` never once recorded. The app's most differentiated feature — progression a pain score can veto — had produced no signal in its entire life.
+
+**Two defects, and the issue only named one.** Asking a 0–10 score on every set trains a reflexive zero, which is the habituation argument. But the field also arrived `defaultValue={0}` and `required`: reporting "no pain" cost zero actions, and reporting pain cost strictly more than not reporting it. A form pre-filled with the answer is not a question. Either defect alone is enough to produce 58 zeros.
+
+**So the question moved and changed shape.** No pain field on the set-logging form at all. When an exercise's target sets are done, one binary — *¿Algo te molestó en este ejercicio?* — and only a "sí" reveals the 0–10 scale and the location. Six taps a session instead of twenty numeric inputs, on the hottest screen in the app.
+
+**Placed at exercise completion, not on the finish screen.** Pain is per-exercise in an athlete's head — "the press bothered my shoulder" — and recall across six exercises at the end of a session is materially worse. Deliberately **not** a blocking step: it renders alongside the bonus-set and navigation controls, and an athlete who ignores it loses nothing they had before. A gate that must be cleared to continue would rebuild the exact reflex being removed.
+
+**`setLog.painScore` is nullable now, and the null is the point.** Three states that must never collapse into each other: `null` = never asked, `0` = asked and nothing hurt, `1-10` = reported. "No" writes a real 0 — that is what makes the signal readable at all, and it is why the column had to change. The issue was labelled `no-migration`; it could not be, because its own closing note ("absent vs. not-asked") is unrepresentable in a `NOT NULL` integer.
+
+**One answer stays one row.** `recordExercisePain` attaches it to the exercise's last set rather than copying it across every set — fabricating per-set measurements nobody made would also multiply one report into three in the pain-by-location report. Verified in the database: five nulls and one `5 / muscular` on a six-set unilateral exercise. It deliberately does not stamp `updatedAt`, which means "corrected after the fact" and drives the "editado" marker; answering the question is part of logging, not a correction. Also verified: `marked_edited` false on every row.
+
+**The coercion trap, spelled out rather than relied on.** `painScore` has 125 references across 21 files, and with `null` the three semantic readers keep working *by accident*: `Math.max(...[null])` is `0`, and `null <= 0` is `true`. Every one now skips nulls explicitly, because one of them is `suggestProgression` — the function that decides how much weight someone puts on a bar, and the last place that should depend on a silent coercion. `maxPainScore` returns `null` for "no signal" instead of a 0 that looks like a measurement.
+
+**Thresholds, revisited in the conservative direction only** (scope the owner chose with the caveat stated: the evidence this rests on does not exist yet, because this change is what produces it).
+
+- `>= 7` at **any** location → reduce. New as an explicit rule: the threshold was documented and shown as a banner, but `suggestProgression` only ever saw "> 3". Someone calling an 8 "agujetas" does not make it one, so this runs *before* the location split.
+- `> 3` / `> 2` now read **non-muscular** pain only.
+- `muscular` 1–6 vetoes nothing. DOMS is the expected response to effective hypertrophy work, and forcing a load reduction on it teaches an athlete to stop reporting it — the same failure this entry is undoing.
+- A reported pain with **no location** counts as joint pain, not soreness. An unanswered "where" takes the conservative side.
+
+Every red-flag path is intact or stricter; the only relaxation is soreness.
+
+**Copy that would otherwise have gone stale.** The runner's guidance panel still said "Dolor >2 bloquea aumentos agresivos"; it now distinguishes joint pain from agujetas. The `increase` suggestion no longer claims "dolor <= 2", which muscular soreness can now legitimately violate — a reason stating a false fact about the athlete's own data is worse than a vaguer one.
+
+**Found in the browser, not by tests: `· dolor {null}`.** `LoggedSetRow` rendered a dangling "· dolor" with no value on every unasked set — which is now most of them. All 651 tests were green when this was on screen. Third time this repo has been caught by something only a real browser shows.
+
+**Deliberately not built.** `limitation.requiresPainTracking` exists, defaults true, and is read by nothing — the schema already records *which* athletes need pain tracked while the app asked everyone identically. Using it to target escalation is the obvious follow-up and stays out of this PR. Historical zeros are not backfilled: they are indistinguishable from a genuine "no", and 0 blocks nothing, so reading them as "no pain" changes no behaviour.
+
+**Known gaps.** The evidence for the threshold change is still zero logged pain — the relaxation is a clinical argument, not a finding, and the first weeks of real answers are what should confirm or reverse it. An exercise abandoned before its target sets is never asked, since the trigger is completion. Verified in Chromium at 390×844, not iOS Safari.
+
 ## 2026-08-31 (later still) — The 390px pass that three shipped screens never had, and the one defect it found
 
 Status: fix built, `lint`/`typecheck`/`test` (631 passing)/`build` green. No migration. Closes the "never checked in a real browser" gap the two previous entries both flagged.
