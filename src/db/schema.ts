@@ -258,6 +258,55 @@ export const limbSymmetryTest = pgTable(
   ],
 );
 
+// Functional capacity: the mobility/healthy-aging half of the stated goal,
+// which until now had no measure at all while every metric on /progreso was a
+// hypertrophy metric.
+//
+// Two tests, both on the existing fortnightly measurement cadence:
+//   - 30-second sit-to-stand: lower-limb strength and functional capacity.
+//   - Single-leg stance, EYES CLOSED, timed per side.
+//
+// Eyes closed is not a stylistic choice. Published eyes-open norms for ages
+// 40-49 sit around 40 s while the test is customarily capped at 30-45 s, so a
+// healthy 47-year-old saturates it and the number reads "perfect" forever —
+// the same ceiling failure that made limb symmetry unmeasurable from ordinary
+// sets (see limbSymmetryTest). Eyes closed still discriminates in this age
+// range; Springer et al. report a mean of 13.1 s even at 18-39.
+//
+// Per side, deliberately: it doubles as a BALANCE asymmetry, complementing the
+// strength asymmetry that limbSymmetryTest measures.
+//
+// NO AGE-NORM COMPARISON IS STORED OR SHOWN, and that is a deliberate refusal
+// rather than an omission. Both tests' published norms start at 60 (Rikli &
+// Jones for the chair stand; Bohannon's meta-analysis for stance), and the
+// sources that do cover 40-59 disagree with each other. Inventing a "you
+// perform like someone 8 years younger" line on top of that would be
+// fabricating clinical reference data in a health app. The athlete's own
+// baseline is the comparator until a citable source for this age band is
+// agreed on.
+export const functionalTest = pgTable(
+  "functional_test",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    testedAt: timestamp("tested_at", { withTimezone: true }).notNull().defaultNow(),
+    // Repetitions completed in 30 seconds. Nullable so one test can be
+    // recorded without the other — an athlete who only has a chair still gets
+    // half the picture, rather than being blocked into recording neither.
+    sitToStandReps: integer("sit_to_stand_reps"),
+    // Seconds held, eyes closed, per side.
+    balanceLeftSeconds: numeric("balance_left_seconds", { precision: 6, scale: 2 }),
+    balanceRightSeconds: numeric("balance_right_seconds", { precision: 6, scale: 2 }),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("functional_test_athlete_profile_id_idx").on(table.athleteProfileId),
+    index("functional_test_tested_at_idx").on(table.testedAt),
+  ],
+);
+
 // The exercise catalog: the single normalized source of truth for what muscle
 // an exercise trains. Revived from the removed "Pesos base" intake flow, which
 // left 12 rows behind that baseline_lift still references with

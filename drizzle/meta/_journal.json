@@ -169,6 +169,13 @@
       "when": 1788270908428,
       "tag": "0023_workable_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788317910317,
+      "tag": "0024_yummy_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

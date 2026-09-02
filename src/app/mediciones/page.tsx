@@ -1,11 +1,17 @@
 import Link from "next/link";
 
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getFunctionalTestsForProfile } from "@/measurements/functional-test-repository";
 import { getRecentLimbSymmetryTestsForProfile } from "@/measurements/limb-symmetry-repository";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { calculateMeasurementGaps } from "@/measurements/measurement-schema";
 import { getActivePlanForProfile } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import {
+  buildFunctionalCapacitySummary,
+  FUNCTIONAL_RETEST_WEEKS,
+  type FunctionalCapacitySummary,
+} from "@/workouts/functional-capacity";
 import {
   buildLimbSymmetrySummary,
   LSI_RETEST_WEEKS,
@@ -15,7 +21,11 @@ import {
 import { AppShell } from "../app-shell";
 import { FormStatusBanner } from "../form-status-banner";
 import { SubmitButton } from "../submit-button";
-import { saveBodyMeasurementAction, saveLimbSymmetryTestAction } from "./actions";
+import {
+  saveBodyMeasurementAction,
+  saveFunctionalTestAction,
+  saveLimbSymmetryTestAction,
+} from "./actions";
 
 type MeasurementsPageProps = {
   searchParams?: Promise<{ saved?: string; error?: string }>;
@@ -50,11 +60,13 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
   const latestMeasurement = measurements[0];
   const latestGaps = latestMeasurement ? calculateMeasurementGaps(latestMeasurement) : null;
 
-  const [symmetryTests, activePlan] = await Promise.all([
+  const [symmetryTests, activePlan, functionalTests] = await Promise.all([
     getRecentLimbSymmetryTestsForProfile(profile.id),
     getActivePlanForProfile(profile.id),
+    getFunctionalTestsForProfile(profile.id),
   ]);
   const symmetry = buildLimbSymmetrySummary(symmetryTests, { now: new Date() });
+  const functional = buildFunctionalCapacitySummary(functionalTests, { now: new Date() });
   // Offered as the test's exercise options. Unilateral only — the test is
   // meaningless on a movement that works both sides at once.
   const unilateralExerciseNames = [
@@ -91,6 +103,15 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
         savedMessage="Prueba de simetría guardada."
         errorMessage="Revisa la prueba: usa el mismo peso en ambos lados y repeticiones entre 0 y 200."
       />
+
+      <FormStatusBanner
+        saved={params.saved === "funcional"}
+        error={params.error === "funcional"}
+        savedMessage="Prueba funcional guardada."
+        errorMessage="Registra al menos una de las dos pruebas, con valores dentro de rango."
+      />
+
+      <FunctionalCapacitySection summary={functional} />
 
       <LimbSymmetrySection
         summary={symmetry}
@@ -251,6 +272,158 @@ function GapCard({ label, value }: { label: string; value: number | null }) {
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{label}</p>
       <p className="mt-2 text-xl font-semibold text-zinc-100">{formatGap(value)}</p>
       <p className="mt-1 text-xs text-zinc-400">izq - der</p>
+    </div>
+  );
+}
+
+/**
+ * The mobility / healthy-aging half of the stated goal, which had no measure
+ * at all while every number on /progreso was a hypertrophy metric.
+ *
+ * Deliberately shows no age-norm comparison. Published norms for both tests
+ * start at 60 (Rikli & Jones for the chair stand, Bohannon for stance), and
+ * the sources covering 40-59 disagree — a "you perform like someone 8 years
+ * younger" line would be invented clinical data. The athlete's own first test
+ * is the comparator instead, which is also the number that tracks whether the
+ * training is working.
+ */
+function FunctionalCapacitySection({ summary }: { summary: FunctionalCapacitySummary }) {
+  return (
+    <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+      <h2 className="text-lg font-semibold">Pruebas funcionales</h2>
+      <p className="mt-1 text-sm leading-6 text-zinc-400">
+        Dos minutos, cada 8 semanas. Miden la otra mitad del objetivo — moverte bien y mantener el equilibrio —
+        que el resto de la app no mide.
+      </p>
+
+      <div className="mt-4 grid gap-2 rounded-2xl bg-zinc-950 p-3 text-sm leading-6 text-zinc-300 ring-1 ring-zinc-800">
+        <p>
+          <strong className="text-zinc-100">Sentarse y levantarse (30 s).</strong> Silla firme, brazos cruzados
+          al pecho. Cuenta cuántas veces te levantas por completo en 30 segundos.
+        </p>
+        <p>
+          <strong className="text-zinc-100">Equilibrio a una pierna, ojos cerrados.</strong> Junto a una pared o
+          algo donde apoyarte. Cronometra cada pierna por separado y para a los 60 segundos.
+        </p>
+        {/* Says why eyes closed, because doing it eyes open is the intuitive
+            choice and would make the number useless: at this age it saturates
+            the test and reads perfect forever. */}
+        <p className="text-xs leading-5 text-zinc-400">
+          Con los ojos cerrados a propósito: con los ojos abiertos casi cualquier persona sana aguanta el máximo
+          de la prueba, así que no distingue nada.
+        </p>
+      </div>
+
+      {summary.latestSitToStandReps !== null || summary.latestBalanceSeconds !== null ? (
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <FunctionalTile
+            label="Sentadillas 30 s"
+            value={summary.latestSitToStandReps === null ? "—" : `${summary.latestSitToStandReps}`}
+            unit="reps"
+            delta={summary.sitToStandTrend?.delta ?? null}
+          />
+          <FunctionalTile
+            label="Equilibrio"
+            value={summary.latestBalanceSeconds === null ? "—" : `${summary.latestBalanceSeconds}`}
+            unit="s"
+            delta={summary.balanceTrend?.delta ?? null}
+          />
+        </div>
+      ) : null}
+
+      {summary.balanceSymmetry ? (
+        <p
+          className={`mt-3 text-sm leading-6 ${
+            summary.balanceSymmetry.belowThreshold ? "text-amber-200" : "text-zinc-300"
+          }`}
+        >
+          Equilibrio izq {summary.balanceSymmetry.leftSeconds}s vs der {summary.balanceSymmetry.rightSeconds}s —{" "}
+          {summary.balanceSymmetry.indexPercent}%
+          {summary.balanceSymmetry.belowThreshold ? " (diferencia a trabajar)" : ""}
+        </p>
+      ) : null}
+
+      {summary.retestDue ? (
+        <p className="mt-3 text-sm leading-6 text-emerald-300">
+          {summary.lastTestedAt === null
+            ? "Todavía no has hecho estas pruebas."
+            : `Toca repetirlas: la última fue hace más de ${FUNCTIONAL_RETEST_WEEKS} semanas.`}
+        </p>
+      ) : null}
+
+      <form action={saveFunctionalTestAction} className="mt-4 grid gap-4">
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Reps 30 s">
+            <input name="sitToStandReps" type="number" inputMode="numeric" min={0} max={100} className="input" />
+          </Field>
+          <Field label="Equil. izq s">
+            <input
+              name="balanceLeftSeconds"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={0}
+              max={120}
+              className="input"
+            />
+          </Field>
+          <Field label="Equil. der s">
+            <input
+              name="balanceRightSeconds"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={0}
+              max={120}
+              className="input"
+            />
+          </Field>
+        </div>
+
+        <Field label="Notas">
+          <textarea
+            name="notes"
+            rows={2}
+            className="input resize-none"
+            placeholder="Opcional. Ej. cansado, silla más baja de lo normal."
+          />
+        </Field>
+
+        <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
+          Guardar prueba funcional
+        </SubmitButton>
+      </form>
+    </section>
+  );
+}
+
+function FunctionalTile({
+  label,
+  value,
+  unit,
+  delta,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  delta: number | null;
+}) {
+  return (
+    <div className="rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-zinc-100">
+        {value}
+        <span className="ml-1 text-sm font-medium text-zinc-400">{unit}</span>
+      </p>
+      {/* Only once there are two tests to compare. Emerald for a gain, plain
+          zinc for a loss: colour is the pain channel in this app, so a decline
+          is stated rather than painted red. */}
+      {delta !== null ? (
+        <p className={`mt-1 text-xs ${delta > 0 ? "text-emerald-300" : "text-zinc-400"}`}>
+          {delta > 0 ? "+" : ""}
+          {delta} desde la primera
+        </p>
+      ) : null}
     </div>
   );
 }

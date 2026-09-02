@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
+import { buildFunctionalCapacitySummary } from "@/workouts/functional-capacity";
 import { buildLimbSymmetrySummary } from "@/workouts/limb-symmetry";
 import type { ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
@@ -79,6 +80,7 @@ function renderPage(overrides: Partial<Props> = {}) {
     muscleVolumeSummary: null,
     consistencySummary: null,
     limbSymmetry: buildLimbSymmetrySummary([], { now: new Date("2026-09-01T12:00:00Z") }),
+    functionalCapacity: buildFunctionalCapacitySummary([], { now: new Date("2026-09-01T12:00:00Z") }),
   };
   return render(<ProgresoPageContent {...defaults} {...overrides} />);
 }

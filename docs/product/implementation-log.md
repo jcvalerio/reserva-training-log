@@ -2,6 +2,39 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-01 (later) — Mobility finally has an outcome measure, and no age norms
+
+Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (676 passing, +12)/`build` green. **Migration `0024`** — one new table, additive. Closes issue #6.
+
+**The claim that had nothing behind it.** `mvp-plan.md` has stated "muscle growth **and mobility** for health/aging" since M0. Every metric on `/progreso` was a hypertrophy metric. `athleteProfile.secondaryGoals` literally contains `["mobility", "fat_loss"]` in the database and is **read by nothing** — the same dead-flag pattern as `limitation.requiresPainTracking` (issue #14). The app was a hypertrophy tracker describing itself as a healthy-aging tool.
+
+**A third finding, unfixed and worth knowing: the active plan prescribes no mobility work at all.** Its prescriptions are `main` (12) and `accessory` (17); there is not one `mobility`-phase row. The mobility work exists only as free text inside session notes ("Movilidad tren inferior 6-8 min…"), so it is neither logged, counted, nor progressable. Left alone deliberately — changing someone's training plan is not a code decision.
+
+**Two tests, on the existing fortnightly cadence**: 30-second sit-to-stand, and single-leg stance per side. Both land in `functionalTest`, both individually optional, at least one required.
+
+**Eyes closed, and that is the whole measurement.** Eyes open was the intuitive choice and would have produced a number that is useless in exactly the way the previous entry describes: published eyes-open norms for 40–49 sit near **40 s** while the test is customarily capped at **30–45 s**, so a healthy 47-year-old saturates it and reads "perfect" forever. Eyes closed still discriminates in this band — Springer et al. report a mean of 13.1 s even at 18–39. This is the second time in two days that the obvious version of a measure turned out to be a ceiling.
+
+**Recorded per side**, which makes it a *balance* asymmetry to sit beside the *strength* asymmetry `limbSymmetryTest` measures, sharing the same 90% threshold so `/progreso` does not use two different bars for one idea.
+
+**The headline feature of the issue was not built, on purpose.** #6 proposed comparing against age norms — *"you perform at the median for someone 8 years younger"* — as the most motivating number the app could show. It would have been fabricated clinical data:
+
+- **30-second chair stand**: Rikli & Jones norms are **60–94**. Published young-adult reference values exist for 18–35 (33.0 ± 5.4 reps). Nothing for 40–49.
+- **Single-leg stance**: Bohannon's 2006 meta-analysis is explicitly **"individuals at least 60 years of age"** (eyes-open means 27.0 / 17.2 / 8.5 s for 60–69 / 70–79 / 80–99). Springer et al. covers 18–99 but is paywalled, and two independent searches returned **different** values for the same 50–59 eyes-open band (37 s vs 24.2 s).
+
+There is a normative gap between roughly 35 and 60, which is exactly where this athlete sits at 47. So the comparator is his own first test. Adding norms later needs only a lookup table — `birthYear` and `sex` are already populated — but it needs a source someone is willing to stand behind, not a search snippet.
+
+**Trends are oldest-vs-newest, not newest-vs-previous.** These move on a multi-month timescale and a fortnight delta is mostly noise, the same reasoning the body-measurement card already states about its 8–12 week window. `getFunctionalTestsForProfile` is therefore **uncapped**, unlike the measurement queries: dropping old rows would move the baseline on every new test and quietly shrink every reported gain. Null until two tests carry the metric — one point is not a trend, and a delta of 0 would claim no change where nothing was compared.
+
+**A sitting that records only one test does not blank the other.** The summary finds the most recent test carrying *each* metric independently, so a chair-stand-only entry keeps the balance number from a fortnight earlier rather than replacing it with a dash. Pinned by a test.
+
+**Declines are reported plainly.** A negative delta renders in neutral zinc, not red — colour is the pain channel in this app, and telling a 47-year-old his balance got worse in alarm-red is not the tone this measure should carry.
+
+**`mvp-plan.md` now says the mobility half is measured**, with the date and the reason there is no age comparison. Issue #6's alternative was to cut the claim; measuring it made that unnecessary, but the claim now points at something real instead of standing on its own.
+
+**Verified in a browser at 390×844**, both surfaces: no overflow, every control ≥44px. Two tests recorded — 18 reps / 9s–14s, then 23 reps / 16s–17s — producing **+5 reps** and **+3 s** against the first test, a **64.3%** balance asymmetry correctly flagged and **94.1%** correctly not. Rows deleted afterwards.
+
+**Known gaps.** Nobody has run these tests for real, so the first honest baseline does not exist yet. There is no history chart, only first-vs-latest, deliberately until there are more than two points. The 8-week cadence is fixed. And the mobility work in the plan is still untracked prose — measuring the outcome does not make the intervention visible.
+
 ## 2026-09-01 — Limb symmetry, and why the issue's own premise was wrong
 
 Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (664 passing, +13)/`build` green. **Migration `0023`** — one new table, additive, nothing existing touched. Closes issue #3.
