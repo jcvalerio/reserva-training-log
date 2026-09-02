@@ -1,14 +1,21 @@
 import Link from "next/link";
 
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getRecentLimbSymmetryTestsForProfile } from "@/measurements/limb-symmetry-repository";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { calculateMeasurementGaps } from "@/measurements/measurement-schema";
+import { getActivePlanForProfile } from "@/plans/plan-repository";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
+import {
+  buildLimbSymmetrySummary,
+  LSI_RETEST_WEEKS,
+  type LimbSymmetrySummary,
+} from "@/workouts/limb-symmetry";
 
 import { AppShell } from "../app-shell";
 import { FormStatusBanner } from "../form-status-banner";
 import { SubmitButton } from "../submit-button";
-import { saveBodyMeasurementAction } from "./actions";
+import { saveBodyMeasurementAction, saveLimbSymmetryTestAction } from "./actions";
 
 type MeasurementsPageProps = {
   searchParams?: Promise<{ saved?: string; error?: string }>;
@@ -43,6 +50,22 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
   const latestMeasurement = measurements[0];
   const latestGaps = latestMeasurement ? calculateMeasurementGaps(latestMeasurement) : null;
 
+  const [symmetryTests, activePlan] = await Promise.all([
+    getRecentLimbSymmetryTestsForProfile(profile.id),
+    getActivePlanForProfile(profile.id),
+  ]);
+  const symmetry = buildLimbSymmetrySummary(symmetryTests, { now: new Date() });
+  // Offered as the test's exercise options. Unilateral only — the test is
+  // meaningless on a movement that works both sides at once.
+  const unilateralExerciseNames = [
+    ...new Set(
+      (activePlan?.sessions ?? [])
+        .flatMap((session) => session.exercises)
+        .filter((exercise) => exercise.isUnilateral)
+        .map((exercise) => exercise.exerciseNameEs),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "es"));
+
   return (
     <AppShell activeHref="/mediciones" backTo={{ href: "/perfil", label: "Perfil" }}>
       <header className="space-y-3">
@@ -62,10 +85,37 @@ export default async function MeasurementsPage({ searchParams }: MeasurementsPag
         errorMessage="Registra al menos una medida numérica válida antes de guardar."
       />
 
+      <FormStatusBanner
+        saved={params.saved === "simetria"}
+        error={params.error === "simetria"}
+        savedMessage="Prueba de simetría guardada."
+        errorMessage="Revisa la prueba: usa el mismo peso en ambos lados y repeticiones entre 0 y 200."
+      />
+
+      <LimbSymmetrySection
+        summary={symmetry}
+        exerciseNames={unilateralExerciseNames}
+      />
+
       {latestGaps ? (
-        <section className="mt-6 grid grid-cols-2 gap-3">
-          <GapCard label="Gap muslo" value={latestGaps.thighGapCm} />
-          <GapCard label="Gap pantorrilla" value={latestGaps.calfGapCm} />
+        <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Diferencia de contorno
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <GapCard label="Muslo" value={latestGaps.thighGapCm} />
+            <GapCard label="Pantorrilla" value={latestGaps.calfGapCm} />
+          </div>
+          {/* Demoted from a goal to context, deliberately. A 2-3 cm girth
+              difference is ordinary dominance variance, and calf girth is
+              largely set by insertion and Achilles length — structural, not
+              trainable. Setting a target against it reports failure forever
+              against something the athlete cannot move. */}
+          <p className="mt-3 text-xs leading-5 text-zinc-400">
+            Descriptivo, no un objetivo. Una diferencia de 2-3 cm es variación normal entre lado dominante y no
+            dominante, y el contorno de pantorrilla depende sobre todo de la inserción y del tendón — no se
+            entrena. Para saber si hay una diferencia real de fuerza, usa la prueba de simetría de arriba.
+          </p>
         </section>
       ) : null}
 
@@ -193,13 +243,155 @@ function MeasurementInput({ name, label, placeholder }: { name: string; label: s
   );
 }
 
+// Neutral now, not emerald-ringed: the accent belonged to a number the app
+// was treating as a goal, and it is context.
 function GapCard({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-3xl bg-zinc-900 p-4 ring-1 ring-emerald-400/30">
+    <div className="rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-emerald-300">{formatGap(value)}</p>
+      <p className="mt-2 text-xl font-semibold text-zinc-100">{formatGap(value)}</p>
       <p className="mt-1 text-xs text-zinc-400">izq - der</p>
     </div>
+  );
+}
+
+/**
+ * The performance-based asymmetry measure, above the tape measure because it
+ * is the one that can actually change and the one a physio would read.
+ *
+ * The test has to be run in a specific way, and the copy says so, because
+ * doing it the way the plan normally prescribes destroys the measurement: the
+ * plan caps the strong side at the weak side's reps, which is good training
+ * and makes both sides look identical. Here the strong side runs uncapped.
+ */
+function LimbSymmetrySection({
+  summary,
+  exerciseNames,
+}: {
+  summary: LimbSymmetrySummary;
+  exerciseNames: string[];
+}) {
+  return (
+    <section className="mt-6 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
+      <h2 className="text-lg font-semibold">Prueba de simetría</h2>
+      <p className="mt-1 text-sm leading-6 text-zinc-400">
+        Mismo peso en ambos lados, empezando por el lado débil, y el lado fuerte <strong>sin tope</strong> de
+        repeticiones. Es la única forma de ver la diferencia: en tu entrenamiento normal el lado fuerte se
+        iguala al débil a propósito, así que ahí siempre se ven iguales.
+      </p>
+
+      {summary.worst ? (
+        <div
+          className={`mt-4 rounded-2xl px-4 py-3 ring-1 ${
+            summary.worst.belowThreshold ? "bg-zinc-950 ring-amber-300/40" : "bg-zinc-950 ring-zinc-800"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Índice más bajo</p>
+          <p
+            className={`mt-1 text-3xl font-semibold ${
+              summary.worst.belowThreshold ? "text-amber-200" : "text-zinc-100"
+            }`}
+          >
+            {summary.worst.indexPercent}%
+          </p>
+          <p className="mt-1 text-sm leading-6 text-zinc-300">
+            {summary.worst.exerciseNameEs} — {summary.worst.leftReps} izq vs {summary.worst.rightReps} der con{" "}
+            {summary.worst.testWeightKg}kg
+          </p>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            {summary.worst.belowThreshold
+              ? "Por debajo de 90%, que es el umbral que se usa para volver a entrenar sin restricciones. Vale consultarlo con un profesional antes de forzar el lado débil."
+              : "Igual o por encima de 90%, el umbral habitual. No hay diferencia que corregir."}
+          </p>
+        </div>
+      ) : null}
+
+      {summary.latestByExercise.length > 1 ? (
+        <ul className="mt-3 grid gap-2">
+          {summary.latestByExercise
+            .filter((result) => result.id !== summary.worst?.id)
+            .map((result) => (
+              <li
+                key={result.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-2xl bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800"
+              >
+                <span className="text-sm text-zinc-300">{result.exerciseNameEs}</span>
+                <span
+                  className={`text-sm font-semibold ${
+                    result.belowThreshold ? "text-amber-200" : "text-zinc-100"
+                  }`}
+                >
+                  {result.indexPercent}%
+                </span>
+              </li>
+            ))}
+        </ul>
+      ) : null}
+
+      {summary.retestDue ? (
+        <p className="mt-3 text-sm leading-6 text-emerald-300">
+          {summary.lastTestedAt === null
+            ? "Todavía no has hecho esta prueba."
+            : `Toca repetirla: la última fue hace más de ${LSI_RETEST_WEEKS} semanas.`}
+        </p>
+      ) : null}
+
+      <form action={saveLimbSymmetryTestAction} className="mt-4 grid gap-4">
+        <Field label="Ejercicio">
+          {exerciseNames.length > 0 ? (
+            <select name="exerciseNameEs" className="input" defaultValue={exerciseNames[0]}>
+              {exerciseNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              name="exerciseNameEs"
+              type="text"
+              className="input"
+              placeholder="Ej. Prensa unilateral"
+              required
+            />
+          )}
+        </Field>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Peso kg">
+            <input
+              name="testWeightKg"
+              type="number"
+              inputMode="decimal"
+              step="0.5"
+              min={0}
+              max={999}
+              className="input"
+              required
+            />
+          </Field>
+          <Field label="Reps izq">
+            <input name="leftReps" type="number" inputMode="numeric" min={0} max={200} className="input" required />
+          </Field>
+          <Field label="Reps der">
+            <input name="rightReps" type="number" inputMode="numeric" min={0} max={200} className="input" required />
+          </Field>
+        </div>
+
+        <Field label="Notas">
+          <textarea
+            name="notes"
+            rows={2}
+            className="input resize-none"
+            placeholder="Opcional. Ej. molestia en un lado, técnica que cambió al final."
+          />
+        </Field>
+
+        <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30">
+          Guardar prueba de simetría
+        </SubmitButton>
+      </form>
+    </section>
   );
 }
 

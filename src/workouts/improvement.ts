@@ -248,8 +248,32 @@ export function bestEstimated1Rm(sets: StrengthSetLog[]): { oneRmKg: number; act
   return best;
 }
 
+/**
+ * Per-set volume gap, not total.
+ *
+ * Comparing raw side totals made an unequal number of logged sets look like an
+ * asymmetry. On real history this fired: Prensa unilateral logged 3 sets left
+ * and 4 right at an identical 20kg, and the old form reported a 140kg "gap"
+ * that was one extra set and nothing about the legs. It also ran the other
+ * way — logging equal set counts after an unequal session read as "asimetría
+ * mejoró" in "Ejercicios que más mejoraron".
+ *
+ * Averaging per set removes the set-count term while keeping a real
+ * load-or-reps difference visible. Returns 0 when a side logged nothing at
+ * all: one side missing is an incomplete exercise rather than a measured
+ * imbalance, and the honest measure of that is the capacity test in
+ * src/workouts/limb-symmetry.ts.
+ */
 function asymmetryGapKg(sets: StrengthSetLog[]): number {
-  const leftVolume = totalVolumeLoadKg(sets.filter((set) => set.side === "left"));
-  const rightVolume = totalVolumeLoadKg(sets.filter((set) => set.side === "right"));
-  return Math.abs(leftVolume - rightVolume);
+  const leftSets = sets.filter((set) => set.side === "left");
+  const rightSets = sets.filter((set) => set.side === "right");
+
+  if (leftSets.length === 0 || rightSets.length === 0) {
+    return 0;
+  }
+
+  const leftPerSet = totalVolumeLoadKg(leftSets) / leftSets.length;
+  const rightPerSet = totalVolumeLoadKg(rightSets) / rightSets.length;
+
+  return Math.abs(leftPerSet - rightPerSet);
 }

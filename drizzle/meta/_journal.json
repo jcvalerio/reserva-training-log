@@ -162,6 +162,13 @@
       "when": 1788211333811,
       "tag": "0022_solid_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788270908428,
+      "tag": "0023_workable_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

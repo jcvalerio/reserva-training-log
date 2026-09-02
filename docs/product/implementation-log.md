@@ -2,6 +2,38 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-01 — Limb symmetry, and why the issue's own premise was wrong
+
+Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (664 passing, +13)/`build` green. **Migration `0023`** — one new table, additive, nothing existing touched. Closes issue #3.
+
+**Issue #3 said "the far better signal is already being logged". It is not, and the plan is the reason.** The active plan's unilateral rule is *"la pierna fuerte usa el mismo peso sin superar sus repeticiones"* — same load, strong side capped at the weak side's reps. That is good training: it avoids widening a gap. It also **equalises both sides by construction**, so an index computed from ordinary sets measures protocol compliance and calls it symmetry.
+
+Measured against real history rather than argued:
+
+| Exercise | L vol | R vol | L kg | R kg | Sets |
+|---|---|---|---|---|---|
+| Pantorrilla unilateral | 150 | 150 | 5 | 5 | 3 / 3 |
+| Curl femoral unilateral | 300 | 300 | 10 | 10 | 3 / 3 |
+| Prensa unilateral | 420 | 560 | 20 | 20 | **3 / 4** |
+
+Two exactly 100%. The third looks like a 25% deficit and is **one extra set logged at an identical load** — nothing about the legs. Shipping an LSI over this data would have replaced a weak measure with a worse one, because it would have looked rigorous while reporting a reassuring 100% forever.
+
+**So the test had to become a real test.** `limb_symmetry_test` records a deliberate uncapped capacity check: one load, both sides, strong side **not** capped. `LSI = weaker / stronger × 100`, flagged below 90 — the conventional return-to-sport threshold, which is why it is defensible rather than invented here. Retest every 8 weeks, matching the 8–12 week window `/progreso` already states for body composition; testing to failure more often has its own fatigue cost.
+
+**Deliberately not stored in `setLog`.** A test row is not a workout set: the strong side runs uncapped, which is the opposite of what the athlete is told to do, and a maximal-rep pair inside `setLog` would inflate weekly volume, progression suggestions and personal records. Both sides live on one row because a half-finished test is not a measurement. The form takes **one** weight rather than one per side, making the invalidating mistake unrepresentable instead of merely discouraged.
+
+**Zero reps is allowed on purpose.** A side that cannot complete one rep at a load the other side handles is the most extreme finding this test can produce; rejecting it would discard exactly that. `computeLimbSymmetry` returns `null` when *both* sides are zero rather than rendering `NaN%` as though it were a measurement.
+
+**The tape measure is demoted, not deleted.** Girth gap moves from an emerald-ringed pair of goal cards to neutral context under a "Diferencia de contorno" heading, with a line saying why: 2–3 cm is ordinary dominance variance, and calf girth is largely insertion and Achilles length — structural, not trainable. The app was reporting failure every fortnight against a target that cannot move. It is still recorded; it is no longer a goal.
+
+**A live bug found on the way, fixed here.** `asymmetryGapKg` compared raw left-vs-right *totals*, so an unequal number of logged sets read as an asymmetry — on the Prensa row above it reported a 140 kg "gap" that was one extra set. It ran the other way too: logging equal set counts after an unequal session showed as **"Asimetría mejoró"** in *Ejercicios que más mejoraron*. Now averaged per set, which removes the set-count term while keeping a real load-or-reps difference visible; one side logging nothing returns 0, because that is an incomplete exercise rather than a measured imbalance. Three regression tests, one built from the real Prensa row.
+
+**Placed on `/mediciones`, not in the session runner.** The runner is the most delicate screen in the app — three prior entries are about things moving under a thumb there — and `/mediciones` is already "Tendencias y asimetrías", so a performance-based asymmetry belongs beside the girth one it replaces. `/progreso` shows the worst current index directly above Tendencia corporal, and renders nothing at all until a test exists: an empty state there would be a fifth thing telling the athlete what they have not done, and the form lives on `/mediciones` anyway.
+
+**Verified in a browser at 390×844**, both surfaces: no overflow, every control ≥44px, and a 7-vs-10 test at 20 kg rendering **70%** with the below-threshold guidance on both pages. The test row was deleted afterwards.
+
+**Known gaps.** Nobody has run this test yet, so the first real index is still unknown — and the exercise picker offers whatever unilateral exercises the active plan has, which for a plan with none falls back to free text. The retest cadence is a fixed 8 weeks rather than anything adaptive. `/progreso` shows only the single worst index plus a list; there is no history chart, deliberately, until there is more than one test to plot.
+
 ## 2026-08-31 (evening) — Pain asked once per exercise, and agujetas stop blocking progression
 
 Status: built and verified end to end against the dev database in a real browser. `lint`/`typecheck`/`test` (651 passing, +20)/`build` green. **Migration `0022`** — one line, no data rewritten. Closes issue #1; opens the evidence path for #2.
