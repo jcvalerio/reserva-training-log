@@ -1,9 +1,11 @@
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getRecentLimbSymmetryTestsForProfile } from "@/measurements/limb-symmetry-repository";
 import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-repository";
 import { buildMeasurementSeries } from "@/measurements/measurement-series";
 import { buildBodyMeasurementTrend } from "@/measurements/measurement-trend";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { buildConsistencySummary, type ConsistencySummary } from "@/workouts/consistency";
+import { buildLimbSymmetrySummary, type LimbSymmetrySummary } from "@/workouts/limb-symmetry";
 import { pickDefaultExerciseName, toExerciseSeriesGroups } from "@/workouts/exercise-series";
 import { buildExerciseImprovements } from "@/workouts/improvement";
 import { buildMuscleVolumeSummary, type MuscleVolumeSummary } from "@/workouts/muscle-volume";
@@ -41,19 +43,22 @@ export default async function ProgresoPage() {
   let bodyMeasurements: Awaited<ReturnType<typeof getRecentBodyMeasurementsForProfile>> = [];
   let consistencySummary: ConsistencySummary | null = null;
   let muscleVolumeSummary: MuscleVolumeSummary | null = null;
+  let limbSymmetry: LimbSymmetrySummary = buildLimbSymmetrySummary([], { now: new Date() });
 
   if (profile) {
-    const [sessions, instances, measurements, volumeInstances] = await Promise.all([
+    const [sessions, instances, measurements, volumeInstances, symmetryTests] = await Promise.all([
       getCompletedWorkoutSessionsForProfile(profile.id),
       getRecentExerciseInstancesByName(profile.id, EXERCISE_INSTANCE_HISTORY_LIMIT),
       getRecentBodyMeasurementsForProfile(profile.id, 24),
       getLoggedVolumeInstancesSince(profile.id, VOLUME_HISTORY_START),
+      getRecentLimbSymmetryTestsForProfile(profile.id),
     ]);
     completedSessions = sessions;
     instancesByName = instances;
     bodyMeasurements = measurements;
     consistencySummary = buildConsistencySummary(completedSessions, profile.targetTrainingDaysPerWeek);
     muscleVolumeSummary = buildMuscleVolumeSummary(volumeInstances, { weeksBack: VOLUME_WEEKS_BACK });
+    limbSymmetry = buildLimbSymmetrySummary(symmetryTests, { now: new Date() });
   }
 
   const exerciseSeriesGroups = toExerciseSeriesGroups(instancesByName);
@@ -69,6 +74,7 @@ export default async function ProgresoPage() {
       defaultExerciseName={pickDefaultExerciseName(exerciseSeriesGroups)}
       consistencySummary={consistencySummary}
       muscleVolumeSummary={muscleVolumeSummary}
+      limbSymmetry={limbSymmetry}
     />
   );
 }

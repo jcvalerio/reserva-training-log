@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatShortDateEs } from "@/lib/format";
 import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
+import { LSI_FLAG_THRESHOLD, type LimbSymmetrySummary } from "@/workouts/limb-symmetry";
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow } from "@/workouts/improvement";
@@ -31,6 +32,7 @@ export function ProgresoPageContent({
   defaultExerciseName,
   consistencySummary,
   muscleVolumeSummary,
+  limbSymmetry,
 }: {
   hasProfile: boolean;
   improvements: ExerciseImprovementRow[];
@@ -41,6 +43,7 @@ export function ProgresoPageContent({
   defaultExerciseName: string | null;
   consistencySummary: ConsistencySummary | null;
   muscleVolumeSummary: MuscleVolumeSummary | null;
+  limbSymmetry: LimbSymmetrySummary;
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
@@ -143,6 +146,11 @@ export function ProgresoPageContent({
           adaptation alone — so a page where every chart reads green and the
           tape has not moved in three months is saying something, and burying
           this at the bottom is what stopped it being heard. */}
+      {/* Outside the bodyMeasurementTrend guard on purpose: symmetry comes
+          from logged capacity tests, not from the tape measure, so an athlete
+          who has never recorded a circumference should still see it. */}
+      <LimbSymmetryCard summary={limbSymmetry} />
+
       {bodyMeasurementTrend ? (
         <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
       ) : null}
@@ -376,6 +384,67 @@ function KpiTile({ label, value, sublabel }: { label: string; value: string; sub
       <p className="mt-1 text-2xl font-semibold text-zinc-100">{value}</p>
       <p className="mt-0.5 text-xs text-zinc-400">{sublabel}</p>
     </div>
+  );
+}
+
+/**
+ * Performance-based limb symmetry, placed immediately above the tape-measure
+ * trend because it answers the same question with a number that can actually
+ * move. The girth gap stays on /mediciones as context; it is not repeated here
+ * as a goal.
+ *
+ * Renders nothing until a test exists. An empty state on /progreso would be a
+ * fifth thing telling the athlete what they have not done; the prompt to run
+ * the test lives on /mediciones, where the form is.
+ */
+function LimbSymmetryCard({ summary }: { summary: LimbSymmetrySummary }) {
+  if (summary.worst === null) {
+    return null;
+  }
+
+  const { worst } = summary;
+
+  return (
+    <section
+      className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
+      aria-labelledby="limb-symmetry-title"
+    >
+      <h2 id="limb-symmetry-title" className="text-lg font-semibold">
+        Simetría entre piernas
+      </h2>
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
+        Repeticiones del lado débil frente al fuerte, con el mismo peso y sin tope. Por debajo de{" "}
+        {LSI_FLAG_THRESHOLD}% se considera una diferencia a trabajar.
+      </p>
+
+      <p className={`mt-3 text-3xl font-semibold ${worst.belowThreshold ? "text-amber-200" : "text-zinc-100"}`}>
+        {worst.indexPercent}%
+      </p>
+      <p className="mt-1 text-sm leading-6 text-zinc-300">
+        {worst.exerciseNameEs} — {worst.leftReps} izq vs {worst.rightReps} der con {worst.testWeightKg}kg
+      </p>
+
+      {summary.latestByExercise.length > 1 ? (
+        <ul className="mt-3 grid gap-1 text-sm leading-6 text-zinc-300">
+          {summary.latestByExercise
+            .filter((result) => result.id !== worst.id)
+            .map((result) => (
+              <li key={result.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span>{result.exerciseNameEs}</span>
+                <span className={result.belowThreshold ? "font-semibold text-amber-200" : "font-semibold"}>
+                  {result.indexPercent}%
+                </span>
+              </li>
+            ))}
+        </ul>
+      ) : null}
+
+      {summary.retestDue ? (
+        <p className="mt-3 text-xs leading-5 text-zinc-400">
+          Toca repetir la prueba desde Mediciones.
+        </p>
+      ) : null}
+    </section>
   );
 }
 

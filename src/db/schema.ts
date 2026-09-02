@@ -211,6 +211,53 @@ export const bodyMeasurement = pgTable(
   ],
 );
 
+// A deliberate, uncapped single-side capacity test — the only way this app can
+// actually measure limb asymmetry.
+//
+// It exists because the obvious approach does not work. The plan's own
+// unilateral rule ("la pierna fuerte usa el mismo peso sin superar sus
+// repeticiones") equalises both sides on purpose, so ordinary logged sets have
+// left volume ≡ right volume BY CONSTRUCTION. Measured on real history: two of
+// three unilateral exercises read exactly 100% symmetric, and the third's
+// apparent 25% gap was one extra set logged on the right at an identical load.
+// An index built on normal sets would report a reassuring, rigorous-looking
+// number that measures protocol compliance rather than symmetry.
+//
+// So a test row is NOT a workout set and is not stored as one: the strong side
+// is explicitly NOT capped here, which is the whole point and is the opposite
+// of how the athlete is told to train. Keeping it out of setLog also keeps it
+// out of every volume, progression and weekly-sets read — a maximal-rep pair
+// would otherwise inflate all of them.
+//
+// Both sides live on one row because a half-finished test is not a
+// measurement. LSI = weaker / stronger * 100; below 90 is the conventional
+// return-to-sport flag, which is why that threshold is defensible rather than
+// invented here.
+export const limbSymmetryTest = pgTable(
+  "limb_symmetry_test",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    testedAt: timestamp("tested_at", { withTimezone: true }).notNull().defaultNow(),
+    // Free text, matching exercisePrescription.exerciseNameEs rather than
+    // pointing at a prescription row: a test outlives the plan it was run
+    // under, and a restrict-FK to a prescription would make plans undeletable.
+    exerciseNameEs: text("exercise_name_es").notNull(),
+    // The same load on both sides. That is what makes the rep counts
+    // comparable at all — an index over different loads compares nothing.
+    testWeightKg: numeric("test_weight_kg", { precision: 6, scale: 2 }).notNull(),
+    leftReps: integer("left_reps").notNull(),
+    rightReps: integer("right_reps").notNull(),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("limb_symmetry_test_athlete_profile_id_idx").on(table.athleteProfileId),
+    index("limb_symmetry_test_tested_at_idx").on(table.testedAt),
+  ],
+);
+
 // The exercise catalog: the single normalized source of truth for what muscle
 // an exercise trains. Revived from the removed "Pesos base" intake flow, which
 // left 12 rows behind that baseline_lift still references with

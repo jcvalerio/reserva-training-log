@@ -47,6 +47,19 @@ Derived (computed on read, not stored): `thighGapCm = leftThighCm - rightThighCm
 - `/mediciones` inserts a new row on every save and never overwrites history; lists recent entries with per-entry gaps.
 - `/progreso` shows a body-measurement trend card: oldest-vs-latest deltas for weight/waist (`src/measurements/measurement-trend.ts`'s `buildBodyMeasurementTrend`), plus a *separate* latest-vs-immediately-previous comparison specifically for the asymmetry-improvement signal (`thighGapImproved`/`calfGapImproved` — gap shrank ≥5% since the last measurement). These are two different comparison windows over the same table, not the same number shown twice.
 
+## LimbSymmetryTest
+
+Added 2026-09-01. Fields: `id`, `athleteProfileId`, `testedAt` (defaults to save time), `exerciseNameEs` (free text, matching `exercisePrescription.exerciseNameEs` — deliberately not an FK, so a test outlives the plan it was run under), `testWeightKg`, `leftReps`, `rightReps`, `notes`.
+
+Derived (computed on read, `src/workouts/limb-symmetry.ts`): `indexPercent = min(left, right) / max(left, right) * 100`. Below 90 is flagged — the conventional return-to-sport threshold, so it is defensible rather than invented.
+
+**Why this is not derived from `setLog`, which is the obvious approach and does not work.** The plan's own unilateral rule has the strong side use the same weight *without exceeding the weak side's reps*. That is good training — it avoids widening a gap — but it makes left and right volume equal by construction. Measured against real history: two of three unilateral exercises came out exactly 100% symmetric, and the third's apparent 25% gap was one extra set logged on the right at an identical load. An index over ordinary sets reports protocol compliance while looking like a strength measurement.
+
+**A test row is not a workout set and is deliberately kept out of `setLog`.** The strong side runs uncapped here, which is the opposite of how the athlete is told to train; letting a maximal-rep pair into `setLog` would inflate weekly volume, progression suggestions and personal records. Both sides live on one row because a half-finished test is not a measurement.
+
+- `/mediciones` records a test and shows the current index; `/progreso` shows the worst current index above the body-measurement trend card.
+- Tape-measure asymmetry (`thighGapCm`/`calfGapCm`) was demoted to descriptive context in the same change: a 2–3 cm girth difference is ordinary dominance variance, and calf girth is largely set by insertion and Achilles length — structural, not trainable. It is still recorded; it is no longer a goal.
+
 ## Exercise
 
 The exercise catalog: the normalized source of truth for what muscle an exercise trains. **Revived 2026-08-09** (it had been orphaned since 2026-07-31, when the "Pesos base" intake flow it originally backed was removed) to support weekly volume-per-muscle-group reporting on `/progreso`.

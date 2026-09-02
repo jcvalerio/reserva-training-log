@@ -197,6 +197,48 @@ describe("computeExerciseImprovement", () => {
       expect(result.latestAsymmetryGapKg).toBeCloseTo(20, 1);
     });
 
+    it("does not read an unequal number of logged sets as an asymmetry", () => {
+      // Taken from real history: Prensa unilateral, 3 sets left and 4 right at
+      // an identical 20kg. Comparing side totals reported a 140kg gap that was
+      // one extra set and nothing about the legs.
+      const sets = [
+        buildSet({ id: "l-1", side: "left", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "l-2", side: "left", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "l-3", side: "left", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "r-1", side: "right", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "r-2", side: "right", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "r-3", side: "right", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+        buildSet({ id: "r-4", side: "right", actualWeightKg: "20.00", actualReps: 7, painScore: 0 }),
+      ];
+
+      const result = computeExerciseImprovement(sets, sets, true);
+
+      expect(result.latestAsymmetryGapKg).toBe(0);
+    });
+
+    it("still sees a real per-set difference at equal set counts", () => {
+      const sets = [
+        buildSet({ id: "l-1", side: "left", actualWeightKg: "20.00", actualReps: 5, painScore: 0 }),
+        buildSet({ id: "r-1", side: "right", actualWeightKg: "20.00", actualReps: 10, painScore: 0 }),
+      ];
+
+      const result = computeExerciseImprovement(sets, sets, true);
+
+      expect(result.latestAsymmetryGapKg).toBeCloseTo(100, 1);
+    });
+
+    it("reports no gap when one side logged nothing", () => {
+      // An incomplete exercise, not a measured imbalance.
+      const sets = [
+        buildSet({ id: "l-1", side: "left", actualWeightKg: "20.00", actualReps: 8, painScore: 0 }),
+        buildSet({ id: "l-2", side: "left", actualWeightKg: "20.00", actualReps: 8, painScore: 0 }),
+      ];
+
+      const result = computeExerciseImprovement(sets, sets, true);
+
+      expect(result.latestAsymmetryGapKg).toBe(0);
+    });
+
     it("does not compute an asymmetry gap for bilateral exercises", () => {
       const sets = [buildSet({ side: "bilateral" })];
 
