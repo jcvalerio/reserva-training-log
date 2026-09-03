@@ -60,6 +60,24 @@ Concretely, in `suggestProgression`:
 
 A reported pain with **no location** is treated as joint pain, not as soreness — an unanswered "where" takes the conservative side.
 
+## Between-session load management
+
+Added 2026-09-02 (issue #7). Progression is computed per exercise, session to session, so five exercises hitting one muscle group could each independently earn "+5%, go" in the same week with no code path noticing the aggregate. The risk being managed is not a single heavy session; it is rapid week-over-week escalation.
+
+`buildWeeklyLoadGuardrail` (`src/workouts/weekly-load.ts`) compares the **in-progress week** against the **trailing average of completed weeks**, per muscle group. When the ratio exceeds **1.3**, `suggestProgression` downgrades an earned `increase` to a `hold` with `riskFlag: "load"`.
+
+**The threshold is a heuristic and is not presented as validated.** The IOC consensus repeats a 10–20%-per-week rule of thumb while noting the evidence for specific thresholds is limited; the acute:chronic workload ratio literature treats spikes past ~1.5 as likely risky and has itself been criticised — no intervention trial has shown that applying ACWR reduces injuries. 1.3 sits between the two, and the cost of being wrong is deliberately asymmetric: **this guardrail can only withhold an increase.** It never adds load, never forces a reduction, and never overrides the pain gate, which keeps its own more specific message.
+
+Three rules keep it from firing when it would be wrong:
+
+- **Three completed weeks minimum.** The first weeks of training are all "escalation" against a near-empty history; vetoing there fights the athlete instead of protecting them.
+- **A group with no trailing history is never flagged.** Otherwise adding an exercise would veto its own progression until a full week passed — punishing adding an exercise rather than escalating one.
+- **The unclassified bucket is never flagged.** It is not a muscle, and a ratio over it would veto exercises whose only problem is a name the catalog does not recognise.
+
+Measured on the week **so far**, not on a forecast of the week ahead: which sessions an athlete completes is a choice they have not made yet, so a prediction would be a guess dressed as a safeguard. A consequence is that nothing can flag early in a week — correct, since an aggregate only becomes visible as it accumulates.
+
+A rest week legitimately lowers the trailing average, so returning to normal volume can flag. That is intended rather than a false positive: the literature is explicit that a large jump *from a low base* is the riskier case.
+
 ## Basic progression algorithm v1
 
 For each exercise repeated in a future session:

@@ -66,6 +66,7 @@ export function SessionRunner({
   reassignExerciseAction,
   addSetToCompletedSessionAction,
   recordExercisePainAction,
+  loadFlaggedPrescriptionIds = [],
 }: {
   session: WorkoutSession;
   template: PlanSessionTemplate;
@@ -104,6 +105,13 @@ export function SessionRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  /**
+   * Prescriptions whose muscle group is already running well above its
+   * trailing weekly average. Resolved server-side so this component never
+   * touches the taxonomy. Defaults to empty, so a caller that does not
+   * compute it gets today's behaviour rather than a silent veto.
+   */
+  loadFlaggedPrescriptionIds?: string[];
   addSetToCompletedSessionAction: (
     prevState: SaveSetActionState,
     formData: FormData,
@@ -330,6 +338,7 @@ export function SessionRunner({
         previousPerformance.targetRepMax,
         previousPerformance.targetSets,
         previousPerformance.isUnilateral,
+        loadFlaggedPrescriptionIds.includes(currentExercise.id),
       )
     : null;
   const repsFirstIncrease = previousSuggestion
@@ -2298,7 +2307,7 @@ function suggestionClass(action: ProgressionAction) {
 }
 
 function riskFlagLabelEs(riskFlag: ProgressionRiskFlag) {
-  return { pain: "Dolor", fatigue: "Fatiga", technique: "Técnica", none: "" }[riskFlag];
+  return { pain: "Dolor", fatigue: "Fatiga", technique: "Técnica", load: "Carga semanal", none: "" }[riskFlag];
 }
 
 function riskFlagClass(riskFlag: ProgressionRiskFlag) {
@@ -2306,6 +2315,10 @@ function riskFlagClass(riskFlag: ProgressionRiskFlag) {
     pain: "bg-amber-300/10 text-amber-200",
     fatigue: "bg-amber-300/10 text-amber-200",
     technique: "bg-sky-300/10 text-sky-200",
+    // Sky, not amber: this is a pacing note, not a warning about the body.
+    // Amber is the pain channel and borrowing it here would make a normal
+    // week of hard training read like an injury signal.
+    load: "bg-sky-300/10 text-sky-200",
     none: "",
   }[riskFlag];
 }
