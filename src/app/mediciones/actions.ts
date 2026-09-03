@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
+import { createFunctionalTestForProfile } from "@/measurements/functional-test-repository";
+import {
+  parseFunctionalTestFormData,
+  type FunctionalTestInput,
+} from "@/measurements/functional-test-schema";
 import { createLimbSymmetryTestForProfile } from "@/measurements/limb-symmetry-repository";
 import {
   parseLimbSymmetryTestFormData,
@@ -65,4 +70,31 @@ export async function saveLimbSymmetryTestAction(formData: FormData) {
   revalidatePath("/mediciones");
   revalidatePath("/progreso");
   redirect("/mediciones?saved=simetria");
+}
+
+/**
+ * Records a functional-capacity test — the mobility half of the stated goal,
+ * which had no measure at all until now.
+ */
+export async function saveFunctionalTestAction(formData: FormData) {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    redirect("/perfil");
+  }
+
+  let input: FunctionalTestInput;
+
+  try {
+    input = parseFunctionalTestFormData(formData);
+  } catch {
+    redirect("/mediciones?error=funcional");
+  }
+
+  await createFunctionalTestForProfile(profile.id, input);
+
+  revalidatePath("/mediciones");
+  revalidatePath("/progreso");
+  redirect("/mediciones?saved=funcional");
 }

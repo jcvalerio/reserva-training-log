@@ -16,7 +16,7 @@ Build a Spanish-first iPhone web app that acts as a practical gym companion for 
 - Frequency: 5 days/week.
 - Session length: 60 minutes.
 - Training style: bodybuilding/hypertrophy.
-- Primary goal: muscle growth and mobility for health/aging.
+- Primary goal: muscle growth and mobility for health/aging. **The mobility half is measured as of 2026-09-01** (`functionalTest`: 30-second sit-to-stand, and single-leg stance eyes closed per side, every 8 weeks) — before that it was a claim with no outcome measure at all, which is what issue #6 was about. Deliberately no age-norm comparison: published norms for both tests start at 60, so nothing citable covers this athlete's age band.
 - Secondary goal: burn fat as a side effect.
 - Progression preference: aggressive, but pain-aware.
 - Language: Spanish default, English supported from the start.

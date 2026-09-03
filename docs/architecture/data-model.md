@@ -60,6 +60,18 @@ Derived (computed on read, `src/workouts/limb-symmetry.ts`): `indexPercent = min
 - `/mediciones` records a test and shows the current index; `/progreso` shows the worst current index above the body-measurement trend card.
 - Tape-measure asymmetry (`thighGapCm`/`calfGapCm`) was demoted to descriptive context in the same change: a 2–3 cm girth difference is ordinary dominance variance, and calf girth is largely set by insertion and Achilles length — structural, not trainable. It is still recorded; it is no longer a goal.
 
+## FunctionalTest
+
+Added 2026-09-01, closing issue #6. Fields: `id`, `athleteProfileId`, `testedAt`, `sitToStandReps` (nullable), `balanceLeftSeconds` / `balanceRightSeconds` (nullable), `notes`. Each metric is individually optional; the Zod layer requires at least one.
+
+Derived (`src/workouts/functional-capacity.ts`): oldest-vs-newest trend per metric, and a balance asymmetry `min/max × 100` sharing the 90% threshold `limbSymmetryTest` uses, so the two asymmetry readings on `/progreso` do not use different bars for the same idea.
+
+**Single-leg stance is recorded eyes CLOSED**, and that is load-bearing rather than a detail. Published eyes-open norms for ages 40–49 sit around 40 s while the test is customarily capped at 30–45 s, so a healthy athlete in this band saturates it and the number reads "perfect" forever — the same ceiling failure that made limb symmetry unmeasurable from ordinary sets. Eyes closed still discriminates: Springer et al. report a mean of 13.1 s even at 18–39.
+
+**No age-norm comparison is stored or shown, deliberately.** Rikli & Jones (chair stand) and Bohannon's meta-analysis (stance) both start at 60, and the sources that do cover 40–59 disagree with each other. A "you perform like someone 8 years younger" line on that basis would be fabricated clinical reference data in an app people use to decide how to train. The athlete's own first test is the comparator until a citable source for this age band is agreed. Adding norms later needs only a lookup table — `athleteProfile.birthYear` and `sex` are already populated.
+
+- `getFunctionalTestsForProfile` is **uncapped and ascending**, unlike the measurement queries: the trend compares oldest against newest, so dropping old rows would move the baseline on every new test and quietly shrink every reported gain.
+
 ## Exercise
 
 The exercise catalog: the normalized source of truth for what muscle an exercise trains. **Revived 2026-08-09** (it had been orphaned since 2026-07-31, when the "Pesos base" intake flow it originally backed was removed) to support weekly volume-per-muscle-group reporting on `/progreso`.

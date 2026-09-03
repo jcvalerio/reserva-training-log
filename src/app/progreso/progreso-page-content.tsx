@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatShortDateEs } from "@/lib/format";
 import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
 import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
+import type { FunctionalCapacitySummary } from "@/workouts/functional-capacity";
 import { LSI_FLAG_THRESHOLD, type LimbSymmetrySummary } from "@/workouts/limb-symmetry";
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
@@ -33,6 +34,7 @@ export function ProgresoPageContent({
   consistencySummary,
   muscleVolumeSummary,
   limbSymmetry,
+  functionalCapacity,
 }: {
   hasProfile: boolean;
   improvements: ExerciseImprovementRow[];
@@ -44,6 +46,7 @@ export function ProgresoPageContent({
   consistencySummary: ConsistencySummary | null;
   muscleVolumeSummary: MuscleVolumeSummary | null;
   limbSymmetry: LimbSymmetrySummary;
+  functionalCapacity: FunctionalCapacitySummary;
 }) {
   if (!hasProfile || completedSessions.length === 0) {
     return (
@@ -150,6 +153,7 @@ export function ProgresoPageContent({
           from logged capacity tests, not from the tape measure, so an athlete
           who has never recorded a circumference should still see it. */}
       <LimbSymmetryCard summary={limbSymmetry} />
+      <FunctionalCapacityCard summary={functionalCapacity} />
 
       {bodyMeasurementTrend ? (
         <BodyMeasurementTrendCard trend={bodyMeasurementTrend} measurementSeries={measurementSeries} />
@@ -384,6 +388,84 @@ function KpiTile({ label, value, sublabel }: { label: string; value: string; sub
       <p className="mt-1 text-2xl font-semibold text-zinc-100">{value}</p>
       <p className="mt-0.5 text-xs text-zinc-400">{sublabel}</p>
     </div>
+  );
+}
+
+/**
+ * The mobility half of the goal, finally on the page that reports progress.
+ *
+ * States no age comparison, on purpose: published norms for both tests start
+ * at 60 and the sources covering 40-59 disagree, so "you perform like someone
+ * 8 years younger" would be invented clinical data. First-vs-latest on the
+ * athlete's own numbers needs no such claim.
+ */
+function FunctionalCapacityCard({ summary }: { summary: FunctionalCapacitySummary }) {
+  if (summary.latestSitToStandReps === null && summary.latestBalanceSeconds === null) {
+    return null;
+  }
+
+  return (
+    <section
+      className="mt-7 rounded-2xl bg-zinc-900 p-3 ring-1 ring-zinc-800"
+      aria-labelledby="functional-capacity-title"
+    >
+      <h2 id="functional-capacity-title" className="text-lg font-semibold">
+        Capacidad funcional
+      </h2>
+      <p className="mt-1 text-xs leading-5 text-zinc-400">
+        Fuerza para levantarte y equilibrio con los ojos cerrados. Comparado con tu primera prueba, no con una
+        tabla por edad.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Sentadillas 30 s</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-100">
+            {summary.latestSitToStandReps ?? "—"}
+            <span className="ml-1 text-sm font-medium text-zinc-400">reps</span>
+          </p>
+          {summary.sitToStandTrend ? (
+            <p
+              className={`mt-1 text-xs ${
+                summary.sitToStandTrend.delta > 0 ? "text-emerald-300" : "text-zinc-400"
+              }`}
+            >
+              {summary.sitToStandTrend.delta > 0 ? "+" : ""}
+              {summary.sitToStandTrend.delta} desde {summary.sitToStandTrend.first}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl bg-zinc-950 p-3 ring-1 ring-zinc-800">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Equilibrio</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-100">
+            {summary.latestBalanceSeconds ?? "—"}
+            <span className="ml-1 text-sm font-medium text-zinc-400">s</span>
+          </p>
+          {summary.balanceTrend ? (
+            <p
+              className={`mt-1 text-xs ${
+                summary.balanceTrend.delta > 0 ? "text-emerald-300" : "text-zinc-400"
+              }`}
+            >
+              {summary.balanceTrend.delta > 0 ? "+" : ""}
+              {summary.balanceTrend.delta} desde {summary.balanceTrend.first}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {summary.balanceSymmetry?.belowThreshold ? (
+        <p className="mt-3 text-sm leading-6 text-amber-200">
+          Equilibrio desigual: {summary.balanceSymmetry.leftSeconds}s izq vs{" "}
+          {summary.balanceSymmetry.rightSeconds}s der ({summary.balanceSymmetry.indexPercent}%).
+        </p>
+      ) : null}
+
+      {summary.retestDue ? (
+        <p className="mt-3 text-xs leading-5 text-zinc-400">Toca repetir las pruebas desde Mediciones.</p>
+      ) : null}
+    </section>
   );
 }
 
