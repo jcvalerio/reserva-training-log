@@ -2,7 +2,9 @@ import type { PainLocation } from "./muscle-taxonomy";
 import type { Rir } from "./rir";
 
 export type ProgressionAction = "increase" | "hold" | "reduce_or_modify";
-export type ProgressionRiskFlag = "none" | "pain" | "fatigue" | "technique";
+// "load" is between-session: the aggregate weekly volume into this muscle
+// group is escalating, regardless of how this one exercise went.
+export type ProgressionRiskFlag = "none" | "pain" | "fatigue" | "technique" | "load";
 
 export type LoggedSetForProgression = {
   actualReps: number;
@@ -30,6 +32,13 @@ export type LoggedSetForProgression = {
 export type ProgressionInput = {
   sets: LoggedSetForProgression[];
   allPlannedSetsCompleted: boolean;
+  /**
+   * True when this exercise's muscle group is already running well above its
+   * trailing weekly average (see buildWeeklyLoadGuardrail). Optional so every
+   * existing caller and test keeps its meaning: absent means "no aggregate
+   * signal", never "cleared".
+   */
+  weeklyLoadFlagged?: boolean;
 };
 
 export type ProgressionSuggestion = {
@@ -155,6 +164,20 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
   }
 
   if (input.allPlannedSetsCompleted && reachedTopOfRange && averageRir >= 2) {
+    // This exercise earned the increase; the week around it did not. Applied
+    // here rather than at the top so pain, fatigue and technique keep their
+    // own more specific messages — this only ever downgrades an increase that
+    // would otherwise have been granted, and never turns a hold into a
+    // reduction.
+    if (input.weeklyLoadFlagged) {
+      return {
+        action: "hold",
+        riskFlag: "load",
+        reasonEs:
+          "Este ejercicio da para subir, pero el volumen semanal de ese grupo muscular viene subiendo rápido. Mantén la carga esta semana.",
+      };
+    }
+
     return {
       action: "increase",
       riskFlag: "none",

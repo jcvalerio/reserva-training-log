@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { suggestProgression } from "./progression";
+import { suggestProgression, type ProgressionInput } from "./progression";
 
 describe("suggestProgression", () => {
   it("suggests increasing when target reps, RIR, and pain allow it", () => {
@@ -108,6 +108,62 @@ describe("suggestProgression", () => {
           sets: [
             { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 8, painLocation: "muscular" },
           ],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+  });
+
+  // Between-session load management. Progression is per exercise; this is the
+  // only thing that looks at the week around it.
+  describe("weekly load guardrail", () => {
+    const earnedAnIncrease: ProgressionInput = {
+      allPlannedSetsCompleted: true,
+      sets: [
+        { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: null },
+        { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: null },
+      ],
+    };
+
+    it("still increases when the week is not escalating", () => {
+      expect(suggestProgression({ ...earnedAnIncrease, weeklyLoadFlagged: false })).toMatchObject({
+        action: "increase",
+        riskFlag: "none",
+      });
+    });
+
+    it("downgrades an earned increase to a hold when the week is escalating", () => {
+      expect(suggestProgression({ ...earnedAnIncrease, weeklyLoadFlagged: true })).toMatchObject({
+        action: "hold",
+        riskFlag: "load",
+      });
+    });
+
+    it("treats an absent flag as no signal rather than as cleared", () => {
+      // Every existing caller omits it; omission must not change behaviour.
+      expect(suggestProgression(earnedAnIncrease)).toMatchObject({ action: "increase" });
+    });
+
+    it("never turns a hold into a reduction", () => {
+      // Not top of range, so this was a hold already. The guardrail withholds
+      // increases; it does not add severity.
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [{ actualReps: 8, plannedRepMax: 12, rir: 3, painScore: null }],
+          weeklyLoadFlagged: true,
+        }),
+      ).toMatchObject({ action: "hold", riskFlag: "none" });
+    });
+
+    it("leaves pain as the reported reason when both apply", () => {
+      // Pain is the more specific and more important message.
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 5, painLocation: "rodilla" },
+          ],
+          weeklyLoadFlagged: true,
         }),
       ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
     });

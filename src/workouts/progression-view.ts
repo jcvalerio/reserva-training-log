@@ -58,6 +58,9 @@ export function buildProgressionSuggestion(
   targetRepMax: number,
   targetSets: number,
   isUnilateral: boolean,
+  /** See buildWeeklyLoadGuardrail. Optional: absent means "no aggregate
+   *  signal", never "cleared". */
+  weeklyLoadFlagged = false,
 ): ProgressionSuggestion {
   const allPlannedSetsCompleted = isUnilateral
     ? sets.filter((set) => set.side === "left").length >= targetSets &&
@@ -82,6 +85,7 @@ export function buildProgressionSuggestion(
       isBonus: bonusIds.has(set.id),
     })),
     allPlannedSetsCompleted,
+    weeklyLoadFlagged,
   });
 }
 

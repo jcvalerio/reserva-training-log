@@ -821,6 +821,46 @@ export async function getLoggedVolumeInstancesSince(
   });
 }
 
+/**
+ * Resolves each prescription to its primary muscle group, using the same
+ * catalog-link-then-name order every other classification path uses. Kept in
+ * the repository rather than done in the page because the link path needs the
+ * catalog row, and duplicating the fallback order is exactly how the two
+ * readings drift apart.
+ *
+ * A prescription that resolves to nothing maps to null rather than being
+ * omitted, so callers can tell "no muscle group" from "not asked about".
+ */
+export async function getPrimaryMuscleGroupsForPrescriptions(
+  prescriptions: { id: string; exerciseId: string | null; exerciseNameEs: string }[],
+): Promise<Map<string, MuscleGroup | null>> {
+  const linkedIds = [
+    ...new Set(
+      prescriptions
+        .map((prescription) => prescription.exerciseId)
+        .filter((exerciseId): exerciseId is string => exerciseId !== null),
+    ),
+  ];
+
+  const catalogRows = linkedIds.length
+    ? await db
+        .select({ id: exercise.id, primaryMuscleGroup: exercise.primaryMuscleGroup })
+        .from(exercise)
+        .where(inArray(exercise.id, linkedIds))
+    : [];
+
+  const byExerciseId = new Map(catalogRows.map((row) => [row.id, row.primaryMuscleGroup]));
+
+  return new Map(
+    prescriptions.map((prescription) => [
+      prescription.id,
+      prescription.exerciseId
+        ? (byExerciseId.get(prescription.exerciseId) ?? null)
+        : (findCatalogEntryByName(prescription.exerciseNameEs)?.primaryMuscleGroup ?? null),
+    ]),
+  );
+}
+
 export type ExerciseInstance = {
   exerciseNameEs: string;
   sessionId: string;

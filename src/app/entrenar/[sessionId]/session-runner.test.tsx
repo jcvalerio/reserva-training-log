@@ -165,6 +165,7 @@ function renderRunner({
   reassignExerciseAction = noopReassignExerciseAction,
   addSetToCompletedSessionAction = noopAddSetToCompletedSessionAction,
   recordExercisePainAction = noopRecordExercisePainAction,
+  loadFlaggedPrescriptionIds = [],
 }: {
   exercises: ExerciseWithLoggedSets[];
   session?: WorkoutSession;
@@ -200,6 +201,7 @@ function renderRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  loadFlaggedPrescriptionIds?: string[];
 }) {
   return render(
     <SessionRunner
@@ -220,6 +222,7 @@ function renderRunner({
       reassignExerciseAction={reassignExerciseAction}
       addSetToCompletedSessionAction={addSetToCompletedSessionAction}
       recordExercisePainAction={recordExercisePainAction}
+      loadFlaggedPrescriptionIds={loadFlaggedPrescriptionIds}
     />,
   );
 }
@@ -713,6 +716,57 @@ describe("SessionRunner", () => {
 
     expect(screen.getByText(/Mantén la carga/)).toBeVisible();
     expect(screen.getByText("Técnica")).toBeVisible();
+  });
+
+  describe("the weekly load guardrail", () => {
+    function exerciseThatEarnedAnIncrease() {
+      return buildExercise({
+        targetSets: 2,
+        loggedSets: [],
+        previousPerformance: {
+          sessionId: "session-previous",
+          prescriptionType: "strength",
+          targetRepMax: 12,
+          targetSets: 2,
+          isUnilateral: false,
+          sets: [
+            buildSet({ id: "prev-1", setNumber: 1, actualWeightKg: "80.00", actualReps: 12, rir: 2 }),
+            buildSet({ id: "prev-2", setNumber: 2, actualWeightKg: "80.00", actualReps: 12, rir: 3 }),
+          ],
+        },
+      });
+    }
+
+    it("suggests an increase when the muscle group is not flagged", () => {
+      renderRunner({ exercises: [exerciseThatEarnedAnIncrease()] });
+
+      expect(screen.getByText(/Sube carga|Añade una repetición/)).toBeVisible();
+      expect(screen.queryByText("Carga semanal")).not.toBeInTheDocument();
+    });
+
+    it("holds the load and says why when the muscle group is flagged", () => {
+      const exercise = exerciseThatEarnedAnIncrease();
+
+      renderRunner({
+        exercises: [exercise],
+        loadFlaggedPrescriptionIds: [exercise.id],
+      });
+
+      expect(screen.getByText("Carga semanal")).toBeVisible();
+      expect(screen.getByText(/volumen semanal de ese grupo muscular/)).toBeVisible();
+    });
+
+    it("only vetoes the flagged exercise, not every exercise in the session", () => {
+      const flagged = exerciseThatEarnedAnIncrease();
+
+      renderRunner({
+        exercises: [flagged, buildExercise({ id: "exercise-b", orderIndex: 2, loggedSets: [] })],
+        loadFlaggedPrescriptionIds: ["exercise-b"],
+      });
+
+      // Opens on the first exercise, which is NOT the flagged one.
+      expect(screen.queryByText("Carga semanal")).not.toBeInTheDocument();
+    });
   });
 
   it("suggests adding a rep instead of a weight jump for isolation exercises", () => {

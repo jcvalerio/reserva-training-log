@@ -5,9 +5,13 @@ import { getRecentBodyMeasurementsForProfile } from "@/measurements/measurement-
 import { determineSmallerSide } from "@/measurements/measurement-schema";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
 import { buildExerciseImprovements } from "@/workouts/improvement";
+import { buildMuscleVolumeSummary } from "@/workouts/muscle-volume";
 import { buildSessionRecap, type SessionRecap } from "@/workouts/session-recap";
+import { buildWeeklyLoadGuardrail } from "@/workouts/weekly-load";
 import {
+  getLoggedVolumeInstancesSince,
   getPriorStrengthInstancesForNames,
+  getPrimaryMuscleGroupsForPrescriptions,
   getRecentExerciseInstancesByName,
   getSessionRunDetails,
   getWorkoutSessionForProfile,
@@ -25,6 +29,12 @@ import {
   updateTargetSetsAction,
 } from "../actions";
 import { SessionRunner } from "./session-runner";
+
+// Enough to hold the current week plus the completed weeks the guardrail
+// averages over, and no more: this query runs on the mid-workout page, where
+// every row fetched is latency between sets.
+const GUARDRAIL_WEEKS_BACK = 6;
+const GUARDRAIL_HISTORY_DAYS = GUARDRAIL_WEEKS_BACK * 7;
 
 export default async function SessionRunPage({
   params,
@@ -55,6 +65,26 @@ export default async function SessionRunPage({
   const [latestMeasurement] = await getRecentBodyMeasurementsForProfile(profile.id, 1);
   const smallerSideHint = latestMeasurement ? determineSmallerSide(latestMeasurement) : null;
 
+  // Between-session load management (issue #7). Resolved here rather than in
+  // the runner because classification belongs on the server — the runner gets
+  // a plain list of prescription ids and stays free of taxonomy.
+  const historyStart = new Date();
+  historyStart.setDate(historyStart.getDate() - GUARDRAIL_HISTORY_DAYS);
+  const [volumeInstances, muscleGroupByPrescriptionId] = await Promise.all([
+    getLoggedVolumeInstancesSince(profile.id, historyStart),
+    getPrimaryMuscleGroupsForPrescriptions(exercises),
+  ]);
+  const guardrail = buildWeeklyLoadGuardrail(
+    buildMuscleVolumeSummary(volumeInstances, { weeksBack: GUARDRAIL_WEEKS_BACK }),
+  );
+  const flaggedGroups = new Set<string>(guardrail.flaggedGroups);
+  const loadFlaggedPrescriptionIds = exercises
+    .filter((exercise) => {
+      const muscleGroup = muscleGroupByPrescriptionId.get(exercise.id);
+      return muscleGroup !== null && muscleGroup !== undefined && flaggedGroups.has(muscleGroup);
+    })
+    .map((exercise) => exercise.id);
+
   // Only needed once the session is actually done — mid-workout renders never
   // reach CompletedSessionSummary, so there's nothing to gain fetching this
   // history query while sets are still being logged.
@@ -84,6 +114,7 @@ export default async function SessionRunPage({
       reassignExerciseAction={reassignExerciseAction}
       addSetToCompletedSessionAction={addSetToCompletedSessionAction}
       recordExercisePainAction={recordExercisePainAction}
+      loadFlaggedPrescriptionIds={loadFlaggedPrescriptionIds}
       initialExerciseId={ejercicio ?? null}
       updateTargetSetsAction={updateTargetSetsAction}
       updateSetAction={updateSetAction}

@@ -2,6 +2,38 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-02 — A weekly load guardrail, and a threshold that says it is a guess
+
+Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (692 passing, +16)/`build` green. **No migration** — pure logic over data that already existed, which is the one thing issue #7 predicted correctly.
+
+**The gap.** Progression is per exercise, session to session. Five exercises into one muscle group could each independently earn "+5%, go" in the same week and nothing summed them. The risk in recreational lifters is not the single heavy session; it is the week-over-week jump.
+
+**Unlike the last two issues, this one's premise held.** `buildWeeklyMuscleVolume` really does produce weekly effective sets per group, and the veto shape the pain gate uses really does fit. Nothing had to be redesigned around a false assumption — worth recording, because the previous two entries both turned on one.
+
+**Measured on the week so far, not on a forecast.** The issue proposed flagging when "the coming week would exceed" the average. What the coming week contains is unknowable — which sessions someone completes is a choice they have not made — so a prediction would be a guess dressed as a safeguard. Escalation that already happened is a fact. The consequence is that nothing can flag early in a week, which is correct: an aggregate only becomes visible as it accumulates.
+
+**The threshold is 1.3 and the code says out loud that it is a heuristic.** Researched rather than asserted: the IOC consensus repeats a 10–20%/week rule of thumb *while noting the evidence for specific thresholds is limited*; the acute:chronic workload ratio literature treats spikes past ~1.5 as likely risky and **has itself been criticised — no intervention trial has ever shown that applying ACWR reduces injuries**. 1.3 sits between them.
+
+What makes that acceptable is the asymmetry, which is designed in rather than incidental: **this guardrail can only withhold an increase.** It never adds load, never forces a reduction, and never overrides the pain gate — pain keeps its own more specific message when both apply. A false positive costs one held session. That is the whole reason a contested threshold is tolerable here and an age norm was not tolerable yesterday: one withholds, the other asserts a fact about the athlete.
+
+**Three rules stop it firing when it would be wrong**, each pinned by a test:
+
+- **Three completed weeks minimum.** The first weeks of training are all "escalation" against an empty history; vetoing there fights the athlete rather than protecting them. Three also matches the chronic-load window the ACWR convention uses.
+- **A group with no trailing history is never flagged.** Otherwise adding an exercise would veto its own progression until a week passed — punishing *adding* an exercise rather than *escalating* one.
+- **The unclassified bucket is never flagged.** It is not a muscle; a ratio over it would veto exercises whose only problem is a name the catalog does not recognise.
+
+**A rest week lowering the average is intended, not a bug.** Returning to normal volume after a layoff can flag, and the literature is explicit that a large jump *from a low base* is the riskier case. Pinned by a test with the reasoning in it, so it does not get "fixed" later.
+
+**Classification stays on the server.** `getPrimaryMuscleGroupsForPrescriptions` resolves each prescription through the same catalog-link-then-name order every other reading uses, and the runner receives a plain list of prescription ids. The runner never touches the taxonomy — duplicating that fallback order is exactly how two readings drift apart, which this project has already lived through once.
+
+**Cost on the hottest page.** The guardrail adds two queries to `/entrenar/[sessionId]`, which renders between sets. Bounded deliberately at six weeks of history (`GUARDRAIL_WEEKS_BACK`) rather than the all-time window `/progreso` uses — enough for the current week plus the completed weeks averaged over, and no more.
+
+**`riskFlag` gained a fifth value, `"load"`, rendered in sky rather than amber.** Amber is the pain channel; borrowing it would make a normal week of hard training read as an injury signal. The badge reads "Carga semanal" — nearly twice the length of "Técnica", which is why it got a real geometry check rather than a jsdom assertion.
+
+**Verified in a browser at 390×844** by temporarily forcing the flag on, then reverting: *Jalón al pecho agarre ancho* would have earned an increase and was held with the badge and its reason; the badge measured 116×28 with the row ending at 342 of 390, no overflow. Also confirmed the negative case — an exercise already on `hold` for ordinary reasons is untouched, since the guardrail only downgrades an increase.
+
+**Known gaps.** No `/progreso` surface: the guardrail is only visible where it acts, inside a session, and there is no screen showing which groups are running hot or by how much — `WeeklyLoadStatus` carries the numbers for one, unused. Session RPE × duration (a Foster-style session load) is still not computed; `sessionRpe` remains written and never read. And nobody has trained a week hot enough to trigger this on real data, so the threshold has not met reality yet.
+
 ## 2026-09-01 (later) — Mobility finally has an outcome measure, and no age norms
 
 Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (676 passing, +12)/`build` green. **Migration `0024`** — one new table, additive. Closes issue #6.
