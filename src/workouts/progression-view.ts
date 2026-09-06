@@ -81,6 +81,14 @@ export function buildProgressionSuggestion(
       plannedRepMax: targetRepMax,
       rir: set.rir as Rir,
       painScore: set.painScore,
+      // Forwarded since 2026-09-06. It was missing from the day the location
+      // split shipped (2026-08-31), which made that whole rule inert in
+      // production: with painLocation undefined here, every reported pain
+      // failed the `!== "muscular"` test, so agujetas kept blocking
+      // progression exactly like a joint flare and the neural escalation
+      // below could never fire. suggestProgression was correct; nothing was
+      // handing it the input it decides on.
+      painLocation: set.painLocation,
       notes: set.notes,
       isBonus: bonusIds.has(set.id),
     })),

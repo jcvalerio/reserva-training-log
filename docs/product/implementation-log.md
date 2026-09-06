@@ -2,6 +2,38 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-06 — Nerve symptoms escalate on their own, and the rule they join had been dead for six days
+
+Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (704 passing, +12)/`build` green. **Migration `0025`** — one enum value, additive. Closes issue #2.
+
+**The feature was the second thing found.** Issue #2 asked for `painLocation` to become a first-class input to `suggestProgression`. Reading the code to size that turned up something else: it already was one, and had been since 2026-08-31 — and **`buildProgressionSuggestion` never forwarded the field**. That mapper is the only production path into `suggestProgression`. Every reported pain therefore arrived with `painLocation` undefined, failed the `!== "muscular"` test, and was read as joint pain.
+
+So for six days the app documented, tested and shipped "soreness is not injury" while doing the exact opposite of it in production. Agujetas kept blocking progression, which is the specific behaviour the 2026-08-31 entry says teaches athletes to stop reporting pain at all.
+
+**Every unit test passed the whole time**, because `progression.test.ts` calls `suggestProgression` directly. The regression pin now lives one layer up in `progression-view.test.ts` and goes through the mapper — a rule about an input is only proven by a test that exercises whatever assembles that input. Confirmed by reverting the one-line fix: two of the three new tests fail, the rest of the suite does not.
+
+**The feature itself: `neural` is the tenth `painLocation`**, and the only one whose rule never looks at the 0–10 scale.
+
+Intensity is the wrong axis for it, which is the whole argument of the issue. A 2/10 tingling down an arm outranks 6/10 of agujetas, so ranking the two by their numbers inverts them — and the number someone puts on a symptom they cannot name is the least reliable part of the report. The rule is **presence**: a set carrying `painLocation = "neural"` escalates to `reduce_or_modify`, at any score.
+
+Keying on presence is safe because all three write paths — `saveSet`, `recordExercisePain`, `updateSetForSession` — drop the location when the score is 0 or null. A location only ever exists alongside a real report, so there is no state where "neural" means "asked and fine".
+
+**It runs ahead of the `>= 7` branch.** Both return `reduce_or_modify`; there is no more severe action, so the only thing separating them is the message, and for a radiating symptom the *what* is more useful than the *how much*. An 8/10 with tingling is first a nerve report.
+
+**The asymmetry is designed in, the same shape as the weekly load guardrail.** A false positive costs one held session and a sentence suggesting someone look at it. A false negative means loading a compressed nerve. That is what makes a rule with no threshold tolerable here.
+
+**The joint-load inference can never produce it.** `neural` is not in `jointLoads`, so the pre-2026-08-09 fallback that attributes a set's pain to every joint its exercise loads cannot invent one. Every `neural` row is an athlete's own report — pinned by a test, because that property is what earns the rule the right to escalate without a score.
+
+**`/progreso` had the same inversion in its presentation**, and it needed the same three fixes: a neural row sorts above every other row regardless of score, and opens the pain section and colours it alert on its own. It deliberately does **not** reuse the "N series sobre 2" clause — for a report at 1 that sentence would be false — so it names the exercises and adds "consúltalo con un profesional" instead. `needsAttention` is a named helper rather than an inline compare because three places have to agree on it.
+
+**Verified in a browser, on real dev data, and the data made the case better than a contrived example would have.** The recorded neural report scored **1**, while five existing rows scored **2**. It still sorted to the top, and it opened the section and turned it alert — which nothing else in that data does, since a max of 2 does not cross the `> 2` gate. Before this change that section would have been closed and neutral with a nerve report inside it.
+
+**Geometry measured, not eyeballed.** Chrome's minimum window width is 500px, so the 390 pass was done by constraining the document to 390 — faithful here because no Tailwind breakpoint falls between 390 and 500. Content `scrollWidth` 390 with no overflow; the submit control 44px; and the new option label, which is the **longest string in the list**, measures 220px against 234px of usable select width — it fits without truncating, which was the one thing most likely to be wrong. The pain report's neural row wraps to three lines at 358px wide with nothing overflowing.
+
+**Cleanup, and one piece of residue.** The three logged sets were deleted through the UI afterwards and `/progreso` confirmed back to closed and neutral. Direct database access was denied in this session, so the now-empty `workout_session` **`7f10f703-2744-4714-97fb-9ffb8bd60280`** (dev branch, Día 2, one `exerciseLog` with zero sets) could not be removed and is still there. It is harmless — no sets means no volume, no progression anchor — but it should be deleted the next time someone has a `psql` prompt on the dev branch.
+
+**Known gaps.** Nobody has reported a neural symptom for real, so the first true one is still unknown. The escalation was proven by tests through the mapper rather than seen as a banner in the runner — that needs two sessions of the same exercise, and the second one was not worth another session row on the dev branch. The `neural` label ("Hormigueo o adormecimiento") does not name radiating or electric pain, which the hint text under the picker does instead; whether that is enough is a real-use question. And #8 (the bursitis re-entry protocol) named #2 as its prerequisite — that prerequisite now genuinely exists, where before today it existed only on paper.
+
 ## 2026-09-02 — A weekly load guardrail, and a threshold that says it is a guess
 
 Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (692 passing, +16)/`build` green. **No migration** — pure logic over data that already existed, which is the one thing issue #7 predicted correctly.

@@ -862,6 +862,14 @@ function ExercisePainQuestion({
               Las agujetas y el dolor articular no son lo mismo. Anotarlo deja ver si una articulación se queja
               siempre en el mismo movimiento — y las agujetas ya no bloquean tu progresión.
             </span>
+            {/* Spelled out because "Hormigueo o adormecimiento" is the one
+                option nobody picks unless they recognise their own symptom in
+                it, and it is the one option where a low number still means
+                stop. */}
+            <span className="text-xs leading-5 text-zinc-400">
+              Si notas hormigueo, corriente o que algo se te duerme, márcalo aunque sea leve: eso no se mide por
+              intensidad.
+            </span>
           </label>
 
           <input type="hidden" name="bothered" value="si" />

@@ -712,6 +712,13 @@ export const setLog = pgTable(
     // A missing location is treated as joint pain, not as muscular — the
     // conservative side — and pain >= 7 still stops everything regardless of
     // where it is. See suggestProgression in src/training/progression.ts.
+    //
+    // `neural` (added 2026-09-06, migration 0025) is the one value read off
+    // its presence rather than its score: radiating pain, tingling and
+    // numbness escalate at any intensity, because a 2/10 tingling outranks
+    // 6/10 of agujetas and ranking the two by their numbers inverts them.
+    // The joint-load inference cannot produce it, so a `neural` row is
+    // always an athlete's own report.
     painLocation: painLocationEnum("pain_location"),
     notes: text("notes"),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),

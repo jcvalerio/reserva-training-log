@@ -1,0 +1,1 @@
+ALTER TYPE "public"."pain_location" ADD VALUE 'neural' BEFORE 'muscular';

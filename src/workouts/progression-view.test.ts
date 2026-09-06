@@ -90,6 +90,44 @@ describe("isRepsFirstIncrease", () => {
 });
 
 describe("buildProgressionSuggestion", () => {
+  // Regression pin. painLocation shipped as a progression input on
+  // 2026-08-31 and this mapper did not forward it until 2026-09-06, so the
+  // whole rule was inert in production: every reported pain arrived with an
+  // undefined location and was read as joint pain. suggestProgression's own
+  // tests all passed throughout — they call it directly. These go through the
+  // mapper on purpose.
+  describe("forwards painLocation to suggestProgression", () => {
+    const soreSets = (painLocation: SetLog["painLocation"]) => [
+      buildSet({ setNumber: 1, actualReps: 12, rir: 2, painScore: null, painLocation: null }),
+      buildSet({ id: "set-2", setNumber: 2, actualReps: 12, rir: 3, painScore: 5, painLocation }),
+    ];
+
+    it("lets agujetas through instead of blocking on the score alone", () => {
+      expect(buildProgressionSuggestion(soreSets("muscular"), 12, 2, false)).toMatchObject({
+        action: "increase",
+      });
+    });
+
+    it("still reduces for the same score in a joint", () => {
+      expect(buildProgressionSuggestion(soreSets("hombro"), 12, 2, false)).toMatchObject({
+        action: "reduce_or_modify",
+        riskFlag: "pain",
+      });
+    });
+
+    it("escalates a neural report that the score alone would have cleared", () => {
+      const sets = [
+        buildSet({ setNumber: 1, actualReps: 12, rir: 2, painScore: null, painLocation: null }),
+        buildSet({ id: "set-2", setNumber: 2, actualReps: 12, rir: 3, painScore: 1, painLocation: "neural" }),
+      ];
+
+      expect(buildProgressionSuggestion(sets, 12, 2, false)).toMatchObject({
+        action: "reduce_or_modify",
+        riskFlag: "pain",
+      });
+    });
+  });
+
   it("derives allPlannedSetsCompleted from sets.length >= targetSets and delegates to suggestProgression", () => {
     const sets = [
       buildSet({ setNumber: 1, actualReps: 12, rir: 2, painScore: 0 }),

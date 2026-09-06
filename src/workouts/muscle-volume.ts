@@ -8,6 +8,7 @@
 // field of single dots while this renders correctly on week one.
 
 import {
+  isNeuralLocation,
   regionForMuscleGroup,
   type JointLoad,
   type MuscleGroup,
@@ -500,8 +501,16 @@ export function buildMuscleVolumeSummary(
     pushPullRatio: ratio(sumRegion(currentWeek, "empuje"), sumRegion(currentWeek, "tiron")),
     quadHamstringRatio: ratio(setsFor(currentWeek, "cuadriceps"), setsFor(currentWeek, "femorales")),
     views,
+    // Neural first, before any score comparison. Everything else on this list
+    // ranks by intensity, which is the right axis for a joint or a muscle and
+    // the wrong one here: a 2/10 tingling belongs above a 6/10 of agujetas,
+    // and sorting by the number would bury the one row that should be read
+    // first. See isNeuralLocation.
     painByLocation: [...painByLocationKey.values()].sort(
-      (a, b) => b.maxPainScore - a.maxPainScore || b.setsAboveThreshold - a.setsAboveThreshold,
+      (a, b) =>
+        Number(isNeuralLocation(b.location)) - Number(isNeuralLocation(a.location)) ||
+        b.maxPainScore - a.maxPainScore ||
+        b.setsAboveThreshold - a.setsAboveThreshold,
     ),
   };
 }
