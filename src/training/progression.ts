@@ -1,4 +1,4 @@
-import type { PainLocation } from "./muscle-taxonomy";
+import { isNeuralLocation, type PainLocation } from "./muscle-taxonomy";
 import type { Rir } from "./rir";
 
 export type ProgressionAction = "increase" | "hold" | "reduce_or_modify";
@@ -104,8 +104,22 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
   //
   // A set that reports pain with NO location falls in here, not in the
   // muscular bucket: an unanswered "where" is treated as the worse case.
+  //
+  // Neural is deliberately NOT excluded here even though it escalates on its
+  // own below: that branch returns first, so a neural set never reaches these
+  // thresholds, and carving it out would be unreachable code that reads like
+  // a rule.
   const maxNonMuscularPain = maxPainScore(
     input.sets.filter((set) => set.painLocation !== "muscular"),
+  );
+
+  // Nerve-like symptoms are a quality, not an intensity, so they are read off
+  // the location and never off the score. A set only ever carries a location
+  // alongside a pain above 0 — saveSet, recordExercisePain and
+  // updateSetForSession all drop the location when the score is 0 or null —
+  // so presence of the location is the whole condition.
+  const hasNeuralReport = input.sets.some(
+    (set) => set.painLocation != null && isNeuralLocation(set.painLocation),
   );
 
   // Fall back to the full set list if every logged set happens to be a
@@ -116,6 +130,30 @@ export function suggestProgression(input: ProgressionInput): ProgressionSuggesti
 
   const averageRir = average(signalSets.map((set) => set.rir));
   const reachedTopOfRange = signalSets.every((set) => set.actualReps >= set.plannedRepMax);
+
+  // Runs ahead of the >= 7 branch on purpose. Both return the same action —
+  // there is no action more severe than reduce_or_modify — so the only thing
+  // that separates them is the message, and for a radiating or numb symptom
+  // the *what* is more useful than the *how much*. An 8/10 with tingling is
+  // still first and foremost a nerve report.
+  //
+  // No intensity threshold, deliberately. Ranking a 2/10 tingling below a
+  // 6/10 agujetas is exactly the inversion this rule exists to correct, and
+  // the number an athlete puts on a symptom they cannot name is the least
+  // reliable part of the report.
+  //
+  // The cost of a false positive is one held session and a sentence
+  // suggesting a professional look at it. The cost of a false negative is
+  // loading a compressed nerve, so the asymmetry is deliberate rather than
+  // incidental.
+  if (hasNeuralReport) {
+    return {
+      action: "reduce_or_modify",
+      riskFlag: "pain",
+      reasonEs:
+        "Hormigueo o adormecimiento no es agujetas: para este patrón hoy y consúltalo con un profesional antes de volver a cargarlo.",
+    };
+  }
 
   // Severe pain stops everything, wherever it is. Someone calling a 9
   // "muscular" does not make it one, so this branch deliberately runs before

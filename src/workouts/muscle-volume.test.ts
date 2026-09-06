@@ -545,4 +545,31 @@ describe("pain location — reported vs inferred", () => {
 
     expect(summary.painByLocation).toEqual([]);
   });
+
+  it("ranks a neural report above a higher-scoring one, against the intensity order", () => {
+    // Every other row on this list sorts by its number. This one must not:
+    // a 1/10 of tingling is the row to read first, and sorting it under a
+    // 7/10 of agujetas buries exactly the report that matters most.
+    const summary = buildMuscleVolumeSummary(
+      [
+        buildInstance({ jointLoads: ["hombro"], sets: buildSets(2, "bilateral", 7, "muscular") }),
+        buildInstance({ jointLoads: ["hombro"], sets: buildSets(1, "bilateral", 1, "neural") }),
+      ],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation.map((row) => row.location)).toEqual(["neural", "muscular"]);
+  });
+
+  it("never infers a neural location from the joints an exercise loads", () => {
+    // The inference path can only produce jointLoads, and "neural" is not one.
+    // That is what makes a neural row always something the athlete reported —
+    // which is why it is allowed to escalate on its own.
+    const summary = buildMuscleVolumeSummary(
+      [buildInstance({ jointLoads: ["hombro", "codo"], sets: buildSets(3, "bilateral", 6, null) })],
+      { now: NOW },
+    );
+
+    expect(summary.painByLocation.some((row) => row.location === "neural")).toBe(false);
+  });
 });

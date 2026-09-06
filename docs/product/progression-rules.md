@@ -53,12 +53,33 @@ That changed on 2026-08-31 because the previous design — a required 0–10 fie
 `painLocation = "muscular"` (agujetas / DOMS) no longer blocks progression the way joint pain does. DOMS is the expected response to effective hypertrophy work; forcing a load reduction on it teaches an athlete to stop reporting it, which is the exact failure the collection change above is undoing.
 
 Concretely, in `suggestProgression`:
+- Any report at `neural` → `reduce_or_modify`, **at any score** (see below).
 - `>= 7` at **any** location → `reduce_or_modify`.
 - `> 3` at a **non-muscular** location → `reduce_or_modify`.
 - `> 2` at a **non-muscular** location → `hold`.
 - Muscular soreness from 1–6 vetoes nothing; performance signals decide.
 
 A reported pain with **no location** is treated as joint pain, not as soreness — an unanswered "where" takes the conservative side.
+
+### Nerve symptoms are read off the quality, never the number
+
+Added 2026-09-06 (issue #2). `neural` — radiating pain, tingling, numbness — is the tenth `painLocation` value and the only one whose rule ignores the 0–10 scale entirely.
+
+Intensity is the wrong axis for it. A 2/10 tingling down an arm matters more than 6/10 of agujetas, so ranking the two by their scores inverts them, and the number an athlete puts on a symptom they cannot name is the least reliable part of the report. The rule is therefore **presence**: a set carrying `painLocation = "neural"` escalates. That is safe to key on because all three write paths (`saveSet`, `recordExercisePain`, `updateSetForSession`) drop the location when the score is 0 or null, so a location only ever exists alongside a real report.
+
+It runs **ahead of** the `>= 7` branch. Both return `reduce_or_modify` — there is no more severe action — so the only difference is the message, and for a radiating symptom the *what* is more useful than the *how much*.
+
+The asymmetry is deliberate, the same shape as the weekly load guardrail: a false positive costs one held session plus a sentence suggesting a professional look at it; a false negative means loading a compressed nerve.
+
+The joint-load inference used for pre-2026-08-09 sets can only produce joints, so it can never invent a `neural` row. Every one is an athlete's own report.
+
+On `/progreso` the same asymmetry applies to presentation: a `neural` row sorts above every other row regardless of score, and opens the pain section and colours it as an alert on its own. It deliberately does **not** reuse the "N series sobre 2" clause, which would be false for a report at 1.
+
+### A note on how long this rule was inert
+
+`painLocation` became a progression input on 2026-08-31, but `buildProgressionSuggestion` — the only production path into `suggestProgression` — did not forward the field until 2026-09-06. Every reported pain therefore arrived with an undefined location and was read as joint pain: agujetas kept blocking progression exactly as before, and the whole "soreness is not injury" rule above was documented, tested and dead.
+
+`suggestProgression`'s own unit tests passed throughout, because they call it directly. The pin for this now lives in `progression-view.test.ts`, one layer up, on purpose — a rule about an input is only proven by a test that goes through whatever assembles that input.
 
 ## Between-session load management
 

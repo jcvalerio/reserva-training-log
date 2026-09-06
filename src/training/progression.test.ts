@@ -113,6 +113,81 @@ describe("suggestProgression", () => {
     });
   });
 
+  // Nerve-like symptoms are the one report where the number is not the
+  // severity. Every test here fixes a case where ranking by intensity would
+  // get the answer backwards.
+  describe("neural symptoms", () => {
+    const neuralReason = /hormigueo|adormecimiento/i;
+
+    it("escalates a neural report that would otherwise have earned an increase", () => {
+      const suggestion = suggestProgression({
+        allPlannedSetsCompleted: true,
+        sets: [
+          { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: null },
+          { actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 1, painLocation: "neural" },
+        ],
+      });
+
+      expect(suggestion).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+      expect(suggestion.reasonEs).toMatch(neuralReason);
+    });
+
+    // 1 and 2 both sit under every intensity threshold in this function, so
+    // without the location branch they would read as "fine, keep going".
+    it.each([1, 2, 3])("escalates at score %i, below every intensity threshold", (painScore) => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [{ actualReps: 12, plannedRepMax: 12, rir: 3, painScore, painLocation: "neural" }],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+
+    // Both branches return reduce_or_modify, so this pins the message rather
+    // than the action: the athlete needs to hear "this is a nerve thing",
+    // not "that was a big number".
+    it("keeps the neural message ahead of the severe-pain one", () => {
+      const suggestion = suggestProgression({
+        allPlannedSetsCompleted: true,
+        sets: [{ actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 9, painLocation: "neural" }],
+      });
+
+      expect(suggestion.reasonEs).toMatch(neuralReason);
+    });
+
+    // Pain scans every set, bonus ones included — a safety brake should not
+    // have a blind spot the performance signals are allowed to have.
+    it("escalates when only a bonus set carries the report", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [
+            { actualReps: 12, plannedRepMax: 12, rir: 2, painScore: 0 },
+            { actualReps: 10, plannedRepMax: 12, rir: 1, painScore: 2, painLocation: "neural", isBonus: true },
+          ],
+        }),
+      ).toMatchObject({ action: "reduce_or_modify", riskFlag: "pain" });
+    });
+
+    // The escalation must not leak into the neighbouring locations: "otro"
+    // is still ranked by its number, and agujetas still veto nothing.
+    it("leaves the other locations ranked by intensity", () => {
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [{ actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 1, painLocation: "otro" }],
+        }),
+      ).toMatchObject({ action: "increase" });
+
+      expect(
+        suggestProgression({
+          allPlannedSetsCompleted: true,
+          sets: [{ actualReps: 12, plannedRepMax: 12, rir: 3, painScore: 6, painLocation: "muscular" }],
+        }),
+      ).toMatchObject({ action: "increase" });
+    });
+  });
+
   // Between-session load management. Progression is per exercise; this is the
   // only thing that looks at the week around it.
   describe("weekly load guardrail", () => {

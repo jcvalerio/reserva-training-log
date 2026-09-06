@@ -187,12 +187,21 @@ export type JointLoad = (typeof jointLoads)[number];
  * "muscular" is the clinically important addition, not a filler option. A
  * physio reads ordinary muscle soreness after a hard session completely
  * differently from joint pain, and until now the app could not tell them
- * apart. Note it does NOT yet change the progression thresholds: pain > 2 still
- * blocks aggressive progression regardless of where it is. Loosening a safety
- * rule needs real logged evidence first, and there is none — every set logged
- * to date carries pain 0.
+ * apart. Since 2026-08-31 it does drive the progression thresholds — muscular
+ * soreness no longer forces a load reduction the way joint pain does.
+ *
+ * "neural" is the second one that is not a location at all but a quality, and
+ * it is the reason this list is ordered the way it is. Radiating pain,
+ * tingling and numbness point at nerve involvement, where the correct response
+ * is to stop the pattern and get it looked at — not to shave 5% off the bar.
+ * Intensity is the wrong axis for it: a 2/10 tingling down an arm matters more
+ * than 6/10 agujetas, and ranking the two by their numbers gets it backwards.
+ * It is listed before "muscular" so it sits among the things that escalate
+ * rather than being read as another flavour of soreness, and it is never
+ * produced by the joint-load inference — a neural row is always something the
+ * athlete reported.
  */
-export const painLocations = [...jointLoads, "muscular", "otro"] as const;
+export const painLocations = [...jointLoads, "neural", "muscular", "otro"] as const;
 
 export type PainLocation = (typeof painLocations)[number];
 
@@ -204,6 +213,7 @@ export const painLocationLabelsEs: Record<PainLocation, string> = {
   cadera: "Cadera",
   rodilla: "Rodilla",
   tobillo: "Tobillo",
+  neural: "Hormigueo o adormecimiento",
   muscular: "Muscular (agujetas)",
   otro: "Otro",
 };
@@ -212,6 +222,17 @@ export const painLocationLabelsEs: Record<PainLocation, string> = {
  *  attribute directly rather than by inference. */
 export function isJointLocation(location: PainLocation): location is JointLoad {
   return (jointLoads as readonly string[]).includes(location);
+}
+
+/**
+ * True for a report of nerve-like symptoms — radiating pain, tingling,
+ * numbness. Kept as a named predicate rather than a bare `=== "neural"`
+ * because three separate places have to agree on it: the progression gate,
+ * the pain report's ordering, and the report's alert tone. A literal compare
+ * scattered across those is how two of them end up disagreeing later.
+ */
+export function isNeuralLocation(location: PainLocation): boolean {
+  return location === "neural";
 }
 
 export const jointLoadLabelsEs: Record<JointLoad, string> = {

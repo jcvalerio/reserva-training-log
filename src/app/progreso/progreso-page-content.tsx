@@ -9,9 +9,9 @@ import { LSI_FLAG_THRESHOLD, type LimbSymmetrySummary } from "@/workouts/limb-sy
 import { buildConsistencyBars, type ConsistencySummary } from "@/workouts/consistency";
 import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
 import type { ExerciseImprovementRow } from "@/workouts/improvement";
-import { painLocationLabelsEs } from "@/training/muscle-taxonomy";
+import { isNeuralLocation, painLocationLabelsEs } from "@/training/muscle-taxonomy";
 import { buildMuscleProgressRows, pickProgressView } from "@/workouts/muscle-progress";
-import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
+import type { MuscleVolumeSummary, PainLocationSummary } from "@/workouts/muscle-volume";
 import { averageRecentTrainingLoad, computeSessionTrainingLoad } from "@/workouts/session-load";
 import type { CompletedSessionSummary } from "@/workouts/workout-repository";
 
@@ -22,6 +22,19 @@ import { MeasurementSeriesChart } from "./measurement-series-chart";
 import { MuscleProgressTable } from "./muscle-progress-table";
 import { MuscleVolumeSection } from "./muscle-volume-section";
 import { buildTopExerciseRows, TopExercisesList } from "./top-exercises-list";
+
+/**
+ * Whether a pain row should open this section and colour it as an alert.
+ *
+ * Two different reasons, deliberately not merged into one number: a joint or
+ * muscle row earns it by crossing the app's own >2 progression gate, and a
+ * neural row earns it by existing. Intensity is the wrong axis for nerve-like
+ * symptoms — the same reason suggestProgression escalates them without
+ * looking at the score.
+ */
+function needsAttention(row: PainLocationSummary): boolean {
+  return row.setsAboveThreshold > 0 || isNeuralLocation(row.location);
+}
 
 export function ProgresoPageContent({
   hasProfile,
@@ -213,8 +226,8 @@ export function ProgresoPageContent({
               ? "Dónde te ha dolido"
               : "Dónde te ha dolido (algunas series son estimadas)"
           }
-          defaultOpen={muscleVolumeSummary.painByLocation.some((row) => row.setsAboveThreshold > 0)}
-          tone={muscleVolumeSummary.painByLocation.some((row) => row.setsAboveThreshold > 0) ? "alert" : "default"}
+          defaultOpen={muscleVolumeSummary.painByLocation.some(needsAttention)}
+          tone={muscleVolumeSummary.painByLocation.some(needsAttention) ? "alert" : "default"}
         >
           {/* Rows the athlete actually located are stated plainly. Rows
               inferred from the joints an exercise loads keep hedging —
@@ -233,6 +246,16 @@ export function ProgresoPageContent({
                     · {row.setsAboveThreshold} {row.setsAboveThreshold === 1 ? "serie" : "series"} sobre 2 (
                     {row.exerciseNamesEs.join(", ")})
                   </span>
+                ) : isNeuralLocation(row.location) ? (
+                  /* The "N series sobre 2" clause is skipped rather than
+                     reused: a neural report at 1 or 2 is above nothing, and
+                     saying it crossed a threshold it did not would be false.
+                     It still names the exercises, because which movement
+                     produces it is the useful part. */
+                  <span className="text-zinc-400"> ({row.exerciseNamesEs.join(", ")})</span>
+                ) : null}
+                {isNeuralLocation(row.location) ? (
+                  <span className="text-amber-200"> · consúltalo con un profesional</span>
                 ) : null}
               </li>
             ))}
@@ -241,7 +264,8 @@ export function ProgresoPageContent({
             Lo marcado como <span className="italic">estimado</span> viene de series registradas antes de que la app
             preguntara dónde dolía: ahí sólo puede repartir el dolor entre las articulaciones que carga el ejercicio. El
             resto es lo que anotaste tú. En ningún caso es un diagnóstico. Con dolor sobre 2 no conviene progresar;
-            sobre 3, reduce o modifica el ejercicio.
+            sobre 3, reduce o modifica el ejercicio. El hormigueo o adormecimiento es la excepción: no se ordena por
+            intensidad y conviene consultarlo aunque el número sea bajo.
           </p>
         </DisclosureSection>
       ) : null}

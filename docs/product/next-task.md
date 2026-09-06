@@ -2,7 +2,26 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: an athlete can now correct their own mis-filed history (#10 closed), and there is a privacy page. Deployed `95iza6p83`.
+## Status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
+
+**Issue #2 closed.** `neural` is the tenth `painLocation` (migration `0025`), and the only one read off its presence rather than its 0-10 score: a 2/10 tingling outranks 6/10 of agujetas, so ranking them by number inverts them. It escalates to `reduce_or_modify` ahead of the `>= 7` branch, and on `/progreso` it sorts above every other row and opens the pain section on its own.
+
+**The bigger find: `buildProgressionSuggestion` never forwarded `painLocation`.** It is the only production path into `suggestProgression`, so from 2026-08-31 until today every reported pain was read as joint pain and the whole "soreness is not injury" rule was dead — documented, unit-tested and doing nothing. Every test passed throughout because they call `suggestProgression` directly. The pin now sits one layer up in `progression-view.test.ts`; reverting the one-line fix fails it.
+
+**Verified in a browser at 390px against real dev data**, and the data was better than a contrived case: a neural report at **1** correctly outranked five rows at **2** and turned the section alert, which nothing else in that data does. The new option label is the longest in the picker and fits (220px of 234px) without truncating.
+
+**One piece of residue to clean up.** Direct DB access was denied this session, so the now-empty dev-branch session `7f10f703-2744-4714-97fb-9ffb8bd60280` (Día 2, one `exerciseLog`, zero sets) is still there. Harmless — no sets means no volume and no progression anchor — but delete it next time you have a `psql` prompt on the dev branch.
+
+**Not seen end to end in the runner.** The escalation is proven through the mapper by test, not by watching the banner appear on a following session — that needs two sessions of the same exercise, which was not worth another session row.
+
+**Worth deciding next**, now that #2 is real rather than nominal:
+
+1. **#5 — never suggest an increment the machine cannot select.** `suggestNextWeightKg` rounds to the nearest 0.5 kg, so a 50 kg stack gets "52.50". As issue #5 specifies it (a nullable `minIncrementKg`, today's behaviour when null) it ships inert until someone enters data per exercise, so decide the default before building it.
+2. **#4 — RIR calibration via periodic AMRAP.** The most competitively differentiating item on the list and not blocked on data, but the largest of the remaining clinical issues.
+3. **#8 — bursitis re-entry.** Its stated prerequisite (#2) now genuinely exists. Still the largest and least-defined; the issue itself says do it last.
+4. **#14 — `requiresPainTracking`.** Small. Its own issue says the debatable third of it should wait for real logged answers, and there still are none.
+
+## Prior status: an athlete can now correct their own mis-filed history (#10 closed), and there is a privacy page. Deployed `95iza6p83`.
 
 **Reassign / swap a logged exercise**, on a completed session. Confirmed working by the athlete on real data. Move it onto an exercise with nothing logged, or **swap** with one that already has sets — the two trade their work, which is how a whole day's mis-filed values get corrected pair by pair. Repeated swaps reach any arrangement.
 
@@ -16,7 +35,7 @@ Shipped once wrong, and real use corrected it: the first version refused any tar
 
 **Still unverified in a real browser:** the finish screen, the reassign panel and the privacy page have all shipped without a 390px pass. jsdom does not measure geometry and this repo has been caught by that twice.
 
-**Open issues:** #1–#8 are the physiotherapy review (pain prompting, limb symmetry index, RIR calibration, increment quantization, mobility outcome measures, weekly load guardrail, bursitis re-entry). #9 is English.
+**Open issues:** #4 (RIR calibration), #5 (increment quantization), #8 (bursitis re-entry), #9 (English), #14 (`requiresPainTracking`). #1, #2, #3, #6, #7 and #10 are closed.
 
 **Known data issue, unchanged:** Athlete B's pre-2026-08-30 history is still corrupted and she chose to keep it and correct it by hand — which is now possible for anything a swap can fix. Sets whose original exercise no longer exists in her plan (Plancha lateral, the day-1 finisher) still have nowhere to go until those exercises are added back. Inventory and unrun repair SQL live in `~/jcvalerio/dev/github/reserva-data-notes/`, outside this public repo.
 
