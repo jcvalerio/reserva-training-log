@@ -14,6 +14,8 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { muscleGroups, painLocations, type JointLoad, type MovementPattern } from "@/training/muscle-taxonomy";
+import { loadingModels, type PlateCount } from "@/training/plate-math";
+import { weightUnits, type PlateDenomination } from "@/training/units";
 
 export const localeEnum = pgEnum("locale", ["es", "en"]);
 export const unitsEnum = pgEnum("units", ["metric"]);
@@ -54,6 +56,18 @@ export const muscleGroupEnum = pgEnum("muscle_group", muscleGroups);
 // Where the athlete says it hurts. Values come from muscle-taxonomy.ts so the
 // enum cannot drift from the TS union.
 export const painLocationEnum = pgEnum("pain_location", painLocations);
+
+/** Which family a plate or increment is labelled in. The unit belongs to the
+ *  disc, not to the app — see src/training/units.ts for why this is
+ *  deliberately not a global lb mode. */
+export const weightUnitEnum = pgEnum("weight_unit", weightUnits);
+
+/** How an exercise takes load. Load-bearing rather than descriptive: it is the
+ *  only thing that separates a selectorized stack from a plate-loaded machine,
+ *  and `exercisePrescription.loadMechanism = "machine"` covers both. Nothing
+ *  stored today can tell them apart, and they need completely different
+ *  arithmetic. */
+export const loadingModelEnum = pgEnum("loading_model", loadingModels);
 
 const updatedAtColumn = () =>
   timestamp("updated_at", { withTimezone: true })
@@ -306,6 +320,122 @@ export const functionalTest = pgTable(
     index("functional_test_tested_at_idx").on(table.testedAt),
   ],
 );
+
+/**
+ * A room the athlete trains in, and what it stocks.
+ *
+ * The plate inventory belongs HERE and not on the exercise, because it is a
+ * fact about the room: every plate-loaded movement in the building draws on
+ * the same rack. Stored per exercise, an athlete retypes it for each movement
+ * and the copies drift until one exercise believes 45 lb discs exist and
+ * another does not.
+ *
+ * It also cannot live on the `exercise` catalog. A catalog row with a NULL
+ * athleteProfileId is shared by every profile in the product, so "entered once
+ * per gym" would be entered once for everyone — including athletes in other
+ * countries. Issue #5 proposed exactly that placement; this is why it was not
+ * taken.
+ *
+ * Rows are created lazily by application code, never by a migration. A
+ * migration that INSERTs one row per athlete_profile can fail mid-`vercel
+ * build` and take the whole deploy down.
+ */
+export const athleteGym = pgTable(
+  "athlete_gym",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    nameEs: text("name_es").notNull(),
+    isDefault: boolean("is_default").notNull().default(true),
+    // Display only. It never changes what is stored — kilograms stay canonical
+    // for every logged set and every report.
+    displayUnit: weightUnitEnum("display_unit").notNull().default("kg"),
+    // [{ value, unit }] — the number printed on the disc plus its family, so
+    // "45 lb" can be rendered back. Stored pre-converted, it could not be.
+    //
+    // jsonb rather than a child table: it is always read and written whole,
+    // nothing aggregates over it, and a join on the hottest screen buys
+    // nothing. Same shape as substitutionOptionsEs and jointStressTags.
+    //
+    // Deliberately NO per-denomination counts. Tracking how many of each disc
+    // a gym owns makes every answer depend on state nobody maintains, and a
+    // calculator that is confidently wrong is worse than none.
+    plateInventory: jsonb("plate_inventory").$type<PlateDenomination[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [
+    index("athlete_gym_athlete_profile_id_idx").on(table.athleteProfileId),
+    // One default per athlete. Partial, so extra gyms are unconstrained.
+    uniqueIndex("athlete_gym_default_unique")
+      .on(table.athleteProfileId)
+      .where(sql`${table.isDefault}`),
+  ],
+);
+
+/**
+ * Durable facts about one athlete's use of one exercise at one gym.
+ *
+ * The thing users were trying to record in `setLog.notes` and losing: a note
+ * written in week one is visible in week two and gone by week three, because
+ * getPreviousExercisePerformance returns only the single most recent instance.
+ * Setup is configuration, not a per-set observation, and configuration that
+ * decays is the wrong shape.
+ *
+ * NOT on `exercisePrescription`, for three reasons that each cost real data:
+ * redeemPlanShare clones every prescription column into another human's
+ * account; createSubstitutePrescription inherits dosage onto a DIFFERENT
+ * machine, where a seat height is actively wrong; and the same exercise on
+ * three session templates means three copies that drift.
+ */
+export const exerciseSetup = pgTable(
+  "exercise_setup",
+  {
+    id: text("id").primaryKey(),
+    athleteProfileId: text("athlete_profile_id")
+      .notNull()
+      .references(() => athleteProfile.id, { onDelete: "cascade" }),
+    gymId: text("gym_id")
+      .notNull()
+      .references(() => athleteGym.id, { onDelete: "cascade" }),
+    // The NORMALIZED exerciseNameEs, not the exerciseId. exerciseId is
+    // nullable and createSubstitutePrescription writes null whenever a typed
+    // name matches no catalog entry — which is exactly the case that most
+    // needs a setup note, since an unfamiliar machine is why you substituted.
+    // Keying on the name also means setup and history decay together, since
+    // getPreviousExercisePerformance matches on the name too.
+    exerciseKey: text("exercise_key").notNull(),
+    // Denormalized convenience for later grouping. Never the lookup key.
+    exerciseId: text("exercise_id").references(() => exercise.id, { onDelete: "set null" }),
+    // R1's setup card: seat height, pin position, which of the two machines.
+    // Free text on purpose in v1 — those vary per manufacturer, and five
+    // labelled numeric fields on a 390px screen at this app's raised type
+    // scale is worse than one textarea. Structure what recurs, later.
+    setupNotesEs: text("setup_notes_es"),
+    loadingModel: loadingModelEnum("loading_model"),
+    // Stack increments, for the uniform-increment grid. Unused until the
+    // progression half ships; nullable so nothing reads a guess.
+    incrementValue: numeric("increment_value", { precision: 6, scale: 2 }),
+    incrementUnit: weightUnitEnum("increment_unit"),
+    addOnValue: numeric("add_on_value", { precision: 6, scale: 2 }),
+    addOnUnit: weightUnitEnum("add_on_unit"),
+    // NULL means inherit the gym's rack. Set only for a machine whose plates
+    // genuinely differ from the room's.
+    plateInventory: jsonb("plate_inventory").$type<PlateDenomination[] | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAtColumn(),
+  },
+  (table) => [
+    uniqueIndex("exercise_setup_scope_unique").on(table.athleteProfileId, table.gymId, table.exerciseKey),
+    index("exercise_setup_profile_gym_idx").on(table.athleteProfileId, table.gymId),
+  ],
+);
+
+export type AthleteGym = typeof athleteGym.$inferSelect;
+export type ExerciseSetup = typeof exerciseSetup.$inferSelect;
+export type { PlateCount };
 
 // The exercise catalog: the single normalized source of truth for what muscle
 // an exercise trains. Revived from the removed "Pesos base" intake flow, which

@@ -2,7 +2,28 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
+## Status: the app tells you which discs to put on the bar. Not yet deployed.
+
+**The complaint:** they read "122 kg", the gym stocks discs in pounds, and they convert and hunt for a combination before they can lift — recording the working-out in `setLog.notes`, which decays after two sessions because `getPreviousExercisePerformance` is `.limit(1)`. Both halves checked against the code first.
+
+**The convention was measured, not assumed**, and it inverted the design: plate-loaded lifts are logged as **total discs, both sides, bar excluded** (122 for 6 × 45 lb), dumbbells as **one** dumbbell. That killed a tare model and two columns before they were written. **Nothing reinterprets a logged weight** — now invariant 13 in `data-model.md`, because adding the bar would trip the 1.3 weekly-load guardrail and suppress earned increases for weeks.
+
+**Minimum change, not minimum plates.** The primary output is `Añade 1 × 5 lb + 1 × 2.5 lb por lado → 129.3 kg`, not a recipe to rebuild the bar with. The same error appeared one level down and was caught by testing: `buildFromScratch(122)` returned six discs of four denominations to be 0.06 kg nearer than the `3 × 45 lb` actually on the bar.
+
+**Issue #5 caught live**: an exercise at 20 kg earned an increase and the app suggested **21 kg**, which cannot be built from this gym's discs. It now says to add a rep instead. Worth re-scoping #5 to *"suggest a load change the athlete can actually perform, or suggest reps instead"* — impossible, impractical and too-large in one rule.
+
+**Athlete B's gym**: `45, 35, 25, 10, 5, 2.5` lb and `25, 20, 15, 10, 5` kg — 11 denominations, both families, which is what made this necessary. Entered on the dev branch already.
+
+**Not yet built, in order:**
+
+1. **The uniform-increment grid** for stacks and fixed dumbbells. `increment_*` / `add_on_*` exist on `exercise_setup` with no consumer; until it lands, `suggestNextWeightKg` still rounds those to 0.5 kg. This is what actually closes #5.
+2. **Persistent last note (R4)** — the `.limit(1)` decay for genuine per-set observations. No migration, order-independent, one-day win.
+3. **The setup card** (`setup_notes_es` exists, unused) — seat height, pin position, which machine. Demoted below the calculator because a computed recipe beats a note about one.
+4. **`getPreviousExercisePerformance` has no `status = 'completed'` filter** while all three sibling queries do, so a stale active session can feed "Última vez" and the weight suggestion. Separate PR; check production for stale active rows first.
+
+**Known gaps:** the panel needs a previous performance, so a first session on an exercise gets nothing and "¿lleva discos?" cannot be answered until the second. Reductions render a from-scratch recipe rather than a removal instruction. Nobody has used it in a real session.
+
+## Prior status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
 
 **Issue #2 closed.** `neural` is the tenth `painLocation` (migration `0025`), and the only one read off its presence rather than its 0-10 score: a 2/10 tingling outranks 6/10 of agujetas, so ranking them by number inverts them. It escalates to `reduce_or_modify` ahead of the `>= 7` branch, and on `/progreso` it sorts above every other row and opens the pain section on its own.
 

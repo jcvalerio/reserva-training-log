@@ -8,6 +8,7 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { painLocationLabelsEs, painLocations } from "@/training/muscle-taxonomy";
+import { formatPlateCounts } from "@/training/plate-math";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import { rpeLabelsEs } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
@@ -38,9 +39,15 @@ import type {
   RecordExercisePainActionState,
   ReopenSessionActionState,
   SaveSetActionState,
+  SetLoadingModelActionState,
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
 } from "../actions";
+
+type SetLoadingModelAction = (
+  prevState: SetLoadingModelActionState,
+  formData: FormData,
+) => Promise<SetLoadingModelActionState>;
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialReopenState: ReopenSessionActionState = { status: "idle" };
@@ -66,6 +73,7 @@ export function SessionRunner({
   reassignExerciseAction,
   addSetToCompletedSessionAction,
   recordExercisePainAction,
+  setLoadingModelAction,
   loadFlaggedPrescriptionIds = [],
 }: {
   session: WorkoutSession;
@@ -105,6 +113,7 @@ export function SessionRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  setLoadingModelAction: SetLoadingModelAction;
   /**
    * Prescriptions whose muscle group is already running well above its
    * trailing weekly average. Resolved server-side so this component never
@@ -537,6 +546,20 @@ export function SessionRunner({
             >
               ¿Por qué esta sugerencia?
             </Link>
+
+            {/* Deliberately here: inside the "última vez" card, ABOVE the
+                logging form. Expanding or collapsing it can only move things
+                below it, never the weight/reps/RIR inputs — this screen has a
+                documented history of controls shifting under a thumb. */}
+            <PlateAssistPanel
+              assist={currentExercise.loadAssist}
+              showStep={previousSuggestion.action === "increase" && !repsFirstIncrease}
+              askLoadingModel={currentExercise.hasPlateInventory && currentExercise.loadingModel === null}
+              exerciseNameEs={currentExercise.exerciseNameEs}
+              exerciseId={currentExercise.exerciseId}
+              sessionId={session.id}
+              setLoadingModelAction={setLoadingModelAction}
+            />
           </div>
         ) : null}
 
@@ -2329,4 +2352,147 @@ function riskFlagClass(riskFlag: ProgressionRiskFlag) {
     load: "bg-sky-300/10 text-sky-200",
     none: "",
   }[riskFlag];
+}
+
+/**
+ * What to put on the bar, in the two forms the athlete actually needs.
+ *
+ * The complaint this answers, measured: they return to the hip thrust, read
+ * "122 kg", and their gym stocks discs in pounds — so before they can lift
+ * they convert and hunt for a combination that sums to it. Then, to progress,
+ * they do it again for a number the app invented.
+ *
+ * So the primary line is an INSTRUCTION relative to the weight they logged
+ * ("añade 1 x 5 lb por lado"), not a recipe. Rebuilding a bar from a fresh
+ * minimum-plate recipe to add three kilos is not a thing anyone does — the
+ * full recipe belongs in the secondary disclosure, for an empty bar.
+ */
+function PlateAssistPanel({
+  assist,
+  showStep,
+  askLoadingModel,
+  exerciseNameEs,
+  exerciseId,
+  sessionId,
+  setLoadingModelAction,
+}: {
+  assist: ExerciseWithLoggedSets["loadAssist"];
+  showStep: boolean;
+  /** The gym has discs recorded but nobody has said whether THIS movement
+   *  uses them. Asked here rather than only on a settings screen: the moment
+   *  you notice is the moment you are stood in front of the machine. */
+  askLoadingModel: boolean;
+  exerciseNameEs: string;
+  exerciseId: string | null;
+  sessionId: string;
+  setLoadingModelAction: SetLoadingModelAction;
+}) {
+  if (!assist) {
+    return askLoadingModel ? (
+      <LoadingModelQuestion
+        exerciseNameEs={exerciseNameEs}
+        exerciseId={exerciseId}
+        sessionId={sessionId}
+        action={setLoadingModelAction}
+      />
+    ) : null;
+  }
+
+  const step = showStep ? assist.step : null;
+
+  return (
+    <div className="mt-3 border-t border-zinc-800 pt-3">
+      {step ? (
+        <p className="text-sm leading-6 text-zinc-200">
+          Añade <span className="font-semibold text-emerald-300">{formatPlateCounts(step.added)}</span> por lado →{" "}
+          <span className="font-semibold text-zinc-50">{formatKg(String(step.totalKg), 1)}</span>
+        </p>
+      ) : null}
+
+      {showStep && !assist.step ? (
+        /* A real answer, not a gap. The smallest pair this gym stocks is a
+           bigger jump than the exercise should take, so there is no load
+           change to make — say so instead of rounding to a number that does
+           not exist. */
+        <p className="text-sm leading-6 text-zinc-300">
+          Con los discos de tu gimnasio no hay un salto de carga apropiado aquí: suma una repetición en vez de peso.
+        </p>
+      ) : null}
+
+      {assist.lastBuild && assist.lastBuild.plateCount > 0 ? (
+        <details className="mt-2">
+          {/* min-h-11 to match "Ver las N series de la vez pasada", the other
+              <summary> on this card — measured at 44px, where this one was
+              20px before. A disclosure is a tap target; the small text link
+              beside it ("¿Por qué esta sugerencia?") is a link, and gets to
+              behave like one. */}
+          <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+            Armar desde cero
+          </summary>
+          <p className="mt-1 text-xs leading-5 text-zinc-300">
+            La vez pasada: {formatPlateCounts(assist.lastBuild.perSide)} por lado
+            {assist.lastBuildDriftKg !== 0 ? (
+              /* Shown, never written back. They logged a hand-rounded
+                 conversion; correcting the row would rewrite history. */
+              <span className="text-zinc-400">
+                {" "}
+                ({formatKg(String(assist.lastBuild.totalKg), 1)} reales)
+              </span>
+            ) : null}
+            .
+          </p>
+        </details>
+      ) : null}
+
+      <p className="mt-1 text-xs leading-5 text-zinc-500">{assist.conventionEs}</p>
+    </div>
+  );
+}
+
+/**
+ * Two buttons, no scale, no modal. A "no" writes a real answer ("other")
+ * rather than staying null, so the question does not reappear every session
+ * and turn into noise — the same reasoning that makes "no pain" store a 0.
+ */
+function LoadingModelQuestion({
+  exerciseNameEs,
+  exerciseId,
+  sessionId,
+  action,
+}: {
+  exerciseNameEs: string;
+  exerciseId: string | null;
+  sessionId: string;
+  action: SetLoadingModelAction;
+}) {
+  const [, formAction] = useActionState(action, { status: "idle" } as SetLoadingModelActionState);
+
+  return (
+    <form action={formAction} className="mt-3 border-t border-zinc-800 pt-3">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="exerciseNameEs" value={exerciseNameEs} />
+      <input type="hidden" name="exerciseId" value={exerciseId ?? ""} />
+      <p className="text-xs leading-5 text-zinc-400">
+        ¿Este ejercicio se carga con discos? Si me lo dices, te digo qué poner en la barra en vez de sólo un número.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          name="loadingModel"
+          value="plate_loaded"
+          className="min-h-11 flex-1 rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-300/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Sí, con discos
+        </button>
+        <button
+          type="submit"
+          name="loadingModel"
+          value="other"
+          className="min-h-11 flex-1 rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          No
+        </button>
+      </div>
+    </form>
+  );
 }

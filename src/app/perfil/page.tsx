@@ -61,6 +61,18 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         </p>
       </Link>
 
+      <Link
+        href="/perfil/gimnasio"
+        className="mt-4 block rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        aria-label="Ir a Mi gimnasio"
+      >
+        <p className="text-sm font-semibold text-emerald-300">Mi gimnasio</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-300">
+          Qué discos hay en tu gimnasio, en kilos o en libras. Con eso la app te dice qué poner en la barra en vez de
+          un número que toca convertir a mano.
+        </p>
+      </Link>
+
       <form action={saveAthleteProfileAction} className="mt-8 grid gap-8 pb-10">
         <section className="grid gap-5">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Datos básicos</p>

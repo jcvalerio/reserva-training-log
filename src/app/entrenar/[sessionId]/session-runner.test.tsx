@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { toDisplayRir } from "@/training/rir";
 import type { SessionRecap } from "@/workouts/session-recap";
+import { buildLoadAssist } from "@/workouts/load-assistant";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import type {
@@ -14,6 +15,7 @@ import type {
   SaveSetActionState,
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
+  SetLoadingModelActionState,
 } from "../actions";
 import { SessionRunner } from "./session-runner";
 
@@ -118,6 +120,13 @@ function buildRecap(overrides: Partial<SessionRecap> = {}): SessionRecap {
 
 function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): ExerciseWithLoggedSets {
   return {
+    // Plate assistance off by default: it needs an explicit plate_loaded
+    // model and a gym with discs recorded, so every existing test keeps
+    // rendering exactly what it did before.
+    setupNotesEs: null,
+    loadingModel: null,
+    loadAssist: null,
+    hasPlateInventory: false,
     id: "exercise-a",
     planSessionTemplateId: "template-1",
     orderIndex: 1,
@@ -148,6 +157,8 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
   };
 }
 
+const noopSetLoadingModelAction = async () => ({ status: "idle" }) as const;
+
 function renderRunner({
   exercises,
   session = buildSession(),
@@ -155,6 +166,7 @@ function renderRunner({
   saveSetAction = noopSaveSetAction,
   reopenSessionAction = noopReopenSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
+  setLoadingModelAction = noopSetLoadingModelAction,
   updateSetAction = noopUpdateSetAction,
   deleteSetAction = noopDeleteSetAction,
   substituteExerciseAction = noopSubstituteExerciseAction,
@@ -201,6 +213,10 @@ function renderRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  setLoadingModelAction?: (
+    prevState: SetLoadingModelActionState,
+    formData: FormData,
+  ) => Promise<SetLoadingModelActionState>;
   loadFlaggedPrescriptionIds?: string[];
 }) {
   return render(
@@ -212,6 +228,7 @@ function renderRunner({
       saveSetAction={saveSetAction}
       reopenSessionAction={reopenSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
+      setLoadingModelAction={setLoadingModelAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
       substituteExerciseAction={substituteExerciseAction}
@@ -1609,5 +1626,105 @@ describe("SessionRunner — the once-per-exercise pain question", () => {
     });
 
     expect(screen.getByText(/consulta a un profesional/)).toBeInTheDocument();
+  });
+});
+
+describe("SessionRunner — what to put on the bar", () => {
+  const GYM = [
+    { value: 45, unit: "lb" as const },
+    { value: 35, unit: "lb" as const },
+    { value: 25, unit: "lb" as const },
+    { value: 10, unit: "lb" as const },
+    { value: 5, unit: "lb" as const },
+    { value: 2.5, unit: "lb" as const },
+    { value: 25, unit: "kg" as const },
+    { value: 20, unit: "kg" as const },
+    { value: 15, unit: "kg" as const },
+    { value: 10, unit: "kg" as const },
+    { value: 5, unit: "kg" as const },
+  ];
+
+  /** Their real hip thrust: 3 x 45 lb per side, logged as 122.47 kg, earning
+   *  an increase (target reps hit at RIR 2, no pain). */
+  function hipThrust(overrides: Partial<ExerciseWithLoggedSets> = {}) {
+    return buildExercise({
+      exerciseNameEs: "Hip thrust",
+      targetSets: 3,
+      targetRepMax: 12,
+      loadMechanism: "machine",
+      isCompound: true,
+      loggedSets: [],
+      loadingModel: "plate_loaded",
+      hasPlateInventory: true,
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122.47,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p3", setNumber: 3, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
+      },
+      ...overrides,
+    });
+  }
+
+  it("tells the athlete what to ADD, not a weight to reverse-engineer", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText(/1 × 5 lb \+ 1 × 2.5 lb/)).toBeInTheDocument();
+    // "por lado" appears in both the instruction and the recipe disclosure.
+    expect(screen.getAllByText(/por lado/).length).toBeGreaterThan(0);
+  });
+
+  it("states the convention, which nothing else in the app does", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText("discos en total, sin contar la barra")).toBeInTheDocument();
+  });
+
+  it("answers the reverse-engineering question in a secondary disclosure", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // Collapsed by default — the instruction is the primary line; the full
+    // recipe is only needed for an empty bar.
+    expect(screen.getByText("Armar desde cero")).toBeInTheDocument();
+    expect(screen.getByText(/3 × 45 lb/)).toBeInTheDocument();
+  });
+
+  it("says there is no appropriate jump rather than inventing one", () => {
+    // A gym stocking only 25 lb discs: the smallest pair on a 40 kg load is
+    // +57%, so there is no load change to make.
+    const coarse = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 40,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: [{ value: 25, unit: "lb" }],
+      }),
+    });
+    renderRunner({ exercises: [coarse] });
+
+    expect(screen.getByText(/no hay un salto de carga apropiado/i)).toBeInTheDocument();
+  });
+
+  it("renders nothing at all when the exercise is not plate-loaded", () => {
+    // loadMechanism "machine" covers both a pin stack and a plate-loaded
+    // machine, so this must stay silent rather than guess.
+    renderRunner({ exercises: [hipThrust({ loadingModel: null, loadAssist: null })] });
+
+    expect(screen.queryByText("Armar desde cero")).not.toBeInTheDocument();
+    expect(screen.queryByText("discos en total, sin contar la barra")).not.toBeInTheDocument();
   });
 });

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
+import { getOrCreateDefaultGym, saveExerciseSetup } from "@/training/gym-repository";
+import { loadingModels, type LoadingModel } from "@/training/plate-math";
 import {
   createSubstituteExercise,
   getActivePlanForProfile,
@@ -577,4 +579,54 @@ export async function reopenSessionAction(
   revalidatePath("/progreso");
   revalidatePath(`/entrenar/${session.id}`);
   redirect(`/entrenar/${session.id}`);
+}
+
+
+export type SetLoadingModelActionState = { status: "idle" } | { status: "error"; message: string };
+
+/**
+ * The one-tap "¿lleva discos?" from inside a session.
+ *
+ * It exists here rather than only on a settings screen because the moment you
+ * discover the app does not know how a machine loads is the moment you are
+ * standing in front of it. Sending someone to /perfil mid-session to answer a
+ * yes/no question is how a feature goes unused.
+ *
+ * A "no" is recorded as a real answer ("other"), not left null — otherwise the
+ * question reappears every session and becomes noise. Same reasoning as
+ * storing a real 0 for "no pain".
+ */
+export async function setExerciseLoadingModelAction(
+  _previousState: SetLoadingModelActionState,
+  formData: FormData,
+): Promise<SetLoadingModelActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const exerciseNameEs = formData.get("exerciseNameEs");
+  const workoutSessionId = formData.get("workoutSessionId");
+  const rawModel = formData.get("loadingModel");
+  const exerciseId = formData.get("exerciseId");
+
+  if (
+    typeof exerciseNameEs !== "string" ||
+    typeof workoutSessionId !== "string" ||
+    typeof rawModel !== "string" ||
+    !(loadingModels as readonly string[]).includes(rawModel)
+  ) {
+    return { status: "error", message: "No se pudo guardar cómo carga este ejercicio." };
+  }
+
+  const gym = await getOrCreateDefaultGym(profile.id);
+  await saveExerciseSetup(profile.id, gym.id, exerciseNameEs, typeof exerciseId === "string" && exerciseId ? exerciseId : null, {
+    loadingModel: rawModel as LoadingModel,
+  });
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "idle" };
 }

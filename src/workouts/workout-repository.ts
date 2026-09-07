@@ -4,6 +4,10 @@ import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { getExerciseSetupsForNames, getOrCreateDefaultGym, resolvePlateInventory } from "@/training/gym-repository";
+import { buildLoadAssist, type LoadAssist } from "./load-assistant";
+import type { LoadingModel } from "@/training/plate-math";
+import { normalizeExerciseName } from "@/training/muscle-taxonomy";
 import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
 import {
   findCatalogEntryByName,
@@ -68,6 +72,15 @@ export type PreviousExercisePerformance =
 export type ExerciseWithLoggedSets = ExercisePrescription & {
   loggedSets: SetLog[];
   previousPerformance: PreviousExercisePerformance | null;
+  /** This athlete's setup card for this exercise at this gym. Durable — it
+   *  does not decay out of the history window the way a set note does. */
+  setupNotesEs: string | null;
+  loadingModel: LoadingModel | null;
+  /** Null unless the exercise is plate-loaded AND the gym has discs recorded.
+   *  Computed on the server: the enumeration behind it does not belong on a
+   *  phone between sets. */
+  loadAssist: LoadAssist | null;
+  hasPlateInventory: boolean;
 };
 
 export type SubstituteChoice = { exerciseNameEs: string };
@@ -183,6 +196,18 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     logIdByPrescriptionId.has(exercise.id),
   );
 
+  // Two queries for the whole session, not two per exercise. The map below is
+  // already an N+1 over getPreviousExercisePerformance on the hottest server
+  // render in the app; adding N more round trips to it would be the wrong
+  // direction. The plate inventory is a property of the ROOM, so one row
+  // serves every exercise.
+  const gym = await getOrCreateDefaultGym(session.athleteProfileId);
+  const setupsByKey = await getExerciseSetupsForNames(
+    session.athleteProfileId,
+    gym.id,
+    visibleExercises.map((exercise) => exercise.exerciseNameEs),
+  );
+
   const exercisesWithLoggedSets = await Promise.all(
     visibleExercises.map(async (exercise) => {
       const logId = logIdByPrescriptionId.get(exercise.id);
@@ -191,10 +216,32 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         exercise.exerciseNameEs,
         session.id,
       );
+      const setup = setupsByKey.get(normalizeExerciseName(exercise.exerciseNameEs));
+      const previousLastWeightKg =
+        previousPerformance?.prescriptionType === "strength"
+          ? Number(previousPerformance.sets.at(-1)?.actualWeightKg ?? 0) || null
+          : null;
       return {
         ...exercise,
         loggedSets: logId ? (setsByLogId.get(logId) ?? []) : [],
         previousPerformance,
+        setupNotesEs: setup?.setupNotesEs ?? null,
+        loadingModel: setup?.loadingModel ?? null,
+        // Computed here and serialised as plain data. The enumeration behind
+        // it is up to ~75k multisets; session-runner.tsx is a client
+        // component, so running it there would put that on a phone between
+        // sets. The achievable set is a property of the gym, so the table is
+        // memoised across every exercise in this session.
+        loadAssist: buildLoadAssist({
+          lastWeightKg: previousLastWeightKg,
+          loadMechanism: exercise.loadMechanism,
+          isCompound: exercise.isCompound,
+          loadingModel: setup?.loadingModel ?? null,
+          inventory: resolvePlateInventory(gym, setup),
+        }),
+        /** Whether the gym has any discs recorded at all — the runner asks
+         *  "¿lleva discos?" only when answering it could actually help. */
+        hasPlateInventory: resolvePlateInventory(gym, setup).length > 0,
       };
     }),
   );

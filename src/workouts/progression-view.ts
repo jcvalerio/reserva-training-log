@@ -5,21 +5,39 @@ import { toStrengthSetLog, type SetLog } from "./workout-repository";
 
 export type LoadMechanism = "bodyweight" | "dumbbell" | "machine" | "barbell";
 
-const FALLBACK_INCREASE_RATIO = 0.05;
 const REDUCE_RATIO = 0.05;
 const DUMBBELL_STEP_KG = 2;
 
-// docs/product/progression-rules.md "Suggested increase" ranges, using the
-// conservative low end of each (the suggestion is a prefilled default, never
-// a rule). Only applies to compound movements (isCompound === true) — see
-// suggestNextWeightKg for the full matrix: bodyweight and any isolation
-// movement (isCompound === false) get "add a rep" instead of a weight change,
-// dumbbell gets a fixed physical step instead of a percentage regardless of
-// isCompound.
-const INCREASE_RATIO_BY_MECHANISM: Partial<Record<LoadMechanism, number>> = {
-  machine: 0.05,
-  barbell: 0.025,
+/** A percentage range from docs/product/progression-rules.md, not a point. */
+export type ProgressionBand = { low: number; high: number };
+
+// docs/product/progression-rules.md "Suggested increase" ranges. Only applies
+// to compound movements (isCompound === true) — see suggestNextWeightKg for
+// the full matrix: bodyweight and any isolation movement (isCompound === false)
+// get "add a rep" instead of a weight change, dumbbell gets a fixed physical
+// step instead of a percentage regardless of isCompound.
+//
+// The whole range is recorded now, where only the conservative low end used to
+// be. Collapsing a range to its floor was reasonable while any weight was
+// reachable; once the achievable loads are a discrete set of discs it throws
+// away every rung but one. `low` remains the target — so the conservative bias
+// is unchanged, and suggestNextWeightKg still returns exactly what it always
+// did — and `high` only bounds what else is allowed to win. See
+// src/workouts/load-assistant.ts.
+export const INCREASE_BAND_BY_MECHANISM: Partial<Record<LoadMechanism, ProgressionBand>> = {
+  machine: { low: 0.05, high: 0.1 },
+  barbell: { low: 0.025, high: 0.05 },
 };
+
+export const FALLBACK_INCREASE_BAND: ProgressionBand = { low: 0.05, high: 0.1 };
+
+/** The band this exercise progresses within. Single source for both the
+ *  percentage suggestion and the plate-step chooser, so the two cannot drift. */
+export function increaseBandFor(loadMechanism?: LoadMechanism | null, isCompound?: boolean | null): ProgressionBand {
+  return loadMechanism && isCompound === true
+    ? (INCREASE_BAND_BY_MECHANISM[loadMechanism] ?? FALLBACK_INCREASE_BAND)
+    : FALLBACK_INCREASE_BAND;
+}
 
 /**
  * Splits a set list (already ordered by setNumber) into the ones that count
@@ -134,10 +152,9 @@ export function suggestNextWeightKg(
     return lastWeight.toFixed(2);
   }
 
-  const ratio =
-    loadMechanism && isCompound === true
-      ? (INCREASE_RATIO_BY_MECHANISM[loadMechanism] ?? FALLBACK_INCREASE_RATIO)
-      : FALLBACK_INCREASE_RATIO;
+  // Deliberately the band's LOW end, which is the exact value this used
+  // before the band existed. Unchanged behaviour, one source.
+  const ratio = increaseBandFor(loadMechanism, isCompound).low;
   return roundToHalf(lastWeight * (1 + ratio)).toFixed(2);
 }
 

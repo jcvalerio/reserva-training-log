@@ -14,6 +14,24 @@
 
 The 20 seeded-plan exercises were hand-classified in `src/plans/seeded-plan.ts` by equipment type (see the comment above `baseSessions` there for the exact rationale per exercise) — this is a judgment call given the source doc's category names aren't a perfectly clean partition (e.g. "machines" spans both upper and lower body movements); treat it as a defensible starting point, not an authoritative taxonomy.
 
+## What to put on the bar
+
+Added 2026-09-06. `suggestNextWeightKg` returns a number; a number is not an instruction when the athlete has to build it from discs.
+
+**The convention, measured rather than chosen.** All three athletes log plate-loaded lifts as the **total mass of the discs across both sides, excluding the bar**, and dumbbells as **one** dumbbell. A hip thrust with 6 × 45 lb is logged 122; it is 122.47, and the 0.47 is hand-conversion drift compounding into every volume-load and estimated-1RM number. See invariant 13 in `data-model.md` — nothing reinterprets a logged weight.
+
+**Two questions, and they are not the same one.** `buildFromScratch` answers *"which discs make this number"* — the reverse-engineering being done by hand today. `chooseLoadStep` answers *"what do I add to what is already on"* — which is what progressing actually looks like.
+
+**Minimum change, not minimum plates.** Snapping a suggestion to the nearest buildable total and rendering its fewest-disc recipe is arithmetically correct and physically absurd: on the real inventory, moving a 122.47 kg hip thrust to the nearest rung above +5% prescribes `1×45lb + 1×35lb + 1×25lb + 1×15kg` per side — stripping the bar and rebuilding it from four denominations across two unit families, to add three kilos. The same error appears one level down in `buildFromScratch`: asked for 122 kg, closest-total returns 122.06 as six discs of four denominations, where the honest answer is `3 × 45 lb` at 122.47. Practicality is the objective; arithmetic proximity is only the constraint.
+
+**The band is now a range, not a point.** The tables above have always specified 5–10% (machine, lower body) and 2.5–5% (upper compound); the code collapsed each to its conservative low end and rounded. That was reasonable while any weight was reachable — with a discrete set of discs it throws away every rung but one. The low end remains the **target**, so the conservative bias is unchanged and `suggestNextWeightKg` returns exactly what it always did; `high` only bounds what else may win. Selection is closest-to-target, then fewest discs, then fewest distinct denominations.
+
+That order is load-bearing. On the real hip-thrust numbers, sorting by disc count first picks `1×10lb` (+7.4%) over `1×5lb + 1×2.5lb` (+5.6%). Both are one line of instruction and neither is harder to load, so paying nearly two extra percent of load for one fewer disc is the wrong trade — on a hinge, for a 47-year-old, twice over. Pinned by a test.
+
+**When no disc pair fits the band, that is an answer.** Verified live: an exercise at 20 kg earned an increase and the app suggested **21 kg**, which cannot be built — the smallest pair this gym stocks is 2.5 lb (1.13 kg), so the next rung is 22.27 kg, +11.3% and outside the band. The runner now says there is no appropriate load jump and to add a rep instead, rather than naming a weight that does not exist. This is the shape issue #5 should be re-scoped to: *suggest a load change the athlete can actually perform, or suggest reps instead* — which subsumes impossible, impractical and too-large.
+
+**Silent when it does not know.** The assistant renders only for an exercise explicitly marked `plate_loaded` and a gym with discs recorded. `loadMechanism = "machine"` covers both a pin stack and a plate-loaded machine, and inferring would show a disc recipe for a selector pin.
+
 ## Effort model
 
 Use RIR in the UI. Store RIR numerically as `0 | 1 | 2 | 3 | 4`; `4` represents `4+` for calculations and UI labels.
