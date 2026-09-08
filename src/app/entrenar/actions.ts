@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
-import { getOrCreateDefaultGym, saveExerciseSetup } from "@/training/gym-repository";
+import {
+  getExerciseSetupsForNames,
+  getOrCreateDefaultGym,
+  resolvePlateInventory,
+  saveExerciseSetup,
+} from "@/training/gym-repository";
+import { normalizeExerciseName } from "@/training/muscle-taxonomy";
+import { parsePlateBuild } from "@/training/plate-build";
 import { loadingModels, type LoadingModel } from "@/training/plate-math";
 import {
   createSubstituteExercise,
@@ -629,4 +636,82 @@ export async function setExerciseLoadingModelAction(
   revalidatePath(`/entrenar/${workoutSessionId}`);
 
   return { status: "idle" };
+}
+
+
+/** `saved` is distinct from `idle` on purpose: the editor closes itself on a
+ *  confirmed write, and with one shared "idle" it could not tell a completed
+ *  save from the state it started in. */
+export type SetPlateBuildActionState =
+  | { status: "idle" }
+  | { status: "saved" }
+  | { status: "error"; message: string };
+
+/**
+ * Record which discs are actually on the bar.
+ *
+ * The app used to answer "armar desde cero" by enumerating a build near the
+ * logged weight and labelling it "La vez pasada" — presenting its own
+ * arithmetic as the athlete's history. On real preview data that produced
+ * `1 x 20 kg + 1 x 25 lb` for a lift loaded entirely with 45 lb discs,
+ * because the 25 kg plates were at the far end of the room. Walking distance
+ * is not in the model. Nothing computable would have got this right, so the
+ * fix is to ask and to believe the answer.
+ *
+ * Written to exercise_setup rather than set_log: a build is configuration
+ * (which discs this athlete reaches for on this machine at this gym), it must
+ * outlive the `.limit(1)` history window that ate the notes people were using
+ * for this, and putting it on set_log would add an input to every set on the
+ * hottest screen in the app.
+ */
+export async function setExercisePlateBuildAction(
+  _previousState: SetPlateBuildActionState,
+  formData: FormData,
+): Promise<SetPlateBuildActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const exerciseNameEs = formData.get("exerciseNameEs");
+  const workoutSessionId = formData.get("workoutSessionId");
+  const rawBuild = formData.get("plateBuild");
+  const exerciseId = formData.get("exerciseId");
+
+  if (typeof exerciseNameEs !== "string" || typeof workoutSessionId !== "string" || typeof rawBuild !== "string") {
+    return { status: "error", message: "No se pudieron guardar los discos." };
+  }
+
+  const gym = await getOrCreateDefaultGym(profile.id);
+  const setups = await getExerciseSetupsForNames(profile.id, gym.id, [exerciseNameEs]);
+  const setup = setups.get(normalizeExerciseName(exerciseNameEs));
+  // Validated against THIS exercise's rack, not the raw string. A build is the
+  // only input in this feature whose numbers do not come from the inventory,
+  // so an unchecked one would let a disc that does not exist into every recipe
+  // and prefilled weight downstream.
+  const plateBuild = parsePlateBuild(rawBuild, resolvePlateInventory(gym, setup));
+
+  if (plateBuild === null) {
+    return { status: "error", message: "Esos discos no coinciden con los de tu gimnasio." };
+  }
+
+  await saveExerciseSetup(
+    profile.id,
+    gym.id,
+    exerciseNameEs,
+    typeof exerciseId === "string" && exerciseId ? exerciseId : null,
+    {
+      plateBuild,
+      // Recording a build IS the answer to "¿lleva discos?" — nobody lists
+      // plates for a pin stack. Saves the athlete a second question, and
+      // matters because the panel is invisible until loadingModel is set.
+      ...(setup?.loadingModel ? {} : { loadingModel: "plate_loaded" as LoadingModel }),
+    },
+  );
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "saved" };
 }

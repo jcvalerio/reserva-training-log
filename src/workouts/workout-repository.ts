@@ -238,6 +238,9 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
           isCompound: exercise.isCompound,
           loadingModel: setup?.loadingModel ?? null,
           inventory: resolvePlateInventory(gym, setup),
+          // The one input here that is a record rather than a computation.
+          recordedBuild: setup?.plateBuild ?? null,
+          recordedBuildAt: setup?.plateBuildRecordedAt ?? null,
         }),
         /** Whether the gym has any discs recorded at all — the runner asks
          *  "¿lleva discos?" only when answering it could actually help. */

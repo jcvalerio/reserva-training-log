@@ -424,6 +424,31 @@ export const exerciseSetup = pgTable(
     // NULL means inherit the gym's rack. Set only for a machine whose plates
     // genuinely differ from the room's.
     plateInventory: jsonb("plate_inventory").$type<PlateDenomination[] | null>(),
+    // What the athlete says is actually ON the bar, PER SIDE — the only thing
+    // in this feature that is a record rather than a computation.
+    //
+    // It exists because `buildFromScratch` cannot answer "armar desde cero"
+    // without it, and shipping the enumerator's answer under the label "la
+    // vez pasada" made the app assert a history it had invented. A real case
+    // from preview: 63 kg logged, rendered as `1 x 20 kg + 1 x 25 lb`, when
+    // the athlete had loaded 45 lb discs throughout because the 25 kg plates
+    // live at the other end of the room. No arithmetic recovers that; only
+    // asking does.
+    //
+    // Per side, matching every rendered recipe and `PlateBuild.perSide`.
+    // Storing it doubled would put the convention in two places and this
+    // repo has paid for that once already (incrementCategory).
+    plateBuild: jsonb("plate_build").$type<PlateCount[] | null>(),
+    // Both sides, derived from plateBuild at write time and stored so that
+    // reads never re-derive it. NOT a logged weight and never compared to one
+    // by the progression code: invariant 13 holds, `setLog.actualWeightKg`
+    // stays exactly what the athlete typed, and this only ever prefills the
+    // NEXT set's box.
+    plateBuildTotalKg: numeric("plate_build_total_kg", { precision: 6, scale: 2 }),
+    // A saved build is a claim with an age — the discs come off the bar every
+    // session. Its own column rather than `updatedAt`, which also moves when
+    // a setup note or the loading model is written.
+    plateBuildRecordedAt: timestamp("plate_build_recorded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: updatedAtColumn(),
   },

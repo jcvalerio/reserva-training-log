@@ -6,7 +6,8 @@ import { db } from "@/db";
 import { athleteGym, exerciseSetup, type AthleteGym, type ExerciseSetup } from "@/db/schema";
 import { athleteProfile } from "@/db/schema";
 import { normalizeExerciseName } from "@/training/muscle-taxonomy";
-import type { LoadingModel } from "@/training/plate-math";
+import { plateBuildFromCounts } from "@/training/plate-build";
+import type { LoadingModel, PlateCount } from "@/training/plate-math";
 import type { PlateDenomination } from "@/training/units";
 
 /**
@@ -126,6 +127,8 @@ export async function getExerciseSetupsForNames(
 export type ExerciseSetupInput = {
   setupNotesEs?: string | null;
   loadingModel?: LoadingModel | null;
+  /** The per-side discs the athlete says are on the bar. `[]` clears it. */
+  plateBuild?: PlateCount[] | null;
 };
 
 /**
@@ -148,6 +151,16 @@ export async function saveExerciseSetup(
   }
   if ("loadingModel" in input) {
     patch.loadingModel = input.loadingModel ?? null;
+  }
+  if ("plateBuild" in input) {
+    // The three columns are written as one unit, always. A build without its
+    // total is a row every reader has to re-derive from, and a total without
+    // a build is a number with no provenance — which is the exact failure
+    // this feature exists to correct.
+    const build = input.plateBuild && input.plateBuild.length > 0 ? plateBuildFromCounts(input.plateBuild) : null;
+    patch.plateBuild = build ? build.perSide : null;
+    patch.plateBuildTotalKg = build ? build.totalKg.toFixed(2) : null;
+    patch.plateBuildRecordedAt = build ? new Date() : null;
   }
 
   await db

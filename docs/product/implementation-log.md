@@ -2,6 +2,45 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-07 — The plate calculator was printing its own guesses as your history
+
+Status: built on `feat/plate-load-assistant`, on top of the entry below and before it merges. `lint`/`typecheck`/`test` (774 passing, +27)/`build` green. **Migration `0027`** — three nullable columns on `exercise_setup`, purely additive, nothing existing touched. Not yet checked on a real device.
+
+**Caught in preview, by the athlete, in the first session anyone ran on it.** The "Armar desde cero" disclosure read:
+
+> La vez pasada: 1 × 20 kg + 1 × 25 lb por lado (62.7kg reales).
+
+Every word after the colon was invented. The athlete had logged 63 kg with 45 lb discs, because the 25 kg plates live at the far end of that gym. Nothing in the log said otherwise; `buildFromScratch` had simply enumerated a plausible combination near 63 and the UI had labelled it **"La vez pasada"**.
+
+**Two separate failures, and the second is worse.** The first is a label: a computation dressed as a record. The second is `lastBuildDriftKg` — designed to reconcile a hand-rounded conversion ("you typed 122, the bar was 122.47") and therefore rendered as **"reales"**. But a drift figure is exactly as true as the recipe it came from, so against a guessed build the app was asserting a physical mass nobody had lifted, in the one word on screen that means *actual*.
+
+**No better objective function fixes this.** The previous entry describes tuning `buildFromScratch` twice — fewest discs, then fewest distinct denominations, then closest — each time getting nearer to what was really on the bar. That progression was misleading. The reason this athlete used 45s is that the 25s are a walk away, and walking distance is not in the model and never will be. The failure was not accuracy, it was **provenance**: an unanswerable question was being answered anyway.
+
+**So the fix is to ask, and the rule is about language.** `exercise_setup` gains `plate_build` (per side), `plate_build_total_kg` (both sides) and `plate_build_recorded_at` — invariant 14 in `data-model.md`. A **derived** build is now offered in the conditional ("Con tus discos podrías armarlo así") and carries no mass at all. A **recorded** build is stated flatly ("Así lo armas: 3 × 45 lb por lado") and is the only thing permitted to say *reales*. The guess is withdrawn entirely once an answer exists, because a machine's opinion sitting beside the athlete's own only invites them to wonder which one the app believes.
+
+**Placement follows the same reasoning as the setup card.** Not `set_log`: that would put an input on every set on the hottest screen in the app, and the build is configuration — which discs you reach for on this machine at this gym — not a per-set observation. Not `athlete_gym`, since it varies per movement. On `exercise_setup`, keyed on the normalized name, it also outlives the `.limit(1)` history window that ate the notes people were already using for this.
+
+**A recorded build is the truer base for plate arithmetic, and for nothing else.** A step off `3 × 45 lb` is computed from 122.47 rather than the 122 someone typed, so it no longer inherits that half-kilo. But `suggestNextWeightKg` still reads the logged weight: no stored number and no guardrail ever sees a value it did not see before. The true mass reaches `set_log` only by prefilling the box for the **next** set — invariant 13, unchanged. A build whose mass no longer matches the last logged weight is marked stale, stops prefilling, and is kept anyway, because the denominations an athlete reaches for outlive any particular load.
+
+**The editor is taps, not typing**: one row per denomination the gym stocks, with the total mass *and* the total disc count updating live. Both numbers deliberately — the disc count is the one an athlete can verify by looking down at the bar, and it is how someone catches having answered per-side when the app meant both sides. Because every chip is a denomination the gym owns, the editor cannot express a disc that does not exist; `parsePlateBuild` enforces the same thing server-side, since a build is the only input here whose numbers are not derived from the inventory.
+
+**One real bug introduced and caught by an existing test.** Keying the new panel on `currentExercise.id` collided with the history `<details>` beside it, which was already keyed on the bare id — React saw duplicate keys in one child list and rendered both panels twice. The test that failed was the one pinning that the history disclosure reopens closed on the next exercise; it had nothing to do with plates. Worth remembering as an argument for keying on a prefixed string rather than a bare id.
+
+**Deliberately not done:**
+
+- **No per-set build.** The friction lands on every set, and the question ("which discs are on this machine") is not per set.
+- **No removal instruction for reductions.** Now genuinely possible — a recorded build says what can come off — but it is a separate slice and the reduction path has no test coverage for it yet.
+- **No prompt to record a build.** The affordance is there ("Yo lo armo distinto") and nothing nags. If nobody taps it, that is a finding about whether the guess was good enough, and a nag would destroy the evidence.
+- **Nothing backfilled.** Every existing row keeps a null build and falls back to the (now correctly-labelled) suggestion.
+
+**A first session on an exercise offered nothing, and the athlete found it immediately.** The panel lived inside the `previousPerformance && previousSuggestion` card, and `buildLoadAssist` returned null without a previous weight — so the one session where the app knows least and the athlete knows most was the one session it asked nothing. The previous entry had logged this as an accepted gap ("'¿lleva discos?' cannot be answered until the second session"); it stopped being acceptable the moment recording a build became the thing being gated.
+
+The split is between the two kinds of question. **The step and the suggested recipe genuinely need history** — "what do I add" and "which discs make 63 kg" both take a previous weight, and are still null without one. **The recorded build does not**: it is a fact about the machine standing in front of you. So the panel now renders in its own card when there is no "última vez" card to sit in, and `buildLoadAssist` gates only on `loadingModel` and a non-empty rack.
+
+That turned out to be the feature's best case rather than an edge one. On a first session a recorded build has nothing to disagree with, so it is simply true — no drift, never stale — and it fills the weight box outright: load the bar, tap three 45s, and the box reads **122.47** with no pound-to-kilo arithmetic in anyone's head. That is the original complaint, answered on the one screen that previously had nothing to offer. `chooseLoadStep` is deliberately gated on a previous *weight* rather than on having any base, since a build alone would otherwise prescribe an increase over a bar nobody has lifted.
+
+**Not yet verified on a device.** The editor is up to eleven rows of ±44px controls inside a `<details>` on a 390px screen, and this repo has been caught twice by jsdom not measuring geometry. Check the tap targets, the running total's line wrapping with a mixed-unit build, and that opening the editor does not shift the weight input under a thumb.
+
 ## 2026-09-06 (later) — The app stops giving you a number you have to reverse-engineer
 
 Status: built and verified in a real browser against the dev database. `lint`/`typecheck`/`test` (747 passing, +43)/`build` green. **Migration `0026`** — two enums, two new tables, purely additive, nothing existing touched.

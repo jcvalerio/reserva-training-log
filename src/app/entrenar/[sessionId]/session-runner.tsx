@@ -8,7 +8,9 @@ import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { painLocationLabelsEs, painLocations } from "@/training/muscle-taxonomy";
-import { formatPlateCounts } from "@/training/plate-math";
+import { formatPlateCounts, MAX_PLATES_PER_SIDE, type PlateCount } from "@/training/plate-math";
+import { plateBuildFromCounts, serializePlateBuild } from "@/training/plate-build";
+import type { PlateDenomination } from "@/training/units";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import { rpeLabelsEs } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
@@ -40,6 +42,7 @@ import type {
   ReopenSessionActionState,
   SaveSetActionState,
   SetLoadingModelActionState,
+  SetPlateBuildActionState,
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
 } from "../actions";
@@ -48,6 +51,11 @@ type SetLoadingModelAction = (
   prevState: SetLoadingModelActionState,
   formData: FormData,
 ) => Promise<SetLoadingModelActionState>;
+
+type SetPlateBuildAction = (
+  prevState: SetPlateBuildActionState,
+  formData: FormData,
+) => Promise<SetPlateBuildActionState>;
 
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialReopenState: ReopenSessionActionState = { status: "idle" };
@@ -74,6 +82,7 @@ export function SessionRunner({
   addSetToCompletedSessionAction,
   recordExercisePainAction,
   setLoadingModelAction,
+  setPlateBuildAction,
   loadFlaggedPrescriptionIds = [],
 }: {
   session: WorkoutSession;
@@ -114,6 +123,7 @@ export function SessionRunner({
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
   setLoadingModelAction: SetLoadingModelAction;
+  setPlateBuildAction: SetPlateBuildAction;
   /**
    * Prescriptions whose muscle group is already running well above its
    * trailing weekly average. Resolved server-side so this component never
@@ -363,7 +373,60 @@ export function SessionRunner({
         )
       : null;
 
-  const rawDefaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
+  // What the bar will actually weigh, when the athlete has told us what is on
+  // it. 3 x 45 lb is 122.47 kg; someone who typed 122 last week was rounding a
+  // conversion by hand, and this is the whole reason the recorded build earns
+  // its column.
+  //
+  // Prefill only, and only for the set about to be logged — never a rewrite.
+  // Invariant 13: shifting a stored weight moves every /progreso number, every
+  // PR and the 5% improvement threshold, and hands buildWeeklyLoadGuardrail a
+  // ratio it would read as escalation. Skipped entirely when the suggestion is
+  // to back off, where the true mass of the OLD build is the wrong number to
+  // put in front of someone.
+  const plateAssist = currentExercise.loadAssist;
+  const truePrefillKg = !plateAssist
+    ? null
+    : !previousSuggestion
+      ? // First session on this exercise: no verdict to apply, so the recorded
+        // build IS the answer. This is the case the whole feature was asked
+        // for — load the bar, tap the discs, and the box reads 122.47 instead
+        // of the athlete converting pounds in their head.
+        plateAssist.trueHoldKg
+      : previousSuggestion.action === "reduce_or_modify"
+        ? null
+        : previousSuggestion.action === "increase" && !repsFirstIncrease
+          ? (plateAssist.trueStepKg ?? plateAssist.trueHoldKg)
+          : plateAssist.trueHoldKg;
+
+  const rawDefaultWeightKg = lastSet?.actualWeightKg ?? truePrefillKg ?? suggestedWeightKg ?? "";
+
+  // Built once and placed by whichever branch renders. Both need identical
+  // props, and the panel carries editor state — two call sites would be two
+  // components that reset each other as the previous-performance branch flips.
+  //
+  // `null` only when the exercise is not plate-loaded AND there is nothing to
+  // ask, so the empty case collapses the whole card rather than leaving a
+  // bordered box with nothing in it.
+  const askLoadingModel = currentExercise.hasPlateInventory && currentExercise.loadingModel === null;
+  const plateAssistPanel =
+    plateAssist || askLoadingModel ? (
+      <PlateAssistPanel
+        /* Remounts closed on "Siguiente ejercicio", like the history
+           disclosure beside it. Prefixed because that sibling is keyed on the
+           bare exercise id and React sees them as one child list — colliding
+           keys silently duplicated both panels. */
+        key={`plates:${currentExercise.id}`}
+        assist={plateAssist}
+        showStep={previousSuggestion?.action === "increase" && !repsFirstIncrease}
+        askLoadingModel={askLoadingModel}
+        exerciseNameEs={currentExercise.exerciseNameEs}
+        exerciseId={currentExercise.exerciseId}
+        sessionId={session.id}
+        setLoadingModelAction={setLoadingModelAction}
+        setPlateBuildAction={setPlateBuildAction}
+      />
+    ) : null;
   const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
   const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
   const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
@@ -547,21 +610,22 @@ export function SessionRunner({
               ¿Por qué esta sugerencia?
             </Link>
 
-            {/* Deliberately here: inside the "última vez" card, ABOVE the
-                logging form. Expanding or collapsing it can only move things
-                below it, never the weight/reps/RIR inputs — this screen has a
-                documented history of controls shifting under a thumb. */}
-            <PlateAssistPanel
-              assist={currentExercise.loadAssist}
-              showStep={previousSuggestion.action === "increase" && !repsFirstIncrease}
-              askLoadingModel={currentExercise.hasPlateInventory && currentExercise.loadingModel === null}
-              exerciseNameEs={currentExercise.exerciseNameEs}
-              exerciseId={currentExercise.exerciseId}
-              sessionId={session.id}
-              setLoadingModelAction={setLoadingModelAction}
-            />
+            {/* Deliberately last in the "última vez" card: expanding it can
+                only move the logging form below, never reorder anything
+                already on screen — this screen has a documented history of
+                controls shifting under a thumb. */}
+            {plateAssistPanel}
           </div>
-        ) : null}
+        ) : (
+          /* No history for this exercise — but the bar in front of you is
+             still a bar. The step and the suggested recipe need a previous
+             weight; recording which discs you just put on does not, and a
+             first session is when the app knows least. Its own card, since
+             there is no "última vez" card to sit inside. */
+          plateAssistPanel ? (
+            <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">{plateAssistPanel}</div>
+          ) : null
+        )}
 
         {restRemaining !== null && restRemaining > 0 ? (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 px-4 py-3 ring-1 ring-emerald-300/30">
@@ -2355,7 +2419,7 @@ function riskFlagClass(riskFlag: ProgressionRiskFlag) {
 }
 
 /**
- * What to put on the bar, in the two forms the athlete actually needs.
+ * What to put on the bar, in the forms the athlete actually needs.
  *
  * The complaint this answers, measured: they return to the hip thrust, read
  * "122 kg", and their gym stocks discs in pounds — so before they can lift
@@ -2366,6 +2430,20 @@ function riskFlagClass(riskFlag: ProgressionRiskFlag) {
  * ("añade 1 x 5 lb por lado"), not a recipe. Rebuilding a bar from a fresh
  * minimum-plate recipe to add three kilos is not a thing anyone does — the
  * full recipe belongs in the secondary disclosure, for an empty bar.
+ *
+ * The second half of that disclosure was WRONG in the first version and
+ * preview caught it. It printed the enumerator's output under the heading "La
+ * vez pasada", with the build's mass in parentheses marked "reales" — two
+ * assertions about history, from a computation that had never seen the bar.
+ * On real data it claimed `1 x 20 kg + 1 x 25 lb` for a lift loaded with 45 lb
+ * discs throughout, because the 25 kg plates live at the far end of the room.
+ * Nothing computable recovers that; the rack layout is not, and will not be,
+ * in the model.
+ *
+ * So the language now tracks provenance exactly. A recorded build is stated
+ * flatly and is the only thing allowed to claim a true mass. A computed one is
+ * offered in the conditional ("podrías armarlo así") and carries no mass claim
+ * at all — beside it, the way to disagree.
  */
 function PlateAssistPanel({
   assist,
@@ -2375,6 +2453,7 @@ function PlateAssistPanel({
   exerciseId,
   sessionId,
   setLoadingModelAction,
+  setPlateBuildAction,
 }: {
   assist: ExerciseWithLoggedSets["loadAssist"];
   showStep: boolean;
@@ -2386,7 +2465,18 @@ function PlateAssistPanel({
   exerciseId: string | null;
   sessionId: string;
   setLoadingModelAction: SetLoadingModelAction;
+  setPlateBuildAction: SetPlateBuildAction;
 }) {
+  // Opens the editor without collapsing anything above it. Kept here rather
+  // than inside the editor so "Cambiar" and "Yo lo armo distinto" — two
+  // buttons in different branches — drive the same one panel.
+  const [editing, setEditing] = useState(false);
+  // The disclosure is controlled so that opening the editor can open it, but
+  // it tracks its own toggles so that CLOSING the editor after a save leaves
+  // the athlete looking at what they just recorded rather than collapsing it
+  // out from under them.
+  const [open, setOpen] = useState(false);
+
   if (!assist) {
     return askLoadingModel ? (
       <LoadingModelQuestion
@@ -2399,6 +2489,7 @@ function PlateAssistPanel({
   }
 
   const step = showStep ? assist.step : null;
+  const saved = assist.savedBuild;
 
   return (
     <div className="mt-3 border-t border-zinc-800 pt-3">
@@ -2419,34 +2510,245 @@ function PlateAssistPanel({
         </p>
       ) : null}
 
-      {assist.lastBuild && assist.lastBuild.plateCount > 0 ? (
-        <details className="mt-2">
-          {/* min-h-11 to match "Ver las N series de la vez pasada", the other
-              <summary> on this card — measured at 44px, where this one was
-              20px before. A disclosure is a tap target; the small text link
-              beside it ("¿Por qué esta sugerencia?") is a link, and gets to
-              behave like one. */}
-          <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-            Armar desde cero
-          </summary>
-          <p className="mt-1 text-xs leading-5 text-zinc-300">
-            La vez pasada: {formatPlateCounts(assist.lastBuild.perSide)} por lado
-            {assist.lastBuildDriftKg !== 0 ? (
-              /* Shown, never written back. They logged a hand-rounded
-                 conversion; correcting the row would rewrite history. */
+      <details className="mt-2" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+        {/* min-h-11 to match "Ver las N series de la vez pasada", the other
+            <summary> on this card — measured at 44px, where this one was
+            20px before. A disclosure is a tap target; the small text link
+            beside it ("¿Por qué esta sugerencia?") is a link, and gets to
+            behave like one. */}
+        <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+          Armar desde cero
+        </summary>
+
+        {saved ? (
+          <div className="mt-1 grid gap-1">
+            <p className="text-xs leading-5 text-zinc-200">
+              Así lo armas: <span className="font-semibold">{formatPlateCounts(saved.perSide)}</span> por lado
+              {/* The mass claim lives HERE and only here — this recipe came
+                  from the athlete, so its weight is a fact about the bar
+                  rather than about the enumerator. */}
               <span className="text-zinc-400">
                 {" "}
-                ({formatKg(String(assist.lastBuild.totalKg), 1)} reales)
+                ({formatKg(String(saved.totalKg), 1)} reales · {saved.plateCount * 2} discos)
               </span>
+            </p>
+            {assist.savedBuildIsStale ? (
+              /* Never silently discarded. The denominations they reach for are
+                 still the best thing we know; only the count has moved on. */
+              <p className="text-xs leading-5 text-amber-200">
+                Lo guardaste para {formatKg(String(saved.totalKg), 1)} y tu última serie fue con otra carga. Actualízalo
+                si cambiaste los discos.
+              </p>
             ) : null}
-            .
-          </p>
-        </details>
-      ) : null}
+            {assist.savedBuildRecordedAt ? (
+              <p className="text-xs leading-5 text-zinc-500">Guardado el {formatBuildDate(assist.savedBuildRecordedAt)}.</p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-1 grid gap-1">
+            {assist.suggestedBuild && assist.suggestedBuild.plateCount > 0 ? (
+              /* Conditional mood, and no mass in parentheses. This is a way to
+                 reach the number, not a report of what anyone did. */
+              <p className="text-xs leading-5 text-zinc-300">
+                Con tus discos podrías armarlo así:{" "}
+                <span className="font-semibold">{formatPlateCounts(assist.suggestedBuild.perSide)}</span> por lado.
+              </p>
+            ) : (
+              <p className="text-xs leading-5 text-zinc-300">Todavía no sé con qué discos armas este ejercicio.</p>
+            )}
+          </div>
+        )}
+
+        {editing ? (
+          <PlateBuildEditor
+            inventory={assist.inventory}
+            initialPerSide={saved?.perSide ?? []}
+            exerciseNameEs={exerciseNameEs}
+            exerciseId={exerciseId}
+            sessionId={sessionId}
+            action={setPlateBuildAction}
+            onDone={() => setEditing(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(true);
+              setOpen(true);
+            }}
+            className="mt-2 min-h-11 w-full rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-sky-300 ring-1 ring-sky-300/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+          >
+            {saved ? "Cambiar los discos" : "Yo lo armo distinto"}
+          </button>
+        )}
+      </details>
 
       <p className="mt-1 text-xs leading-5 text-zinc-500">{assist.conventionEs}</p>
     </div>
   );
+}
+
+/** "6 sep" — short, because it sits inside a line that is already secondary. */
+function formatBuildDate(iso: string): string {
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime())
+    ? ""
+    : parsed.toLocaleDateString("es", { day: "numeric", month: "short" });
+}
+
+/**
+ * Tap the discs you put on. One row per denomination the gym stocks.
+ *
+ * Taps rather than typing, because this is asked between sets on a 390px
+ * screen with chalk on your hands: eleven number inputs is not a form anyone
+ * fills in there. Every chip is a denomination the gym actually owns, which
+ * also means the editor CANNOT express a disc that does not exist — the same
+ * guarantee parsePlateBuild enforces server-side, made visible.
+ *
+ * Per SIDE, matching every recipe this app renders, with the total across both
+ * sides and the total disc count shown live. Both numbers on screen at once is
+ * deliberate: the disc count is what the athlete can verify by looking down at
+ * the bar, and it is how they catch having answered the wrong question.
+ */
+function PlateBuildEditor({
+  inventory,
+  initialPerSide,
+  exerciseNameEs,
+  exerciseId,
+  sessionId,
+  action,
+  onDone,
+}: {
+  inventory: PlateDenomination[];
+  initialPerSide: PlateCount[];
+  exerciseNameEs: string;
+  exerciseId: string | null;
+  sessionId: string;
+  action: SetPlateBuildAction;
+  onDone: () => void;
+}) {
+  const [state, formAction] = useActionState(action, { status: "idle" } as SetPlateBuildActionState);
+  const [counts, setCounts] = useState<Record<string, number>>(() => {
+    const seed: Record<string, number> = {};
+    for (const plate of initialPerSide) {
+      seed[plateKey(plate)] = plate.count;
+    }
+    return seed;
+  });
+
+  const perSide: PlateCount[] = inventory
+    .map((plate) => ({ ...plate, count: counts[plateKey(plate)] ?? 0 }))
+    .filter((plate) => plate.count > 0);
+  // Through plateBuildFromCounts, not a local sum: the running total the
+  // athlete reads while tapping has to be the same arithmetic the server will
+  // store, or the number moves on save. It is a pure function of the counts,
+  // so running it on a keystroke costs nothing.
+  const preview = plateBuildFromCounts(perSide);
+  const platesPerSide = preview?.plateCount ?? 0;
+  const atCap = platesPerSide >= MAX_PLATES_PER_SIDE;
+
+  const bump = (plate: PlateDenomination, delta: number) => {
+    setCounts((current) => {
+      const key = plateKey(plate);
+      const next = Math.max(0, (current[key] ?? 0) + delta);
+      return { ...current, [key]: next };
+    });
+  };
+
+  // Closed by the SAVE, not by the submit. Closing optimistically would throw
+  // away the one thing the athlete needs to see when the build is rejected —
+  // "esos discos no coinciden con los de tu gimnasio" — along with the counts
+  // they just tapped in.
+  useEffect(() => {
+    if (state.status === "saved") {
+      onDone();
+    }
+  }, [state, onDone]);
+
+  return (
+    <form action={formAction} className="mt-2 grid gap-2">
+      <input type="hidden" name="workoutSessionId" value={sessionId} />
+      <input type="hidden" name="exerciseNameEs" value={exerciseNameEs} />
+      <input type="hidden" name="exerciseId" value={exerciseId ?? ""} />
+      <input type="hidden" name="plateBuild" value={serializePlateBuild(perSide)} />
+
+      <p className="text-xs leading-5 text-zinc-400">¿Cuántos discos de cada uno pusiste por lado?</p>
+
+      <div className="grid gap-1">
+        {inventory.map((plate) => {
+          const key = plateKey(plate);
+          const count = counts[key] ?? 0;
+          return (
+            <div
+              key={key}
+              className={`flex items-center justify-between gap-2 rounded-xl px-3 py-1 ${count > 0 ? "bg-emerald-300/10" : "bg-zinc-950"}`}
+            >
+              <span className={`text-sm font-semibold ${count > 0 ? "text-emerald-300" : "text-zinc-300"}`}>
+                {plate.value} {plate.unit}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => bump(plate, -1)}
+                  disabled={count === 0}
+                  aria-label={`Quitar un disco de ${plate.value} ${plate.unit}`}
+                  className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-sm font-semibold tabular-nums text-zinc-100">{count}</span>
+                <button
+                  type="button"
+                  onClick={() => bump(plate, 1)}
+                  disabled={atCap}
+                  aria-label={`Añadir un disco de ${plate.value} ${plate.unit}`}
+                  className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-sm leading-6 text-zinc-200" role="status">
+        {perSide.length > 0 ? (
+          <>
+            <span className="font-semibold">{formatPlateCounts(perSide)}</span> por lado ·{" "}
+            <span className="font-semibold text-emerald-300">{formatKg(String(preview?.totalKg ?? 0), 1)}</span> ·{" "}
+            {platesPerSide * 2} discos
+          </>
+        ) : (
+          "Sin discos — guardar así borra lo que tenías."
+        )}
+      </p>
+      {atCap ? <p className="text-xs leading-5 text-zinc-500">Máximo {MAX_PLATES_PER_SIDE} discos por lado.</p> : null}
+
+      {state.status === "error" ? (
+        <p role="alert" className="text-sm leading-6 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
+
+      <div className="flex gap-2">
+        <SubmitButton className="min-h-11 flex-1 rounded-xl bg-emerald-300 px-3 text-sm font-semibold text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          Guardar discos
+        </SubmitButton>
+        <button
+          type="button"
+          onClick={onDone}
+          className="min-h-11 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function plateKey(plate: PlateDenomination): string {
+  return `${plate.value}${plate.unit}`;
 }
 
 /**

@@ -16,6 +16,7 @@ import type {
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
   SetLoadingModelActionState,
+  SetPlateBuildActionState,
 } from "../actions";
 import { SessionRunner } from "./session-runner";
 
@@ -158,6 +159,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
 }
 
 const noopSetLoadingModelAction = async () => ({ status: "idle" }) as const;
+const noopSetPlateBuildAction = async () => ({ status: "idle" }) as const;
 
 function renderRunner({
   exercises,
@@ -167,6 +169,7 @@ function renderRunner({
   reopenSessionAction = noopReopenSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
   setLoadingModelAction = noopSetLoadingModelAction,
+  setPlateBuildAction = noopSetPlateBuildAction,
   updateSetAction = noopUpdateSetAction,
   deleteSetAction = noopDeleteSetAction,
   substituteExerciseAction = noopSubstituteExerciseAction,
@@ -217,6 +220,10 @@ function renderRunner({
     prevState: SetLoadingModelActionState,
     formData: FormData,
   ) => Promise<SetLoadingModelActionState>;
+  setPlateBuildAction?: (
+    prevState: SetPlateBuildActionState,
+    formData: FormData,
+  ) => Promise<SetPlateBuildActionState>;
   loadFlaggedPrescriptionIds?: string[];
 }) {
   return render(
@@ -229,6 +236,7 @@ function renderRunner({
       reopenSessionAction={reopenSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
       setLoadingModelAction={setLoadingModelAction}
+      setPlateBuildAction={setPlateBuildAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
       substituteExerciseAction={substituteExerciseAction}
@@ -1702,6 +1710,122 @@ describe("SessionRunner — what to put on the bar", () => {
     expect(screen.getByText(/3 × 45 lb/)).toBeInTheDocument();
   });
 
+  /**
+   * The preview bug, pinned in the rendered words rather than in the data.
+   *
+   * The first version printed the enumerator's recipe under "La vez pasada"
+   * with its mass marked "reales" — two claims about history from arithmetic
+   * that had never seen the bar. On this athlete's real numbers it produced
+   * `1 × 20 kg + 1 × 25 lb` for a lift loaded entirely with 45 lb discs,
+   * because the 25 kg plates are at the far end of the gym.
+   */
+  it("offers a computed build in the conditional, and claims no true mass for it", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText(/podrías armarlo así/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^La vez pasada:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reales/)).not.toBeInTheDocument();
+  });
+
+  it("states a recorded build flatly, and only then claims a true mass", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    expect(screen.getByText(/Así lo armas:/)).toBeInTheDocument();
+    expect(screen.getByText(/122.5kg reales · 6 discos/)).toBeInTheDocument();
+    // The guess is withdrawn once there is an answer.
+    expect(screen.queryByText(/podrías armarlo así/i)).not.toBeInTheDocument();
+  });
+
+  it("offers a way to disagree with the computed build", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const disagree = screen.getByRole("button", { name: "Yo lo armo distinto" });
+    fireEvent.click(disagree);
+
+    // One tap target per denomination the gym stocks — and only those, so the
+    // editor cannot express a disc that does not exist.
+    expect(screen.getByRole("button", { name: "Añadir un disco de 45 lb" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Añadir un disco de 55 lb" })).not.toBeInTheDocument();
+  });
+
+  it("shows the mass and the disc count live as the athlete taps", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    const add45 = screen.getByRole("button", { name: "Añadir un disco de 45 lb" });
+    fireEvent.click(add45);
+    fireEvent.click(add45);
+    fireEvent.click(add45);
+
+    // Both numbers, deliberately: the disc count is what you can verify by
+    // looking down at the bar, and 6 across both sides is the convention this
+    // app records weights under.
+    const summary = screen.getByRole("status");
+    expect(summary).toHaveTextContent("3 × 45 lb");
+    expect(summary).toHaveTextContent("122.5kg");
+    expect(summary).toHaveTextContent("6 discos");
+  });
+
+  it("seeds the editor from the build already recorded, so a correction is one tap", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar los discos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 2.5 lb" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("3 × 45 lb + 1 × 2.5 lb");
+  });
+
+  /**
+   * Invariant 13 at the UI edge. The bar held 122.47 and the athlete typed
+   * 122; the box for the NEXT set gets the true number, and nothing rewrites
+   * the row that already exists.
+   */
+  it("prefills the weight box from a recorded build, without touching history", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    // Earned an increase, so the box carries where the step lands — computed
+    // off 122.47, not off the hand-rounded 122.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  it("leaves the weight box alone while the build is only a guess", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // suggestNextWeightKg's own answer, unchanged: nothing here is true enough
+    // to override it.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
+  });
+
   it("says there is no appropriate jump rather than inventing one", () => {
     // A gym stocking only 25 lb discs: the smallest pair on a 40 kg load is
     // +57%, so there is no load change to make.
@@ -1717,6 +1841,70 @@ describe("SessionRunner — what to put on the bar", () => {
     renderRunner({ exercises: [coarse] });
 
     expect(screen.getByText(/no hay un salto de carga apropiado/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Reported by the athlete on the first exercise they ever logged with this
+   * feature on: no way to record a build at all. The panel lived inside the
+   * "última vez" card and buildLoadAssist refused to return anything without a
+   * previous weight — so the one session where the app knows least and the
+   * athlete knows most was the one session it asked nothing.
+   */
+  describe("a first session on an exercise", () => {
+    function firstTime(overrides: Partial<ExerciseWithLoggedSets> = {}) {
+      return hipThrust({
+        previousPerformance: null,
+        loadAssist: buildLoadAssist({
+          lastWeightKg: null,
+          loadMechanism: "machine",
+          isCompound: true,
+          loadingModel: "plate_loaded",
+          inventory: GYM,
+        }),
+        ...overrides,
+      });
+    }
+
+    it("still offers to record which discs went on the bar", () => {
+      renderRunner({ exercises: [firstTime()] });
+
+      expect(screen.getByRole("button", { name: "Yo lo armo distinto" })).toBeInTheDocument();
+      expect(screen.getByText("discos en total, sin contar la barra")).toBeInTheDocument();
+    });
+
+    it("says it does not know yet rather than guessing from nothing", () => {
+      renderRunner({ exercises: [firstTime()] });
+
+      expect(screen.getByText(/Todavía no sé con qué discos armas/)).toBeInTheDocument();
+      // No history means no "add this much" — that question is about history.
+      expect(screen.queryByText(/^Añade /)).not.toBeInTheDocument();
+    });
+
+    it("fills the weight box from the recorded build, which is the whole point", () => {
+      const recorded = firstTime({
+        loadAssist: buildLoadAssist({
+          lastWeightKg: null,
+          loadMechanism: "machine",
+          isCompound: true,
+          loadingModel: "plate_loaded",
+          inventory: GYM,
+          recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+        }),
+      });
+      renderRunner({ exercises: [recorded] });
+
+      // They loaded the bar and tapped three 45s. No pound-to-kilo arithmetic
+      // in anyone's head, on the one screen that previously offered nothing.
+      expect(screen.getByLabelText(/peso/i)).toHaveValue(122.47);
+    });
+
+    it("can still be told whether the machine takes discs", () => {
+      renderRunner({
+        exercises: [firstTime({ loadingModel: null, loadAssist: null, hasPlateInventory: true })],
+      });
+
+      expect(screen.getByRole("button", { name: "Sí, con discos" })).toBeInTheDocument();
+    });
   });
 
   it("renders nothing at all when the exercise is not plate-loaded", () => {

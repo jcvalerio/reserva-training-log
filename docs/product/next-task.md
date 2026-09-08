@@ -2,7 +2,21 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: the app tells you which discs to put on the bar. Not yet deployed.
+## Status: you can tell the app which discs you actually used. Not yet deployed; PR #19.
+
+**Preview caught the calculator lying.** "Armar desde cero" printed `La vez pasada: 1 × 20 kg + 1 × 25 lb por lado (62.7kg reales)` for a 63 kg lift the athlete had loaded with 45 lb discs — because the 25 kg plates are at the far end of that gym. The recipe was `buildFromScratch`'s guess wearing a history label, and the "reales" mass was a physical claim derived from that guess.
+
+**No objective function fixes it.** Walking distance to the rack is not in the model and never will be. The failure was provenance, not accuracy — so the rule is now about language: a **derived** build is offered in the conditional and claims no mass; a **recorded** build is stated flatly and is the only thing allowed to say *reales*. Invariant 14 in `data-model.md`.
+
+**`exercise_setup` gains `plate_build` / `plate_build_total_kg` / `plate_build_recorded_at`** (migration `0027`, three nullable columns). Recorded by tapping the denominations the gym stocks, per side, with the mass and the disc count live. It rebases the plate arithmetic only — `suggestNextWeightKg` still reads the logged weight, and the true mass reaches `set_log` only as a prefill on the next set.
+
+**The first-session gap is closed**, and it was the athlete who hit it. The panel used to live inside the "última vez" card and `buildLoadAssist` refused to return anything without a previous weight, so a first session on an exercise offered nothing — no build, and "¿lleva discos?" unanswerable until session two. The step and the suggested recipe still need history; recording a build does not. On a first session the recorded build has nothing to contradict, so it fills the weight box outright: load the bar, tap three 45s, read 122.47.
+
+**Check on a phone before merging #19:** the editor is up to eleven rows of ±44px controls inside a `<details>` at 390px, and opening it must not shift the weight input under a thumb.
+
+**Now genuinely possible, and not done:** a removal instruction for reductions. It needed to know what is on the bar, and now something does.
+
+## Prior status (same branch, superseded above): the app tells you which discs to put on the bar. Not yet deployed.
 
 **The complaint:** they read "122 kg", the gym stocks discs in pounds, and they convert and hunt for a combination before they can lift — recording the working-out in `setLog.notes`, which decays after two sessions because `getPreviousExercisePerformance` is `.limit(1)`. Both halves checked against the code first.
 
@@ -21,7 +35,7 @@ Short and rolling: what is immediately next. **For where the project is and what
 3. **The setup card** (`setup_notes_es` exists, unused) — seat height, pin position, which machine. Demoted below the calculator because a computed recipe beats a note about one.
 4. **`getPreviousExercisePerformance` has no `status = 'completed'` filter** while all three sibling queries do, so a stale active session can feed "Última vez" and the weight suggestion. Separate PR; check production for stale active rows first.
 
-**Known gaps:** the panel needs a previous performance, so a first session on an exercise gets nothing and "¿lleva discos?" cannot be answered until the second. Reductions render a from-scratch recipe rather than a removal instruction. Nobody has used it in a real session.
+**Known gaps** (as written at the time; the first is closed by the entry above, and the second is now possible): the panel needs a previous performance, so a first session on an exercise gets nothing and "¿lleva discos?" cannot be answered until the second. Reductions render a from-scratch recipe rather than a removal instruction. Nobody has used it in a real session.
 
 ## Prior status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
 
