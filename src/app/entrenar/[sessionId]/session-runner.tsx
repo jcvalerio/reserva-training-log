@@ -409,24 +409,97 @@ export function SessionRunner({
   // ask, so the empty case collapses the whole card rather than leaving a
   // bordered box with nothing in it.
   const askLoadingModel = currentExercise.hasPlateInventory && currentExercise.loadingModel === null;
-  const plateAssistPanel =
-    plateAssist || askLoadingModel ? (
-      <PlateAssistPanel
-        /* Remounts closed on "Siguiente ejercicio", like the history
-           disclosure beside it. Prefixed because that sibling is keyed on the
-           bare exercise id and React sees them as one child list — colliding
-           keys silently duplicated both panels. */
-        key={`plates:${currentExercise.id}`}
-        assist={plateAssist}
-        showStep={previousSuggestion?.action === "increase" && !repsFirstIncrease}
-        askLoadingModel={askLoadingModel}
-        exerciseNameEs={currentExercise.exerciseNameEs}
-        exerciseId={currentExercise.exerciseId}
-        sessionId={session.id}
-        setLoadingModelAction={setLoadingModelAction}
-        setPlateBuildAction={setPlateBuildAction}
-      />
-    ) : null;
+  const plateBuildSection = (
+    <PlateBuildSection
+      assist={plateAssist}
+      askLoadingModel={askLoadingModel}
+      exerciseNameEs={currentExercise.exerciseNameEs}
+      exerciseId={currentExercise.exerciseId}
+      sessionId={session.id}
+      setLoadingModelAction={setLoadingModelAction}
+      setPlateBuildAction={setPlateBuildAction}
+    />
+  );
+  const hasCues = Boolean(currentExercise.notesEs) || currentExercise.painSensitive;
+  const canSubstitute = isLoggingAllowed && !showSubstitutePanel;
+  const hasPreviousSets = Boolean(previousPerformance && previousPerformance.sets.length > 0);
+  const referenceSection = (
+    <details key={`reference:${currentExercise.id}`} className="mt-2">
+      <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+        Detalles del ejercicio
+        {/* The single most useful fact this section holds, promoted onto the
+            line the athlete is already reading. Amber when the build no
+            longer matches what they last logged, so a stale one is visible
+            without opening anything. */}
+        {plateAssist?.savedBuild ? (
+          <span
+            className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-300"}`}
+          >
+            · {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado
+          </span>
+        ) : null}
+      </summary>
+
+      <div className="mt-2 grid gap-3">
+        {hasCues ? (
+          <div className="grid gap-1">
+            {currentExercise.notesEs ? (
+              <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
+            ) : null}
+            {currentExercise.painSensitive ? (
+              <p className="text-xs leading-5 text-amber-200">
+                Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {plateBuildSection}
+
+        {hasPreviousSets && previousPerformance ? (
+          <div className="grid gap-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
+            </p>
+            <LoggedSetsList
+              sets={previousPerformance.sets}
+              isUnilateral={previousPerformance.isUnilateral}
+              targetSets={previousPerformance.targetSets}
+              className="grid gap-2"
+              renderRow={(set, displayNumber) => <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />}
+            />
+          </div>
+        ) : null}
+
+        {/* Was an always-open amber block under "Siguiente ejercicio", where
+            it pushed the finish link off the bottom of every exercise. The
+            text is identical on every exercise of every session and already
+            lives on /guía; it is kept here so the rules are still one tap
+            from the screen they govern. Kept honest against
+            suggestProgression: agujetas stopped blocking on 2026-08-31, and a
+            rule stated here that the app no longer applies is worse than no
+            rule at all. */}
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Reglas de dolor</p>
+          <p className="text-xs leading-5 text-zinc-400">
+            Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el
+            movimiento. Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar
+            orientación profesional si persiste.
+          </p>
+        </div>
+
+        {canSubstitute ? (
+          <button
+            type="button"
+            onClick={() => setShowSubstitutePanel(true)}
+            className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+          >
+            Cambiar ejercicio
+          </button>
+        ) : null}
+      </div>
+    </details>
+  );
   const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
   const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
   const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
@@ -477,7 +550,7 @@ export function SessionRunner({
             isUnilateral={currentExercise.isUnilateral}
           />
         </div>
-        <p className="mt-1 text-sm leading-6 text-zinc-400">
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm leading-6 text-zinc-400">
           {isDuration ? (
             <>
               {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
@@ -490,23 +563,33 @@ export function SessionRunner({
               {currentExercise.restSeconds}s
             </>
           )}
+          {/* The one thing on this card that never collapses. Everything else
+              the athlete reads once and scrolls past; a pain flag hidden
+              behind a tap is the failure mode this product exists to avoid,
+              so the WARNING stays out here and only its substitution list
+              goes into the disclosure below. */}
+          {currentExercise.painSensitive ? (
+            <span className="rounded-full bg-amber-300/10 px-2 py-1 text-xs font-semibold text-amber-200">
+              Vigilar dolor
+            </span>
+          ) : null}
         </p>
-        <p className="mt-2 text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
-        {currentExercise.painSensitive ? (
-          <p className="mt-2 text-xs leading-5 text-amber-200">
-            Vigilar dolor. Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
-          </p>
-        ) : null}
+        {/* ONE disclosure, not three. The card had grown a separate one for
+            coaching cues, another for the previous session's sets and a third
+            for the plate build, plus an always-open rules block below the nav
+            — four summary rows at 44px each, spent on material the athlete
+            reads once and scrolls past every set after.
 
-        {isLoggingAllowed && !showSubstitutePanel ? (
-          <button
-            type="button"
-            onClick={() => setShowSubstitutePanel(true)}
-            className="mt-3 min-h-11 rounded-xl px-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-          >
-            Cambiar ejercicio
-          </button>
-        ) : null}
+            The rule for what goes in: anything that does not change what you
+            do in the next thirty seconds. What stays outside is the exercise
+            name, the prescription you are executing, the pain flag, your
+            logged sets, the progression verdict with its "añade X por lado"
+            instruction, and the form. Everything else is reference.
+
+            Keyed so "Siguiente ejercicio" reopens it closed. Prefixed because
+            a bare exercise id is already used as a key by a sibling, and
+            colliding keys silently rendered both panels twice once before. */}
+        {referenceSection}
 
         {showSubstitutePanel ? (
           <SubstituteExercisePanel
@@ -563,28 +646,6 @@ export function SessionRunner({
               )}
             </div>
 
-            {previousPerformance.sets.length > 0 ? (
-              // Keyed on the exercise so moving to "Siguiente ejercicio"
-              // always remounts this closed, instead of carrying an earlier
-              // exercise's expanded state onto one nobody asked to see yet.
-              <details key={currentExercise.id} className="mt-3 rounded-xl bg-zinc-900/60 ring-1 ring-sky-300/20">
-                <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-                  {previousPerformance.sets.length === 1
-                    ? "Ver la serie de la vez pasada"
-                    : `Ver las ${previousPerformance.sets.length} series de la vez pasada`}
-                </summary>
-                <LoggedSetsList
-                  sets={previousPerformance.sets}
-                  isUnilateral={previousPerformance.isUnilateral}
-                  targetSets={previousPerformance.targetSets}
-                  className="grid gap-2 px-3 pb-3 pt-2"
-                  renderRow={(set, displayNumber) => (
-                    <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
-                  )}
-                />
-              </details>
-            ) : null}
-
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
                 {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
@@ -610,22 +671,16 @@ export function SessionRunner({
               ¿Por qué esta sugerencia?
             </Link>
 
-            {/* Deliberately last in the "última vez" card: expanding it can
-                only move the logging form below, never reorder anything
-                already on screen — this screen has a documented history of
-                controls shifting under a thumb. */}
-            {plateAssistPanel}
+            {/* The decision half only. Which discs are currently on the
+                machine is reference and lives in the one collapsed section
+                at the top of the card; what to ADD changes what you do in the
+                next thirty seconds, so it stays beside the verdict. */}
+            <PlateStepLine
+              assist={plateAssist}
+              showStep={previousSuggestion.action === "increase" && !repsFirstIncrease}
+            />
           </div>
-        ) : (
-          /* No history for this exercise — but the bar in front of you is
-             still a bar. The step and the suggested recipe need a previous
-             weight; recording which discs you just put on does not, and a
-             first session is when the app knows least. Its own card, since
-             there is no "última vez" card to sit inside. */
-          plateAssistPanel ? (
-            <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">{plateAssistPanel}</div>
-          ) : null
-        )}
+        ) : null}
 
         {restRemaining !== null && restRemaining > 0 ? (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 px-4 py-3 ring-1 ring-emerald-300/30">
@@ -811,15 +866,6 @@ export function SessionRunner({
         >
           Siguiente ejercicio
         </button>
-      </div>
-
-      <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
-        {/* Kept honest against suggestProgression: agujetas stopped blocking
-            on 2026-08-31, and a rule stated here that the app no longer
-            applies is worse than no rule at all. */}
-        Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el movimiento.
-        Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar orientación
-        profesional si persiste.
       </div>
 
       <FinishSessionLink
@@ -2457,35 +2503,65 @@ function riskFlagClass(riskFlag: ProgressionRiskFlag) {
 }
 
 /**
- * What to put on the bar, in the forms the athlete actually needs.
+ * The decision half: what to ADD to a loaded bar, and nothing else.
+ *
+ * Split from the build half deliberately. This line changes what the athlete
+ * does in the next thirty seconds, so it stays on screen beside the
+ * progression verdict it belongs to. Which discs are currently on the machine
+ * is reference material, and lives in the one collapsed section with the rest
+ * of it — see ExerciseReferenceSection.
  *
  * The complaint this answers, measured: they return to the hip thrust, read
  * "122 kg", and their gym stocks discs in pounds — so before they can lift
  * they convert and hunt for a combination that sums to it. Then, to progress,
- * they do it again for a number the app invented.
- *
- * So the primary line is an INSTRUCTION relative to the weight they logged
- * ("añade 1 x 5 lb por lado"), not a recipe. Rebuilding a bar from a fresh
- * minimum-plate recipe to add three kilos is not a thing anyone does — the
- * full recipe belongs in the secondary disclosure, for an empty bar.
- *
- * The second half of that disclosure was WRONG in the first version and
- * preview caught it. It printed the enumerator's output under the heading "La
- * vez pasada", with the build's mass in parentheses marked "reales" — two
- * assertions about history, from a computation that had never seen the bar.
- * On real data it claimed `1 x 20 kg + 1 x 25 lb` for a lift loaded with 45 lb
- * discs throughout, because the 25 kg plates live at the far end of the room.
- * Nothing computable recovers that; the rack layout is not, and will not be,
- * in the model.
- *
- * So the language now tracks provenance exactly. A recorded build is stated
- * flatly and is the only thing allowed to claim a true mass. A computed one is
- * offered in the conditional ("podrías armarlo así") and carries no mass claim
- * at all — beside it, the way to disagree.
+ * they do it again for a number the app invented. Rebuilding a bar from a
+ * fresh minimum-plate recipe to add three kilos is not a thing anyone does, so
+ * the output is an instruction relative to the weight they logged.
  */
-function PlateAssistPanel({
+function PlateStepLine({
   assist,
   showStep,
+}: {
+  assist: ExerciseWithLoggedSets["loadAssist"];
+  showStep: boolean;
+}) {
+  if (!assist || !showStep) {
+    return null;
+  }
+
+  return assist.step ? (
+    <p className="mt-2 text-sm leading-6 text-zinc-200">
+      Añade <span className="font-semibold text-emerald-300">{formatPlateCounts(assist.step.added)}</span> por lado →{" "}
+      <span className="font-semibold text-zinc-50">{formatKg(String(assist.step.totalKg), 1)}</span>
+    </p>
+  ) : (
+    /* A real answer, not a gap. The smallest pair this gym stocks is a bigger
+       jump than the exercise should take, so there is no load change to make —
+       say so instead of rounding to a number that does not exist. */
+    <p className="mt-2 text-sm leading-6 text-zinc-300">
+      Con los discos de tu gimnasio no hay un salto de carga apropiado aquí: suma una repetición en vez de peso.
+    </p>
+  );
+}
+
+/**
+ * Which discs are on the bar, and the way to correct that.
+ *
+ * This half was WRONG in the first version and preview caught it. It printed
+ * the enumerator's output under the heading "La vez pasada", with the build's
+ * mass in parentheses marked "reales" — two assertions about history, from a
+ * computation that had never seen the bar. On real data it claimed
+ * `1 x 20 kg + 1 x 25 lb` for a lift loaded with 45 lb discs throughout,
+ * because the 25 kg plates live at the far end of the room. Nothing computable
+ * recovers that; the rack layout is not, and will not be, in the model.
+ *
+ * So the language tracks provenance exactly. A recorded build is stated flatly
+ * and is the only thing allowed to claim a true mass. A computed one is offered
+ * in the conditional ("podrías armarlo así") and carries no mass claim at all —
+ * beside it, the way to disagree.
+ */
+function PlateBuildSection({
+  assist,
   askLoadingModel,
   exerciseNameEs,
   exerciseId,
@@ -2494,7 +2570,6 @@ function PlateAssistPanel({
   setPlateBuildAction,
 }: {
   assist: ExerciseWithLoggedSets["loadAssist"];
-  showStep: boolean;
   /** The gym has discs recorded but nobody has said whether THIS movement
    *  uses them. Asked here rather than only on a settings screen: the moment
    *  you notice is the moment you are stood in front of the machine. */
@@ -2505,15 +2580,9 @@ function PlateAssistPanel({
   setLoadingModelAction: SetLoadingModelAction;
   setPlateBuildAction: SetPlateBuildAction;
 }) {
-  // Opens the editor without collapsing anything above it. Kept here rather
-  // than inside the editor so "Cambiar" and "Yo lo armo distinto" — two
-  // buttons in different branches — drive the same one panel.
+  // Kept here rather than inside the editor so "Cambiar los discos" and "Yo lo
+  // armo distinto" — two buttons in different branches — drive the same panel.
   const [editing, setEditing] = useState(false);
-  // The disclosure is controlled so that opening the editor can open it, but
-  // it tracks its own toggles so that CLOSING the editor after a save leaves
-  // the athlete looking at what they just recorded rather than collapsing it
-  // out from under them.
-  const [open, setOpen] = useState(false);
 
   if (!assist) {
     return askLoadingModel ? (
@@ -2526,102 +2595,66 @@ function PlateAssistPanel({
     ) : null;
   }
 
-  const step = showStep ? assist.step : null;
   const saved = assist.savedBuild;
 
   return (
-    <div className="mt-3 border-t border-zinc-800 pt-3">
-      {step ? (
-        <p className="text-sm leading-6 text-zinc-200">
-          Añade <span className="font-semibold text-emerald-300">{formatPlateCounts(step.added)}</span> por lado →{" "}
-          <span className="font-semibold text-zinc-50">{formatKg(String(step.totalKg), 1)}</span>
-        </p>
-      ) : null}
+    <div className="grid gap-1">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Armar desde cero</p>
 
-      {showStep && !assist.step ? (
-        /* A real answer, not a gap. The smallest pair this gym stocks is a
-           bigger jump than the exercise should take, so there is no load
-           change to make — say so instead of rounding to a number that does
-           not exist. */
-        <p className="text-sm leading-6 text-zinc-300">
-          Con los discos de tu gimnasio no hay un salto de carga apropiado aquí: suma una repetición en vez de peso.
-        </p>
-      ) : null}
-
-      <details className="mt-2" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-        {/* min-h-11 to match "Ver las N series de la vez pasada", the other
-            <summary> on this card — measured at 44px, where this one was
-            20px before. A disclosure is a tap target; the small text link
-            beside it ("¿Por qué esta sugerencia?") is a link, and gets to
-            behave like one. */}
-        <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-          Armar desde cero
-        </summary>
-
-        {saved ? (
-          <div className="mt-1 grid gap-1">
-            <p className="text-xs leading-5 text-zinc-200">
-              Así lo armas: <span className="font-semibold">{formatPlateCounts(saved.perSide)}</span> por lado
-              {/* The mass claim lives HERE and only here — this recipe came
-                  from the athlete, so its weight is a fact about the bar
-                  rather than about the enumerator. */}
-              <span className="text-zinc-400">
-                {" "}
-                ({formatKg(String(saved.totalKg), 1)} reales · {saved.plateCount * 2} discos)
-              </span>
+      {saved ? (
+        <>
+          <p className="text-xs leading-5 text-zinc-200">
+            Así lo armas: <span className="font-semibold">{formatPlateCounts(saved.perSide)}</span> por lado
+            {/* The mass claim lives HERE and only here — this recipe came from
+                the athlete, so its weight is a fact about the bar rather than
+                about the enumerator. */}
+            <span className="text-zinc-400">
+              {" "}
+              ({formatKg(String(saved.totalKg), 1)} reales · {saved.plateCount * 2} discos
+              {assist.savedBuildRecordedAt ? ` · ${formatBuildDate(assist.savedBuildRecordedAt)}` : ""})
+            </span>
+          </p>
+          {assist.savedBuildIsStale ? (
+            /* Never silently discarded. The denominations they reach for are
+               still the best thing we know; only the count has moved on. */
+            <p className="text-xs leading-5 text-amber-200">
+              Lo guardaste para {formatKg(String(saved.totalKg), 1)} y tu última serie fue con otra carga. Actualízalo
+              si cambiaste los discos.
             </p>
-            {assist.savedBuildIsStale ? (
-              /* Never silently discarded. The denominations they reach for are
-                 still the best thing we know; only the count has moved on. */
-              <p className="text-xs leading-5 text-amber-200">
-                Lo guardaste para {formatKg(String(saved.totalKg), 1)} y tu última serie fue con otra carga. Actualízalo
-                si cambiaste los discos.
-              </p>
-            ) : null}
-            {assist.savedBuildRecordedAt ? (
-              <p className="text-xs leading-5 text-zinc-500">Guardado el {formatBuildDate(assist.savedBuildRecordedAt)}.</p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="mt-1 grid gap-1">
-            {assist.suggestedBuild && assist.suggestedBuild.plateCount > 0 ? (
-              /* Conditional mood, and no mass in parentheses. This is a way to
-                 reach the number, not a report of what anyone did. */
-              <p className="text-xs leading-5 text-zinc-300">
-                Con tus discos podrías armarlo así:{" "}
-                <span className="font-semibold">{formatPlateCounts(assist.suggestedBuild.perSide)}</span> por lado.
-              </p>
-            ) : (
-              <p className="text-xs leading-5 text-zinc-300">Todavía no sé con qué discos armas este ejercicio.</p>
-            )}
-          </div>
-        )}
+          ) : null}
+        </>
+      ) : assist.suggestedBuild && assist.suggestedBuild.plateCount > 0 ? (
+        /* Conditional mood, and no mass in parentheses. This is a way to reach
+           the number, not a report of what anyone did. */
+        <p className="text-xs leading-5 text-zinc-300">
+          Con tus discos podrías armarlo así:{" "}
+          <span className="font-semibold">{formatPlateCounts(assist.suggestedBuild.perSide)}</span> por lado.
+        </p>
+      ) : (
+        <p className="text-xs leading-5 text-zinc-300">Todavía no sé con qué discos armas este ejercicio.</p>
+      )}
 
-        {editing ? (
-          <PlateBuildEditor
-            inventory={assist.inventory}
-            initialPerSide={saved?.perSide ?? []}
-            exerciseNameEs={exerciseNameEs}
-            exerciseId={exerciseId}
-            sessionId={sessionId}
-            action={setPlateBuildAction}
-            onDone={() => setEditing(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(true);
-              setOpen(true);
-            }}
-            className="mt-2 min-h-11 w-full rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-sky-300 ring-1 ring-sky-300/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-          >
-            {saved ? "Cambiar los discos" : "Yo lo armo distinto"}
-          </button>
-        )}
-      </details>
+      {editing ? (
+        <PlateBuildEditor
+          inventory={assist.inventory}
+          initialPerSide={saved?.perSide ?? []}
+          exerciseNameEs={exerciseNameEs}
+          exerciseId={exerciseId}
+          sessionId={sessionId}
+          action={setPlateBuildAction}
+          onDone={() => setEditing(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="mt-1 min-h-11 w-full rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-sky-300 ring-1 ring-sky-300/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        >
+          {saved ? "Cambiar los discos" : "Yo lo armo distinto"}
+        </button>
+      )}
 
-      <p className="mt-1 text-xs leading-5 text-zinc-500">{assist.conventionEs}</p>
+      <p className="text-xs leading-5 text-zinc-500">{assist.conventionEs}</p>
     </div>
   );
 }

@@ -2,6 +2,27 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-07 (later) — The runner screen was mostly things you read once
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (782 passing, +1)/`build` green. No schema change. Not yet checked on a device.
+
+**Reported from a real session, with screenshots**: the two things that matter between sets are logging the set and moving on, and neither was on screen. Measured on the card as shipped, **~534px per exercise** went to material the athlete reads once on set one and scrolls past every set after — the coaching cue, the substitution list, "Cambiar ejercicio", two separate `<summary>` rows, the saved plate build with its date and change button, the convention line, and an always-open rules block.
+
+**The card had grown four collapsibles and blocks, which is its own cost.** Four 44px summary rows is 176px spent on labels. They are now one — `Detalles del ejercicio` — holding the cue, the substitutions, the plate build with its editor, the previous session's sets, the pain rules and "Cambiar ejercicio". **~534px → 44px.**
+
+**The rule for what goes in is not "secondary", it is "does not change what you do in the next thirty seconds".** That line splits the plate assistant in half, which is why `PlateAssistPanel` became `PlateStepLine` and `PlateBuildSection`. *"Añade 1 × 5 lb por lado → 129.3 kg"* is an instruction you act on now and stays beside the progression verdict; *which discs are currently on the machine* is reference and collapses. The same test separates the pain flag from its own detail: the amber **"Vigilar dolor"** chip moved onto the prescription line and never collapses, while its substitution list went inside. Hiding a pain signal behind a tap is the failure mode this product exists to avoid.
+
+**One fact rides on the summary line.** A recorded build is one short phrase, so `Detalles del ejercicio · 3 × 45 lb por lado` puts the most useful thing the section knows on the line the athlete is already reading, in amber when it has gone stale. A disclosure whose label answers the question is worth more than one that only promises to.
+
+**The `<details>` is keyed on the exercise**, so "Siguiente ejercicio" reopens it closed — with a `reference:` prefix, because a bare exercise id is already a sibling's key and colliding keys silently rendered both panels twice earlier today.
+
+**Two defects in the same screenshots, both from this branch:**
+
+- *A rule floating under the card's top edge.* `PlateAssistPanel`'s root carried `border-t`, correct when it sat inside the "última vez" card and orphaned once it could render as the first thing in its own card. Moot now that the build lives in the reference section, but it is the second time this session that a component moved without its assumptions.
+- *A 122.5 kg build asserted on an exercise being logged at 35 kg*, with "Set 1 · 35kg" three lines above it. `buildLoadAssist` judged staleness only against the PREVIOUS session's weight, so on a first session nothing could contradict a recorded build — and it would have prefilled 122.47. Now `loggedWeightKg` (this session's last set for this exercise) is passed separately and takes precedence for drift and staleness, while `lastWeightKg` continues to drive the step and the suggested recipe. They answer different questions: what to progress *to* versus what is on the bar *now*.
+
+**Not yet verified on a device.** The whole point of this change is vertical space, and jsdom does not measure it. Check that the form is reachable without scrolling past the exercise name, that the summary line does not wrap awkwardly with a long build, and that opening the section does not shift the weight input under a thumb.
+
 ## 2026-09-07 — The plate calculator was printing its own guesses as your history, and asking about eleven discs to record two
 
 Status: built on `feat/plate-load-assistant`, on top of the entry below and before it merges. `lint`/`typecheck`/`test` (781 passing, +34)/`build` green. **Migration `0027`** — three nullable columns on `exercise_setup`, purely additive, nothing existing touched. Not yet checked on a real device.

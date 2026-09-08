@@ -284,13 +284,61 @@ describe("SessionRunner", () => {
     expect(screen.getByRole("button", { name: "Guardar set 1" })).toBeVisible();
   });
 
-  it("shows the exercise's notes and the session's mobility notes as coaching cues while training", () => {
+  it("keeps the coaching cue one tap away, not in the way of logging a set", () => {
     const exercise = buildExercise({ notesEs: "Ajusta la carga usando tus pesos base y conserva técnica estricta." });
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.")).toBeVisible();
+    // The session's mobility note stays in the page header: it is read once
+    // per session, not once per set.
     expect(screen.getByText(template.mobilityNotesEs)).toBeVisible();
+
+    // The exercise's cue is reference material — present, and behind the one
+    // disclosure, so it does not sit between the exercise name and the form.
+    const cue = screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.");
+    expect(cue.closest("details")).not.toHaveAttribute("open");
+
+    fireEvent.click(screen.getByText("Detalles del ejercicio"));
+
+    expect(cue).toBeVisible();
+  });
+
+  /**
+   * The card had grown four separate collapsibles — cues, the previous
+   * session's sets, the plate build, and an always-open rules block below the
+   * nav. Four summary rows at 44px each, spent on material read once and
+   * scrolled past every set after.
+   */
+  it("gathers every piece of reference material into one disclosure", () => {
+    const exercise = buildExercise({
+      notesEs: "Escápulas estables.",
+      painSensitive: true,
+      substitutionOptionsEs: ["Máquina equivalente"],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 1,
+        isUnilateral: false,
+        sets: [buildSet({ id: "prev-1", setNumber: 1 })],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    expect(screen.getAllByRole("group")).toHaveLength(1);
+
+    const section = screen.getByText("Detalles del ejercicio").closest("details")!;
+    for (const text of ["Escápulas estables.", "Reglas de dolor", "Cambiar ejercicio"]) {
+      expect(section).toContainElement(screen.getByText(text));
+    }
+
+    // The pain flag is the one thing that never collapses: hiding it behind a
+    // tap is the failure this product exists to avoid. It rides on the
+    // prescription line, outside the disclosure entirely.
+    const flag = screen.getByText("Vigilar dolor");
+    expect(flag).toBeVisible();
+    expect(flag.closest("details")).toBeNull();
   });
 
   it("advances and returns between exercises with Anterior/Siguiente ejercicio", () => {
@@ -672,20 +720,21 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    const summary = screen.getByText("Ver las 2 series de la vez pasada");
+    const summary = screen.getByText("Detalles del ejercicio");
     expect(summary).toBeVisible();
     expect(summary.closest("details")).not.toHaveAttribute("open");
-    // Native <details> keeps its content in the DOM while closed — the
-    // second prior set is findable without opening anything, proving
-    // nothing from the fully-loaded history is being silently dropped.
+    // Native <details> keeps its content in the DOM while closed — the second
+    // prior set is findable without opening anything, proving nothing from the
+    // fully-loaded history is being silently dropped.
     expect(screen.getByText(byNormalizedText(/82\.5kg × 10/))).toBeInTheDocument();
 
     fireEvent.click(summary);
 
     expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("Las series de la vez pasada")).toBeVisible();
   });
 
-  it("resets the 'última vez' history disclosure to closed when moving to another exercise", () => {
+  it("resets the reference disclosure to closed when moving to another exercise", () => {
     const previousPerformance = {
       sessionId: "session-previous",
       prescriptionType: "strength" as const,
@@ -711,13 +760,13 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exerciseA, exerciseB] });
 
-    const summaryOnA = screen.getByText("Ver la serie de la vez pasada");
+    const summaryOnA = screen.getByText("Detalles del ejercicio");
     fireEvent.click(summaryOnA);
     expect(summaryOnA.closest("details")).toHaveAttribute("open");
 
     fireEvent.click(screen.getByRole("button", { name: "Siguiente ejercicio" }));
 
-    const summaryOnB = screen.getByText("Ver la serie de la vez pasada");
+    const summaryOnB = screen.getByText("Detalles del ejercicio");
     expect(summaryOnB.closest("details")).not.toHaveAttribute("open");
   });
 

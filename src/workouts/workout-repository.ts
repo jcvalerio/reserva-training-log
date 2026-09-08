@@ -221,6 +221,16 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         previousPerformance?.prescriptionType === "strength"
           ? Number(previousPerformance.sets.at(-1)?.actualWeightKg ?? 0) || null
           : null;
+      // What is on the bar RIGHT NOW, if anything has been logged for this
+      // exercise today. Separate from previousLastWeightKg because they answer
+      // different questions: the previous session decides what to progress TO,
+      // while today's set is the freshest evidence of what the discs currently
+      // add up to — and therefore the only honest thing to judge a recorded
+      // build against.
+      const loggedWeightKg =
+        exercise.prescriptionType === "strength"
+          ? Number((logId ? setsByLogId.get(logId) : undefined)?.at(-1)?.actualWeightKg ?? 0) || null
+          : null;
       return {
         ...exercise,
         loggedSets: logId ? (setsByLogId.get(logId) ?? []) : [],
@@ -234,6 +244,7 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         // memoised across every exercise in this session.
         loadAssist: buildLoadAssist({
           lastWeightKg: previousLastWeightKg,
+          loggedWeightKg,
           loadMechanism: exercise.loadMechanism,
           isCompound: exercise.isCompound,
           loadingModel: setup?.loadingModel ?? null,

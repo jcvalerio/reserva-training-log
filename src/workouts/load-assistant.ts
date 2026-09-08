@@ -98,6 +98,20 @@ export type LoadAssistInput = {
   isCompound?: boolean | null;
   loadingModel?: LoadingModel | null;
   inventory: readonly PlateDenomination[];
+  /**
+   * The last weight logged for this exercise in THIS session, if any.
+   *
+   * Deliberately separate from `lastWeightKg`, which is the previous session's
+   * and drives what to progress TO. This one answers a different question —
+   * what is on the bar right now — and is the only honest thing to judge a
+   * recorded build against.
+   *
+   * Missing it shipped a visible lie: on a first session there is no previous
+   * weight, so nothing could contradict the build, and a `3 × 45 lb` recorded
+   * by mistake was stated as fact on an exercise being logged at 35 kg — with
+   * "Set 1 · 35kg" on screen three lines above it.
+   */
+  loggedWeightKg?: number | null;
   /** The athlete's recorded per-side build for this exercise, if they have
    *  given one. Validated at the write edge, in parsePlateBuild. */
   recordedBuild?: readonly PlateCount[] | null;
@@ -144,14 +158,21 @@ export function buildLoadAssist(input: LoadAssistInput): LoadAssist | null {
   // until session two either — logged as a known gap in the previous entry,
   // and reported by the athlete the first time they used it.
   const lastWeightKg = input.lastWeightKg && input.lastWeightKg > 0 ? input.lastWeightKg : null;
+  const loggedWeightKg = input.loggedWeightKg && input.loggedWeightKg > 0 ? input.loggedWeightKg : null;
   const savedBuild = input.recordedBuild ? plateBuildFromCounts(input.recordedBuild) : null;
 
-  // With no logged weight there is nothing for the build to disagree WITH, so
-  // it cannot be stale and there is no drift to report. It is simply the only
-  // thing known about this bar.
-  const driftKg = savedBuild && lastWeightKg ? Math.round((savedBuild.totalKg - lastWeightKg) * 100) / 100 : 0;
-  const tolerance = lastWeightKg
-    ? Math.max(STALE_TOLERANCE_FLOOR_KG, lastWeightKg * STALE_TOLERANCE_RATIO)
+  // Today's set first: it is the freshest evidence of what the discs actually
+  // come to, and it is the only evidence at all on a first session. Falling
+  // back to the previous session keeps a build honest between sessions, when
+  // nothing has been logged yet.
+  const referenceKg = loggedWeightKg ?? lastWeightKg;
+
+  // With no logged weight anywhere there is nothing for the build to disagree
+  // WITH, so it cannot be stale and there is no drift to report. It is simply
+  // the only thing known about this bar.
+  const driftKg = savedBuild && referenceKg ? Math.round((savedBuild.totalKg - referenceKg) * 100) / 100 : 0;
+  const tolerance = referenceKg
+    ? Math.max(STALE_TOLERANCE_FLOOR_KG, referenceKg * STALE_TOLERANCE_RATIO)
     : Infinity;
   const isStale = savedBuild !== null && Math.abs(driftKg) > tolerance + 0.001;
   const isFresh = savedBuild !== null && !isStale;

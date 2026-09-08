@@ -2,7 +2,19 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: you can tell the app which discs you actually used. Not yet deployed; PR #19.
+## Status: the runner screen is the set you are logging, not the manual. Not yet deployed; PR #19.
+
+**Reported from a real session**: between sets you need to log the set and hit "Siguiente ejercicio", and neither was on screen. ~534px per exercise went to things read once on set one — the cue, the substitution list, "Cambiar ejercicio", two `<summary>` rows, the saved plate build with its date and button, the convention line, and an always-open rules block below the nav.
+
+**Four collapsibles became one.** `Detalles del ejercicio` holds the cue, substitutions, the plate build and its editor, the previous session's sets, the pain rules and "Cambiar ejercicio". **~534px → 44px.**
+
+**The rule is not "secondary", it is "does not change what you do in the next thirty seconds".** That split `PlateAssistPanel` into `PlateStepLine` (*"Añade 1 × 5 lb por lado"* — stays out, beside the verdict) and `PlateBuildSection` (which discs are on the machine — collapses). Same test moved the amber **"Vigilar dolor"** chip onto the prescription line where it never collapses, with only its substitution list inside.
+
+**Two defects fixed from the same screenshots.** A `border-t` on the plate panel rendered as a line floating under a card edge once the panel could stand alone. And staleness was judged only against the *previous* session, so a `3 × 45 lb` build was asserted as fact on an exercise being logged at 35 kg — `loggedWeightKg` (this session) now takes precedence for drift and staleness, while `lastWeightKg` still drives the step.
+
+**Check on a phone before merging #19:** that the form is reachable without scrolling past the exercise name, and that opening the section does not shift the weight input under a thumb.
+
+## Prior status (same branch): you can tell the app which discs you actually used.
 
 **Preview caught the calculator lying.** "Armar desde cero" printed `La vez pasada: 1 × 20 kg + 1 × 25 lb por lado (62.7kg reales)` for a 63 kg lift the athlete had loaded with 45 lb discs — because the 25 kg plates are at the far end of that gym. The recipe was `buildFromScratch`'s guess wearing a history label, and the "reales" mass was a physical claim derived from that guess.
 
