@@ -62,6 +62,24 @@ export function roundKg(kg: number): number {
   return Math.round(kg * 100) / 100;
 }
 
+/**
+ * Heaviest first, by real mass rather than by printed number.
+ *
+ * Shared because it was NOT shared, and that shipped a bug. `plate-math`'s
+ * enumerator and `plate-build`'s formatter each sorted this way inline, while
+ * the editor rendered the inventory in stored order — which `gymInventorySchema`
+ * produces as kg-family-then-lb-family, value-descending WITHIN each family. So
+ * `45 lb` (20.41 kg, the second-heaviest disc in the gym) rendered sixth, below
+ * `5 kg`, and the athlete scrolled past five plates they never touch to reach
+ * the one they always use.
+ *
+ * Comparing printed numbers across unit families is the whole trap: 45 > 5 says
+ * nothing until both are kilograms.
+ */
+export function byHeaviestFirst(a: PlateDenomination, b: PlateDenomination): number {
+  return toKg(b.value, b.unit) - toKg(a.value, a.unit);
+}
+
 /** Sum of a plate list in kilograms, rounded once at the end. */
 export function sumPlatesKg(plates: readonly PlateDenomination[]): number {
   return roundKg(plates.reduce((total, plate) => total + toKg(plate.value, plate.unit), 0));

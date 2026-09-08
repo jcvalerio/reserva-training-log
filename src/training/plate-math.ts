@@ -1,4 +1,4 @@
-import { roundKg, toKg, type PlateDenomination, type WeightUnit } from "./units";
+import { byHeaviestFirst, roundKg, toKg, type PlateDenomination, type WeightUnit } from "./units";
 
 /**
  * Plate arithmetic for a plate-loaded implement, in two directions.
@@ -92,7 +92,7 @@ function normalize(denominations: readonly PlateDenomination[]): PlateDenominati
   }
   // Heaviest first: the enumerator emits fewer-plate builds earlier, and the
   // recipes read the way anyone actually loads a bar.
-  return out.sort((a, b) => toKg(b.value, b.unit) - toKg(a.value, a.unit)).slice(0, MAX_DENOMINATIONS);
+  return out.sort(byHeaviestFirst).slice(0, MAX_DENOMINATIONS);
 }
 
 function toCounts(indexes: number[], denominations: readonly PlateDenomination[]): PlateCount[] {
@@ -330,7 +330,7 @@ function isBetterStep(candidate: LoadStep, best: LoadStep, targetKg: number): bo
  *  formatKg, since both appear in the same rendered sentence. */
 export function formatPlateCounts(plates: readonly PlateCount[]): string {
   return [...plates]
-    .sort((a, b) => toKg(b.value, b.unit) - toKg(a.value, a.unit))
+    .sort(byHeaviestFirst)
     .map((p) => `${p.count} × ${p.value} ${p.unit}`)
     .join(" + ");
 }

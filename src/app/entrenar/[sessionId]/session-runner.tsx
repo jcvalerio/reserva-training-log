@@ -2597,18 +2597,37 @@ function formatBuildDate(iso: string): string {
 }
 
 /**
- * Tap the discs you put on. One row per denomination the gym stocks.
+ * Record what went on the bar: a stepper for each disc in play, a chip for
+ * every other disc the gym stocks.
  *
- * Taps rather than typing, because this is asked between sets on a 390px
- * screen with chalk on your hands: eleven number inputs is not a form anyone
- * fills in there. Every chip is a denomination the gym actually owns, which
- * also means the editor CANNOT express a disc that does not exist — the same
- * guarantee parsePlateBuild enforces server-side, made visible.
+ * Taps rather than typing, because this is filled in between sets on a 390px
+ * screen with chalk on your hands — eleven number inputs is not a form anyone
+ * completes there, and a typed number could name a disc the gym does not own,
+ * which is exactly the surface `parsePlateBuild` exists to close.
+ *
+ * The layout is one rule: **a denomination gets a row once its count is above
+ * zero, and is a chip until then.** The first version gave all eleven a full
+ * stepper unconditionally, which cost 572px — most of the viewport — to ask
+ * about eight discs nobody had touched. A real build uses one to three
+ * denominations. A chip needs one 44px target instead of two plus a counter,
+ * so four fit on a line where one stepper row did, and the empty state lands
+ * around 190px with every disc still exactly one tap away.
+ *
+ * Two things follow from that rule and are easy to get wrong:
+ *
+ * - A row that drops back to zero STAYS a row for the rest of this edit. It
+ *   would otherwise collapse into a chip under the thumb that just tapped it,
+ *   which is the control-shifting failure this screen has a history of. It is
+ *   still dropped on save, since `serializePlateBuild` filters `count > 0`.
+ * - Promoting a chip unmounts a button in one container and mounts a different
+ *   one in another, so React cannot treat it as a move and focus lands on
+ *   `<body>`. Keyboard and screen-reader users would silently lose their
+ *   place, so focus is moved explicitly to the new row's "+".
  *
  * Per SIDE, matching every recipe this app renders, with the total across both
- * sides and the total disc count shown live. Both numbers on screen at once is
- * deliberate: the disc count is what the athlete can verify by looking down at
- * the bar, and it is how they catch having answered the wrong question.
+ * sides and the total disc count shown live. Both numbers deliberately: the
+ * disc count is what you can verify by looking down at the bar, and it is how
+ * someone catches having answered the wrong question.
  */
 function PlateBuildEditor({
   inventory,
@@ -2635,6 +2654,28 @@ function PlateBuildEditor({
     }
     return seed;
   });
+  // Which denominations show a stepper. Seeded from the recorded build, and
+  // only ever added to — see the doc comment on why a row never demotes.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialPerSide.map(plateKey)));
+  // Promoting a chip unmounts a button in one container and mounts a different
+  // one in another, so React cannot treat it as a move and focus falls to
+  // <body> — a keyboard or VoiceOver user silently loses their place mid-edit.
+  // Handled in the ref callback rather than an effect because that fires
+  // exactly when the replacement button mounts, with no extra render.
+  const pendingFocusRef = useRef<string | null>(null);
+
+  // Closed by the SAVE, not by the submit. Closing optimistically would throw
+  // away the one thing the athlete needs to see when the build is rejected —
+  // "esos discos no coinciden con los de tu gimnasio" — along with the counts
+  // they just tapped in.
+  useEffect(() => {
+    if (state.status === "saved") {
+      onDone();
+    }
+  }, [state, onDone]);
+
+  const rows = inventory.filter((plate) => expanded.has(plateKey(plate)));
+  const chips = inventory.filter((plate) => !expanded.has(plateKey(plate)));
 
   const perSide: PlateCount[] = inventory
     .map((plate) => ({ ...plate, count: counts[plateKey(plate)] ?? 0 }))
@@ -2650,20 +2691,16 @@ function PlateBuildEditor({
   const bump = (plate: PlateDenomination, delta: number) => {
     setCounts((current) => {
       const key = plateKey(plate);
-      const next = Math.max(0, (current[key] ?? 0) + delta);
-      return { ...current, [key]: next };
+      return { ...current, [key]: Math.max(0, (current[key] ?? 0) + delta) };
     });
   };
 
-  // Closed by the SAVE, not by the submit. Closing optimistically would throw
-  // away the one thing the athlete needs to see when the build is rejected —
-  // "esos discos no coinciden con los de tu gimnasio" — along with the counts
-  // they just tapped in.
-  useEffect(() => {
-    if (state.status === "saved") {
-      onDone();
-    }
-  }, [state, onDone]);
+  const promote = (plate: PlateDenomination) => {
+    const key = plateKey(plate);
+    pendingFocusRef.current = key;
+    setExpanded((current) => new Set(current).add(key));
+    bump(plate, 1);
+  };
 
   return (
     <form action={formAction} className="mt-2 grid gap-2">
@@ -2672,46 +2709,84 @@ function PlateBuildEditor({
       <input type="hidden" name="exerciseId" value={exerciseId ?? ""} />
       <input type="hidden" name="plateBuild" value={serializePlateBuild(perSide)} />
 
-      <p className="text-xs leading-5 text-zinc-400">¿Cuántos discos de cada uno pusiste por lado?</p>
+      <p className="text-xs leading-5 text-zinc-400">
+        {rows.length === 0
+          ? "Toca los discos que pusiste por lado."
+          : "¿Cuántos discos de cada uno pusiste por lado?"}
+      </p>
 
-      <div className="grid gap-1">
-        {inventory.map((plate) => {
-          const key = plateKey(plate);
-          const count = counts[key] ?? 0;
-          return (
-            <div
-              key={key}
-              className={`flex items-center justify-between gap-2 rounded-xl px-3 py-1 ${count > 0 ? "bg-emerald-300/10" : "bg-zinc-950"}`}
-            >
-              <span className={`text-sm font-semibold ${count > 0 ? "text-emerald-300" : "text-zinc-300"}`}>
-                {plate.value} {plate.unit}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => bump(plate, -1)}
-                  disabled={count === 0}
-                  aria-label={`Quitar un disco de ${plate.value} ${plate.unit}`}
-                  className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
-                >
-                  −
-                </button>
-                <span className="w-6 text-center text-sm font-semibold tabular-nums text-zinc-100">{count}</span>
-                <button
-                  type="button"
-                  onClick={() => bump(plate, 1)}
-                  disabled={atCap}
-                  aria-label={`Añadir un disco de ${plate.value} ${plate.unit}`}
-                  className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
-                >
-                  +
-                </button>
+      {rows.length > 0 ? (
+        <div className="grid gap-1">
+          {rows.map((plate) => {
+            const key = plateKey(plate);
+            const count = counts[key] ?? 0;
+            return (
+              <div
+                key={key}
+                className={`flex items-center justify-between gap-2 rounded-xl px-3 py-1 ${count > 0 ? "bg-emerald-300/10" : "bg-zinc-950"}`}
+              >
+                <span className={`text-sm font-semibold ${count > 0 ? "text-emerald-300" : "text-zinc-300"}`}>
+                  {plate.value} {plate.unit}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => bump(plate, -1)}
+                    disabled={count === 0}
+                    aria-label={`Quitar un disco de ${plate.value} ${plate.unit}`}
+                    className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums text-zinc-100">{count}</span>
+                  <button
+                    type="button"
+                    ref={(node) => {
+                      if (node && pendingFocusRef.current === key) {
+                        pendingFocusRef.current = null;
+                        node.focus();
+                      }
+                    }}
+                    onClick={() => bump(plate, 1)}
+                    disabled={atCap}
+                    aria-label={`Añadir un disco de ${plate.value} ${plate.unit}`}
+                    className="min-h-11 w-11 rounded-lg bg-zinc-900 text-lg font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : null}
 
+      {chips.length > 0 ? (
+        <div className="grid gap-1">
+          {rows.length > 0 ? <p className="text-xs leading-5 text-zinc-500">Otros discos</p> : null}
+          <div className="flex flex-wrap gap-2">
+            {chips.map((plate) => (
+              <button
+                key={plateKey(plate)}
+                type="button"
+                onClick={() => promote(plate)}
+                disabled={atCap}
+                /* The SAME accessible name as the row's "+". Tapping a chip and
+                   tapping "+" are one action to the athlete — "pon uno más de
+                   este" — so the name must not change when the control does. */
+                aria-label={`Añadir un disco de ${plate.value} ${plate.unit}`}
+                className="min-h-11 rounded-xl bg-zinc-950 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 disabled:opacity-30"
+              >
+                {plate.value} {plate.unit}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* The only live region in the editor. One per row would announce on
+          every tap across up to eleven controls; this is the amount of
+          feedback that is actually useful. */}
       <p className="text-sm leading-6 text-zinc-200" role="status">
         {perSide.length > 0 ? (
           <>

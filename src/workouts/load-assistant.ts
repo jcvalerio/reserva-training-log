@@ -7,7 +7,7 @@ import {
   type PlateBuild,
   type PlateCount,
 } from "@/training/plate-math";
-import { loadConventionLabelsEs, type PlateDenomination } from "@/training/units";
+import { byHeaviestFirst, loadConventionLabelsEs, type PlateDenomination } from "@/training/units";
 
 import { increaseBandFor, type LoadMechanism } from "./progression-view";
 
@@ -171,7 +171,12 @@ export function buildLoadAssist(input: LoadAssistInput): LoadAssist | null {
 
   return {
     conventionEs: loadConventionLabelsEs.plates_both_sides,
-    inventory: [...input.inventory],
+    // Sorted heaviest-first by real mass, not by the number printed on the
+    // disc. The editor rendered this in stored order until 2026-09-07, which
+    // put 45 lb (20.41 kg) below 5 kg because they sit in different unit
+    // families — so the athlete scrolled past every kg plate to reach the one
+    // they always use.
+    inventory: [...input.inventory].sort(byHeaviestFirst),
     savedBuild,
     savedBuildRecordedAt: input.recordedBuildAt ? input.recordedBuildAt.toISOString() : null,
     savedBuildDriftKg: driftKg,

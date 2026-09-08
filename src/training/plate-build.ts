@@ -1,5 +1,5 @@
 import { MAX_PLATES_PER_SIDE, type PlateBuild, type PlateCount } from "./plate-math";
-import { roundKg, toKg, weightUnits, type PlateDenomination, type WeightUnit } from "./units";
+import { byHeaviestFirst, roundKg, toKg, weightUnits, type PlateDenomination, type WeightUnit } from "./units";
 
 /**
  * The recorded build: what the athlete says is on the bar, as opposed to what
@@ -99,7 +99,7 @@ function denominationKey(value: number, unit: WeightUnit): string {
 }
 
 function sortHeaviestFirst(plates: PlateCount[]): PlateCount[] {
-  return [...plates].sort((a, b) => toKg(b.value, b.unit) - toKg(a.value, a.unit));
+  return [...plates].sort(byHeaviestFirst);
 }
 
 /**

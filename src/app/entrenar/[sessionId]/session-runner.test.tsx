@@ -1762,10 +1762,13 @@ describe("SessionRunner — what to put on the bar", () => {
     renderRunner({ exercises: [hipThrust()] });
     fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
 
-    const add45 = screen.getByRole("button", { name: "Añadir un disco de 45 lb" });
-    fireEvent.click(add45);
-    fireEvent.click(add45);
-    fireEvent.click(add45);
+    // Re-queried each time on purpose: the first tap replaces the chip with a
+    // stepper row, so the element genuinely changes identity. The accessible
+    // name does not, which is the point of giving both the same label.
+    const add45 = () => screen.getByRole("button", { name: "Añadir un disco de 45 lb" });
+    fireEvent.click(add45());
+    fireEvent.click(add45());
+    fireEvent.click(add45());
 
     // Both numbers, deliberately: the disc count is what you can verify by
     // looking down at the bar, and 6 across both sides is the convention this
@@ -1774,6 +1777,75 @@ describe("SessionRunner — what to put on the bar", () => {
     expect(summary).toHaveTextContent("3 × 45 lb");
     expect(summary).toHaveTextContent("122.5kg");
     expect(summary).toHaveTextContent("6 discos");
+  });
+
+  /**
+   * Promoting a chip unmounts a button in one container and mounts a different
+   * one in another, so React cannot reconcile it as a move. Without this,
+   * focus falls to <body> and a keyboard or VoiceOver user loses their place
+   * mid-edit — a regression on a screen that has no focus-loss issue today.
+   */
+  it("keeps focus on the disc it just promoted, so the next tap is the second plate", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  /**
+   * The height complaint, pinned as a count. Eleven full steppers cost 572px —
+   * most of the viewport — to ask about eight discs nobody touched.
+   */
+  it("starts as chips only, and grows a stepper for the disc you actually used", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    // Nothing on the bar yet, so nothing to decrement.
+    expect(screen.queryAllByRole("button", { name: /^Quitar un disco/ })).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /^Añadir un disco/ })).toHaveLength(GYM.length);
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+
+    // Exactly one denomination is in play, so exactly one stepper exists.
+    expect(screen.queryAllByRole("button", { name: /^Quitar un disco/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Quitar un disco de 45 lb" })).toBeInTheDocument();
+  });
+
+  /**
+   * A row that returns to zero must not collapse back into a chip under the
+   * thumb that just tapped it — this screen has a documented history of
+   * controls shifting mid-interaction. It is still dropped on save.
+   */
+  it("keeps a stepper on screen after its count returns to zero", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar un disco de 45 lb" }));
+
+    expect(screen.getByRole("button", { name: "Quitar un disco de 45 lb" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Sin discos");
+  });
+
+  /**
+   * The ordering bug, and the reason the athlete had to scroll. The inventory
+   * arrives kg-family-first, value-descending within each family, so 45 lb
+   * (20.41 kg — the second-heaviest disc in this gym) rendered SIXTH, below
+   * 5 kg. Comparing printed numbers across unit families is the trap.
+   */
+  it("orders the discs by real mass, not by the number printed on them", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    const order = screen
+      .getAllByRole("button", { name: /^Añadir un disco/ })
+      .map((node) => node.getAttribute("aria-label")!.replace("Añadir un disco de ", ""));
+
+    expect(order.slice(0, 4)).toEqual(["25 kg", "45 lb", "20 kg", "35 lb"]);
+    expect(order.at(-1)).toBe("2.5 lb");
   });
 
   it("seeds the editor from the build already recorded, so a correction is one tap", () => {

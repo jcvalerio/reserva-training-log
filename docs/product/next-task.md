@@ -12,7 +12,9 @@ Short and rolling: what is immediately next. **For where the project is and what
 
 **The first-session gap is closed**, and it was the athlete who hit it. The panel used to live inside the "última vez" card and `buildLoadAssist` refused to return anything without a previous weight, so a first session on an exercise offered nothing — no build, and "¿lleva discos?" unanswerable until session two. The step and the suggested recipe still need history; recording a build does not. On a first session the recorded build has nothing to contradict, so it fills the weight box outright: load the bar, tap three 45s, read 122.47.
 
-**Check on a phone before merging #19:** the editor is up to eleven rows of ±44px controls inside a `<details>` at 390px, and opening it must not shift the weight input under a thumb.
+**The editor is chips until a disc is in play.** Eleven full steppers cost 572px to ask about eight discs nobody touched, and the list was ordered by *printed number within unit family* — so `45 lb` (20.41 kg) rendered sixth, below `5 kg`, which is why the athlete had to scroll to their own plates. One `byHeaviestFirst` in `units.ts` now serves all three call sites. A denomination becomes a stepper row once its count exceeds zero: empty state ≈156px, a recorded `3 × 45 lb + 1 × 35 lb` ≈260px. Two columns (kg | lb) was proposed and rejected on width — 159px per column against a 114px stepper cluster leaves 45px for a label needing 52–56px.
+
+**Check on a phone before merging #19:** chip wrapping at 390px with mixed-unit labels, and that promoting a chip does not shift the weight input under a thumb.
 
 **Now genuinely possible, and not done:** a removal instruction for reductions. It needed to know what is on the bar, and now something does.
 
