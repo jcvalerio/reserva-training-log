@@ -4,7 +4,7 @@ Living checkpoint for small iterations. Update this after every task iteration s
 
 ## 2026-09-07 — The plate calculator was printing its own guesses as your history, and asking about eleven discs to record two
 
-Status: built on `feat/plate-load-assistant`, on top of the entry below and before it merges. `lint`/`typecheck`/`test` (778 passing, +31)/`build` green. **Migration `0027`** — three nullable columns on `exercise_setup`, purely additive, nothing existing touched. Not yet checked on a real device.
+Status: built on `feat/plate-load-assistant`, on top of the entry below and before it merges. `lint`/`typecheck`/`test` (781 passing, +34)/`build` green. **Migration `0027`** — three nullable columns on `exercise_setup`, purely additive, nothing existing touched. Not yet checked on a real device.
 
 **Caught in preview, by the athlete, in the first session anyone ran on it.** The "Armar desde cero" disclosure read:
 
@@ -46,6 +46,14 @@ That turned out to be the feature's best case rather than an edge one. On a firs
 **One rule instead: a denomination gets a stepper row once its count is above zero, and is a chip until then.** A chip is a single label-only 44px target rather than two buttons plus a counter, so four fit on a line where one row did. Empty state ≈ **156px of chips**, every disc still one tap away; a recorded `3 × 45 lb + 1 × 35 lb` ≈ **260px** (two rows plus nine chips). The alternative reviewed and rejected was a kg/lb segmented filter, which hides half an in-progress mixed-unit build while you edit the other half — and would *disguise* the ordering bug rather than fix it, since within one family the stored order is already correct.
 
 Two consequences that were easy to get wrong. A row whose count returns to zero **stays a row** for the rest of the edit, rather than collapsing into a chip under the thumb that just tapped it; it is still dropped on save, since `serializePlateBuild` filters `count > 0`. And promoting a chip unmounts a button in one container while mounting a different one in another, so React cannot reconcile it as a move and **focus falls to `<body>`** — silently losing a keyboard or VoiceOver user's place. Focus is moved explicitly to the new row's `+`, in the ref callback rather than an effect (React 19's lint rejects `setState` in an effect, and the callback fires exactly when the replacement mounts). Both are pinned by tests. The chip and the `+` share one accessible name, `"Añadir un disco de 45 lb"`, because they are the same action to the athlete; an existing test had to stop caching the element reference across taps, which is honest — the node really does change.
+
+**Two defects from real use, and the second one blocked the feature outright.**
+
+*The weight box did not move when a build was saved.* `StrengthSetFields` seeds `useState` from its props, so it reads them once and never again; the enclosing `<form>` is keyed on the set number, which does not change when a build is recorded. `revalidatePath` delivered a new true weight to a component that had already stopped listening. Keyed on the value now — the React idiom for "reset this state" — so the field remounts exactly when the default it derives from moves.
+
+*The weight field rejected the app's own prefill.* `NumericStepperField` used one `step` for both the ± button increment and the HTML `step` attribute, so the browser accepted only multiples of 0.5. The athlete hit it typing **20.2** ("the two nearest valid values are 20 and 20.5"), but the worse case was silent until then: `3 × 45 lb` is **122.47**, so the moment a recorded build began prefilling the true mass of the bar, the set could not be submitted at all. Now split — buttons still move 0.5, the attribute is **0.01**, matching `numeric(6,2)` and the `toFixed(2)` already in `set-log-schema`. The server was never the constraint; it has always accepted `requiredNumber("kg", 0.5, 999)`. No spinner cost either, since `.input-stepper` sets `appearance: textfield` and iOS Safari never draws one.
+
+Worth noting how each was found: a prop read once and a validation attribute doing double duty are both invisible to a test that renders a component and asserts on it. Catching the first needed a **re-render with new props** (which is what a server action actually does), so `renderRunner` was split into an element factory plus a `render` wrapper. Catching the second needed `checkValidity()`, which nothing in this suite had ever called.
 
 **Not yet verified on a device.** jsdom does not measure geometry and this repo has been caught twice. Check the chip wrapping at 390px with mixed-unit labels, that the promoted row does not shift the weight input under a thumb, and the running total's line wrapping on a build like `3 × 45 lb + 1 × 2.5 lb`.
 

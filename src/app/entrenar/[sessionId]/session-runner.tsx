@@ -694,6 +694,17 @@ export function SessionRunner({
               <DurationSetInput defaultSeconds={defaultDurationSeconds} />
             ) : (
               <StrengthSetFields
+                /* StrengthSetFields seeds useState from these props, so it
+                   reads them once and never again. Recording a plate build
+                   revalidates the page with a new true weight — 122.47 for
+                   3 × 45 lb — and without a key change the box kept showing
+                   the old number, which is what the athlete reported.
+                   Keying on the value is the React idiom for "reset this
+                   state": the field remounts only when the default it is
+                   derived from actually moves, which in a session means
+                   after a build is saved. The enclosing <form> is keyed on
+                   the set number instead, so it must not be used here. */
+                key={`weight:${defaultWeightKg}`}
                 defaultWeightKg={defaultWeightKg}
                 defaultReps={defaultReps}
                 targetRir={currentExercise.targetRir}
@@ -1178,7 +1189,10 @@ function AddSetToCompletedPanel({
           <div className="grid grid-cols-3 gap-2">
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Peso (kg)</span>
-              <input name="actualWeightKg" type="number" inputMode="decimal" min={0} step="0.5" className="input" required />
+              {/* step 0.01, not 0.5: matches numeric(6,2) and the server's
+                  toFixed(2), so a real bar weight like 122.47 is accepted
+                  rather than bounced to "the two nearest valid values". */}
+              <input name="actualWeightKg" type="number" inputMode="decimal" min={0} step="0.01" className="input" required />
             </label>
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Reps</span>
@@ -2198,6 +2212,10 @@ function StrengthSetFields({
           name="actualWeightKg"
           inputMode="decimal"
           step={0.5}
+          // The ± buttons still move in half kilos; typing is not restricted
+          // to them. A plate-loaded bar lands on 122.47, and an athlete
+          // reading a machine's scale may well want 20.2.
+          inputStep={0.01}
           min={0.5}
           max={999}
           value={weight}
@@ -2247,6 +2265,7 @@ function NumericStepperField({
   name,
   inputMode,
   step,
+  inputStep,
   min,
   max,
   value,
@@ -2255,7 +2274,26 @@ function NumericStepperField({
   label: string;
   name: string;
   inputMode: "decimal" | "numeric";
+  /** How far the ± buttons move. A convenience, not a constraint. */
   step: number;
+  /**
+   * The HTML `step` attribute, i.e. what the browser will actually ACCEPT.
+   *
+   * Separate from the button increment because conflating them silently made
+   * the field refuse real weights. With one `step={0.5}` the browser rejected
+   * anything off the half-kilo grid — "20.2" got "the two nearest valid values
+   * are 20 and 20.5" — and once a recorded plate build began prefilling the
+   * true mass of the bar, it rejected the app's OWN prefill: 3 × 45 lb is
+   * 122.47, which is not a multiple of 0.5, so the set could not be submitted
+   * at all.
+   *
+   * Defaults to `step`. The weight field passes 0.01 to match
+   * `numeric(6, 2)` and the `toFixed(2)` in set-log-schema, so the browser
+   * accepts exactly what the server stores — no more, no less. There is no
+   * spinner cost: `.input-stepper` sets `appearance: textfield`, and iOS
+   * Safari never draws one anyway.
+   */
+  inputStep?: number;
   min: number;
   max: number;
   value: number | "";
@@ -2289,7 +2327,7 @@ function NumericStepperField({
           name={name}
           type="number"
           inputMode={inputMode}
-          step={step}
+          step={inputStep ?? step}
           min={min}
           max={max}
           value={value}

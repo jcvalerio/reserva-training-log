@@ -161,7 +161,7 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
 const noopSetLoadingModelAction = async () => ({ status: "idle" }) as const;
 const noopSetPlateBuildAction = async () => ({ status: "idle" }) as const;
 
-function renderRunner({
+function runnerElement({
   exercises,
   session = buildSession(),
   recap = null,
@@ -226,7 +226,7 @@ function renderRunner({
   ) => Promise<SetPlateBuildActionState>;
   loadFlaggedPrescriptionIds?: string[];
 }) {
-  return render(
+  return (
     <SessionRunner
       session={session}
       template={template}
@@ -248,8 +248,18 @@ function renderRunner({
       addSetToCompletedSessionAction={addSetToCompletedSessionAction}
       recordExercisePainAction={recordExercisePainAction}
       loadFlaggedPrescriptionIds={loadFlaggedPrescriptionIds}
-    />,
+    />
   );
+}
+
+/**
+ * Split from the element factory above so a test can re-render the SAME tree
+ * with new props — which is what `revalidatePath` does after a server action,
+ * and the only way to catch state that was seeded from a prop and then never
+ * read again.
+ */
+function renderRunner(props: Parameters<typeof runnerElement>[0]) {
+  return render(runnerElement(props));
 }
 
 describe("SessionRunner", () => {
@@ -1888,6 +1898,77 @@ describe("SessionRunner — what to put on the bar", () => {
     // Earned an increase, so the box carries where the step lands — computed
     // off 122.47, not off the hand-rounded 122.
     expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  /**
+   * Reported from a real session: the athlete saved a build and the weight box
+   * kept the old number. `StrengthSetFields` seeds `useState` from its props,
+   * so it reads them once; the enclosing form is keyed on the set number,
+   * which does not change when a build is recorded.
+   */
+  it("moves the weight box when the recorded build changes the true weight", () => {
+    const withoutBuild = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+    });
+    const { rerender } = renderRunner({ exercises: [withoutBuild] });
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
+
+    // What revalidatePath does after "Guardar discos": same session, same set
+    // number, new loadAssist.
+    rerender(
+      runnerElement({
+        exercises: [
+          hipThrust({
+            loadAssist: buildLoadAssist({
+              lastWeightKg: 122,
+              loadMechanism: "machine",
+              isCompound: true,
+              loadingModel: "plate_loaded",
+              inventory: GYM,
+              recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+            }),
+          }),
+        ],
+      }),
+    );
+
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  /**
+   * The field used one `step` for both the ± buttons and HTML validation, so
+   * the browser refused anything off the half-kilo grid — "20.2" was bounced
+   * with "the two nearest valid values are 20 and 20.5". Once a recorded build
+   * began prefilling the true mass of the bar it also refused the app's own
+   * prefill, since 3 × 45 lb is 122.47.
+   */
+  it("accepts a weight the server would store, not just multiples of the button step", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const weight = screen.getByLabelText(/peso/i) as HTMLInputElement;
+
+    // numeric(6,2) and set-log-schema's toFixed(2) — the browser now accepts
+    // exactly what the server stores.
+    expect(weight.step).toBe("0.01");
+
+    fireEvent.change(weight, { target: { value: "20.2" } });
+    expect(weight.checkValidity()).toBe(true);
+    expect(weight).toHaveValue(20.2);
+  });
+
+  it("still moves in half kilos when the buttons are used", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // The typed value is unconstrained; the buttons stay a half-kilo
+    // convenience, which is what anyone loading a bar actually wants.
+    expect(screen.getByRole("button", { name: "Sumar 0.5" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restar 0.5" })).toBeInTheDocument();
   });
 
   it("leaves the weight box alone while the build is only a guess", () => {
