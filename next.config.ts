@@ -1,12 +1,25 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
+import { resolveBuildVersion } from "./src/config/build-version";
 import { parseAllowedDevOrigins } from "./src/config/dev-origins";
 
 const allowedDevOrigins = parseAllowedDevOrigins(process.env.NEXT_ALLOWED_DEV_ORIGINS);
+const buildVersion = resolveBuildVersion();
 
 const nextConfig: NextConfig = {
   ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
+  // Inlined at build, which is the only honest way to report which commit a
+  // bundle came from — read at request time it would describe the environment
+  // rather than the code. `env` substitutes these literally wherever they are
+  // referenced, so no NEXT_PUBLIC_ prefix is needed and nothing is read from
+  // the environment at runtime.
+  env: {
+    APP_COMMIT: buildVersion.commit,
+    APP_REF: buildVersion.ref ?? "",
+    APP_ENVIRONMENT: buildVersion.environment,
+    APP_BUILT_AT: buildVersion.builtAt,
+  },
 };
 
 // Source-map upload is what turns `at ad (0zsaoe4nar2uk.js:40:55721)` into a

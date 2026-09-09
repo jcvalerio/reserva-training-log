@@ -95,7 +95,16 @@ Google OAuth needs an exact redirect URI, and preview URLs are dynamic, so
 `BETTER_AUTH_URL` is pinned to `https://preview.gym.jcvalerio.com` for Preview
 and that URI is registered in Google. To sign in on a preview, alias it first:
 `npx vercel alias <preview-url> preview.gym.jcvalerio.com`. Unauthenticated
-pages (`/`, `/privacidad`) work on any preview URL without aliasing.
+pages (`/`, `/privacidad`, `/version`) work on any preview URL without aliasing.
+
+**The alias does not follow new pushes, and that has already cost a review
+cycle.** Every push builds a new preview URL; `preview.gym.jcvalerio.com` keeps
+pointing at whichever deployment was aliased last, so signing in there can show
+a build several commits old while the deploy for HEAD succeeded. Re-run the
+alias after each push you intend to test. To check what you are actually
+looking at, open **`/version`** — it is public, static per deployment, and
+returns the commit, branch, environment and build time. The same stamp is at
+the foot of every page (`preview · 901eba3`), including the session runner.
 
 `npx vercel deploy --prod --yes` remains for an out-of-band production deploy
 (npx, not bare `vercel`) — but note it uploads the **working tree**, not `HEAD`,

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { formatAppVersion } from "@/lib/app-version";
+
 import { getHomeNavItems } from "./home-nav";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 
@@ -50,19 +52,36 @@ export function AppShell({
         ) : null}
         {children}
 
-        {/* A privacy policy nobody can reach is not one. Foot of every page
-            that shows the brand chrome — deliberately not the active session
-            runner, where vertical space is the scarce thing. */}
-        {showBrandBar ? (
-          <p className="mt-auto pt-8 text-center text-xs text-zinc-600">
+        <div className="mt-auto pt-8 text-center text-xs text-zinc-600">
+          {/* A privacy policy nobody can reach is not one. Foot of every page
+              that shows the brand chrome — deliberately not the active session
+              runner, where vertical space is the scarce thing. */}
+          {showBrandBar ? (
+            <p>
+              <Link
+                href="/privacidad"
+                className="inline-flex min-h-11 items-center px-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+              >
+                Privacidad y tus datos
+              </Link>
+            </p>
+          ) : null}
+
+          {/* On EVERY page, including the session runner that opts out of the
+              rest of this chrome. The runner is the screen changes get tested
+              on, so it is the one screen where "which build am I looking at"
+              actually gets asked — and it was the screen where it could not be
+              answered. One muted line at the very foot, below everything, is
+              the whole cost. */}
+          <p>
             <Link
-              href="/privacidad"
-              className="inline-flex min-h-11 items-center px-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+              href="/version"
+              className="inline-flex min-h-11 items-center px-2 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
             >
-              Privacidad y tus datos
+              {formatAppVersion()}
             </Link>
           </p>
-        ) : null}
+        </div>
       </main>
       <MobileBottomNav items={getHomeNavItems()} activeHref={activeHref} />
     </div>
