@@ -258,6 +258,19 @@ function runnerElement({
  * and the only way to catch state that was seeded from a prop and then never
  * read again.
  */
+/**
+ * Opens one of the support panels at the foot of the runner.
+ *
+ * They live below "Terminar entrenamiento" now, collapsed, so that the form is
+ * the first thing under the exercise name and stops drifting down the screen
+ * as sets are logged. jsdom honours <details>, so anything inside one is
+ * genuinely not visible until opened — which is the behaviour worth asserting
+ * rather than working around.
+ */
+function openPanel(label: string | RegExp) {
+  fireEvent.click(screen.getByText(label));
+}
+
 function renderRunner(props: Parameters<typeof runnerElement>[0]) {
   return render(runnerElement(props));
 }
@@ -289,8 +302,11 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    // The session's mobility note stays in the page header: it is read once
-    // per session, not once per set.
+    // The session's own notes moved to the foot with everything else that is
+    // not the set in front of you — present, one tap away, out of the path
+    // between the exercise name and the weight box.
+    expect(screen.getByText(template.mobilityNotesEs)).not.toBeVisible();
+    openPanel(/^Día /);
     expect(screen.getByText(template.mobilityNotesEs)).toBeVisible();
 
     // The exercise's cue is reference material — present, and behind the one
@@ -328,9 +344,13 @@ describe("SessionRunner", () => {
     renderRunner({ exercises: [exercise] });
 
     const details = screen.getByText("Detalles del ejercicio").closest("details")!;
-    for (const text of ["Escápulas estables.", "Cambiar ejercicio", "La serie de la vez pasada"]) {
+    for (const text of ["Escápulas estables.", "Cambiar ejercicio"]) {
       expect(details).toContainElement(screen.getByText(text));
     }
+    // Last session is its own panel now, not a third subject inside this one.
+    const history = screen.getByText("La vez pasada").closest("details")!;
+    expect(history).toContainElement(screen.getByText("La serie de la vez pasada"));
+    expect(history).not.toBe(details);
 
     // The pain rules are no longer ambient reference on every exercise; they
     // belong to the moment someone is actually recording pain.
@@ -430,6 +450,10 @@ describe("SessionRunner", () => {
     });
 
     renderRunner({ exercises: [exercise] });
+
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
 
     // rir: 1 against the exercise's default targetRir of 2 is harder than
     // prescribed, so the row now shows the target alongside the actual.
@@ -695,6 +719,10 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
+
     expect(screen.getByText("Izquierda · 2/3")).toBeVisible();
     expect(screen.getByText("Derecha · 1/3")).toBeVisible();
 
@@ -707,7 +735,7 @@ describe("SessionRunner", () => {
     expect(screen.queryByText(/Set 3 · Izq/)).toBeNull();
   });
 
-  it("keeps the full 'última vez' history collapsed by default, present in the DOM either way", () => {
+  it("keeps last session's history collapsed by default, present in the DOM either way", () => {
     const exercise = buildExercise({
       targetSets: 2,
       loggedSets: [],
@@ -726,7 +754,7 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    const summary = screen.getByText("Detalles del ejercicio");
+    const summary = screen.getByText("La vez pasada");
     expect(summary).toBeVisible();
     expect(summary.closest("details")).not.toHaveAttribute("open");
     // Native <details> keeps its content in the DOM while closed — the second
@@ -1068,6 +1096,52 @@ describe("SessionRunner", () => {
     expect(screen.getByText(/Añade/)).toBeVisible();
   });
 
+  /**
+   * The reason the athletes gave, and it is better than the one the layout
+   * had: they want to reach the form without scrolling. Today's sets used to
+   * render ABOVE the inputs, so every set logged pushed the weight box further
+   * down — the form drifted away from the thumb exactly as the session went on
+   * and precision got harder.
+   */
+  it("keeps the form above every support panel, however many sets are logged", () => {
+    const exercise = buildExercise({
+      targetSets: 5,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1 }),
+        buildSet({ id: "s2", setNumber: 2 }),
+        buildSet({ id: "s3", setNumber: 3 }),
+      ],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [buildSet({ id: "p1", setNumber: 1 })],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    const order = (node: Element) =>
+      Array.prototype.indexOf.call(document.querySelectorAll("*"), node);
+
+    const weightBox = screen.getByLabelText("Peso (kg)");
+    const save = screen.getByRole("button", { name: /^Guardar set/ });
+    const next = screen.getByRole("button", { name: "Siguiente ejercicio" });
+
+    // Everything the athlete acts on comes before everything they might
+    // consult — including the sets they have already logged.
+    for (const panel of ["Series de hoy · 3 de 5", "La vez pasada", "Detalles del ejercicio"]) {
+      expect(order(screen.getByText(panel))).toBeGreaterThan(order(next));
+    }
+    expect(order(weightBox)).toBeLessThan(order(save));
+    expect(order(save)).toBeLessThan(order(next));
+
+    // And they are genuinely out of the way until asked for.
+    expect(screen.getByText("Series de hoy · 3 de 5").closest("details")).not.toHaveAttribute("open");
+  });
+
   it("does not show a suggestion card when there is no previous performance", () => {
     const exercise = buildExercise({ previousPerformance: null });
 
@@ -1380,6 +1454,10 @@ describe("SessionRunner", () => {
       const exercise = buildExercise({ loggedSets: [buildSet()] });
 
       renderRunner({ exercises: [exercise] });
+
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
       fireEvent.click(screen.getByRole("button", { name: "Editar" }));
 
       expect(screen.queryByRole("button", { name: "Sí, borrar" })).toBeNull();

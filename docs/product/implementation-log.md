@@ -2,6 +2,26 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-09 — The form comes first now; everything else lives under the finish link
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (793 passing, +1)/`build` green. No schema change. Not yet checked on a device.
+
+**From talking to the athletes rather than from reading the screen**: they want to reach the form without scrolling. That reframed the problem. Three passes had been spent making the supporting material *smaller* — collapsing it, merging it, splitting it again — while the actual complaint was about **order**, not volume.
+
+**The sharpest instance, and it was never noticed in any of those passes**: the sets logged today rendered ABOVE the inputs. Every set logged pushed the weight box further down, so the form drifted away from the thumb exactly as the session went on and fatigue made precision harder. A screen that gets worse the more you use it, in the one place this app is used standing up.
+
+**Everything that is not the set in front of you now sits below "Terminar entrenamiento"**, as six collapsed rows in the order the athletes listed them: today's sets, the suggestion, last session, the discs, the exercise details, the day. Above the line: exercise name, technique link, weight, reps, RIR, notes, *Guardar set*, *Siguiente ejercicio*.
+
+**Measured, with three sets logged: ~722px above the weight box became ~148px** — and, more to the point, it stops growing. Each additional set used to add ~60px before the form; now it adds none.
+
+**The session header moved with them, which forced a heading fix.** `template.nameEs` held the page's `<h1>` at the top; relocating that block to the foot would have put the exercise `<h2>` before the page `<h1>` in the document outline. The exercise name is now the `<h1>` — which is also just true, since the screen is about the exercise rather than the day it belongs to. `exerciseHeadingRef` still targets it, so the focus-on-exercise-change behaviour is unchanged.
+
+**Deliberately left above the line:** the rest timer, the pain question and the bonus-set affordance. All three are part of logging, not reference — the timer is live state, and the pain question is an input asked once per exercise.
+
+**A pattern worth naming.** Six tests broke, every one because content had moved into a collapsed `<details>` and jsdom honours that. None of them was wrong before; they were asserting the old order. The fix in each was to open the panel first, via one shared `openPanel` helper rather than six copies. Worth writing down because it will happen again: when a test breaks after a layout change, the question is whether it encoded a decision that has since been reversed — and here it always had.
+
+**Not yet verified on a device.** The whole change is about reach, and jsdom cannot measure a thumb. Check that the weight box is reachable without scrolling on a 390×844 screen, that six summary rows at the foot read as one stack rather than a wall of blue links, and that scrolling past "Terminar entrenamiento" to reach them does not invite accidental taps on it — that control was moved once already for exactly that reason.
+
 ## 2026-09-08 (later) — The card was showing two different next-weights, and had been since it shipped
 
 Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (792 passing, +2)/`build` green. No schema change. Not yet checked on a device.

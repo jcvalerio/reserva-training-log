@@ -57,6 +57,16 @@ type SetPlateBuildAction = (
   formData: FormData,
 ) => Promise<SetPlateBuildActionState>;
 
+/**
+ * One visual language for the six support rows at the foot of the runner, so
+ * they read as a single stack to scroll past rather than six unrelated
+ * widgets. min-h-11 on every summary: this card has already shipped and fixed
+ * a 20px tap target once.
+ */
+const SUPPORT_PANEL = "rounded-2xl bg-zinc-900 px-4 ring-1 ring-zinc-800";
+const SUPPORT_SUMMARY =
+  "flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300";
+
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialReopenState: ReopenSessionActionState = { status: "idle" };
 const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
@@ -442,220 +452,21 @@ export function SessionRunner({
    * symbol, so an icon-only control is a disclosure with a picture instead of
    * a label — worse to read fast, worse to hit with a chalked thumb.
    */
-  const plateSection =
-    plateAssist || askLoadingModel ? (
-      <details key={`plates:${currentExercise.id}`} className="mt-2">
-        {/* The summary IS the state. A recorded build is one short phrase and
-            the single most useful thing this section knows, so it rides the
-            line the athlete is already reading — amber once it no longer
-            matches what they logged, so a stale one is visible without
-            opening anything.
 
-            With nothing recorded it reads "Registrar los discos" and carries
-            NO mass. That is invariant 14 enforced by layout rather than by
-            convention: only a build the athlete gave us may state a weight. */}
-        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-          {plateAssist?.savedBuild ? (
-            <>
-              Discos
-              <span
-                className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-200"}`}
-              >
-                {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado ·{" "}
-                {formatKg(String(plateAssist.savedBuild.totalKg), 1)}
-              </span>
-            </>
-          ) : askLoadingModel ? (
-            "¿Esta máquina usa discos?"
-          ) : (
-            "Registrar los discos"
-          )}
-        </summary>
-
-        <div className="mt-2">
-          <PlateBuildSection
-            assist={plateAssist}
-            askLoadingModel={askLoadingModel}
-            exerciseNameEs={currentExercise.exerciseNameEs}
-            exerciseId={currentExercise.exerciseId}
-            sessionId={session.id}
-            setLoadingModelAction={setLoadingModelAction}
-            setPlateBuildAction={setPlateBuildAction}
-          />
-        </div>
-      </details>
-    ) : null;
-
-  const detailsSection =
-    hasCues || hasPreviousSets || canSubstitute ? (
-      <details key={`details:${currentExercise.id}`} className="mt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-          Detalles del ejercicio
-        </summary>
-
-        <div className="mt-2 grid gap-3">
-          {hasCues ? (
-            <div className="grid gap-1">
-              {currentExercise.notesEs ? (
-                <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
-              ) : null}
-              {currentExercise.painSensitive ? (
-                <p className="text-xs leading-5 text-amber-200">
-                  Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Kept, deliberately, against the recommendation to delete it. The
-              form below already opens with last session's numbers, so this is
-              a second surface — but the two do different jobs. The prefill
-              answers "what am I about to lift"; this answers "how did it
-              actually go", which the prefill flattens: that reps fell across
-              sets, or that set three hurt, is exactly what a single prefilled
-              number cannot say. What was deleted is the THIRD copy — the
-              always-visible row that repeated one of these sets verbatim. */}
-          {hasPreviousSets && previousPerformance ? (
-            <div className="grid gap-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
-              </p>
-              <LoggedSetsList
-                sets={previousPerformance.sets}
-                isUnilateral={previousPerformance.isUnilateral}
-                targetSets={previousPerformance.targetSets}
-                className="grid gap-2"
-                renderRow={(set, displayNumber) => (
-                  <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
-                )}
-              />
-            </div>
-          ) : null}
-
-          {canSubstitute ? (
-            <button
-              type="button"
-              onClick={() => setShowSubstitutePanel(true)}
-              className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-            >
-              Cambiar ejercicio
-            </button>
-          ) : null}
-        </div>
-      </details>
-    ) : null;
-  const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
-  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
-  const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
-
-  return (
-    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
-      <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Día {template.dayIndex}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
-        <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
-        <p className="text-xs leading-5 text-zinc-400">{template.mobilityNotesEs}</p>
-      </header>
-
-      <ExerciseProgressBar
-        exercises={exercises}
-        exerciseIndex={exerciseIndex}
-        exerciseName={currentExercise.exerciseNameEs}
-      />
-
-      {/* scroll-mt clears the sticky bar above, which would otherwise cover
-          the top of the card the effect just scrolled to. */}
-      <section
-        ref={exerciseCardRef}
-        className="mt-4 scroll-mt-16 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800"
-      >
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-          Ejercicio {exerciseIndex + 1} de {exercises.length}
-        </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          {/* tabIndex -1: focused programmatically on exercise change so the
-              swap is announced, never a tab stop in normal keyboard order. */}
-          <h2 ref={exerciseHeadingRef} tabIndex={-1} className="text-xl font-semibold text-zinc-100 focus:outline-none">
-            {currentExercise.exerciseNameEs}
-          </h2>
-          <YoutubeTechniqueLink
-            nameEs={currentExercise.exerciseNameEs}
-            nameEn={currentExercise.exerciseNameEn}
-            isUnilateral={currentExercise.isUnilateral}
-          />
-        </div>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm leading-6 text-zinc-400">
-          {isDuration ? (
-            <>
-              {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
-              {isUnilateral ? " por lado" : ""} · descanso {currentExercise.restSeconds}s
-            </>
-          ) : (
-            <>
-              {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
-              {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso{" "}
-              {currentExercise.restSeconds}s
-            </>
-          )}
-          {/* The one thing on this card that never collapses. Everything else
-              the athlete reads once and scrolls past; a pain flag hidden
-              behind a tap is the failure mode this product exists to avoid,
-              so the WARNING stays out here and only its substitution list
-              goes into the disclosure below. */}
-          {currentExercise.painSensitive ? (
-            <span className="rounded-full bg-amber-300/10 px-2 py-1 text-xs font-semibold text-amber-200">
-              Vigilar dolor
-            </span>
-          ) : null}
-        </p>
-        {/* Plate build first, details second, and the order is the point.
-            The build is durable configuration the athlete maintains across
-            months and checks against the bar in front of them; the cue and
-            the substitution list are read once and remembered. Both keyed on
-            the exercise so "Siguiente ejercicio" reopens them closed, and
-            both prefixed because a bare exercise id is already a sibling's
-            key — colliding keys silently rendered two panels twice before. */}
-        {plateSection}
-        {detailsSection}
-
-        {showSubstitutePanel ? (
-          <SubstituteExercisePanel
-            sessionId={session.id}
-            exercise={currentExercise}
-            existingSubstitutes={substitutesByExerciseId[currentExercise.id] ?? []}
-            planChoices={planSubstituteChoices}
-            state={substituteState}
-            formAction={substituteFormAction}
-            onClose={() => setShowSubstitutePanel(false)}
-          />
-        ) : null}
-
-        <LoggedSetsList
-          sets={currentExercise.loggedSets}
-          isUnilateral={isUnilateral}
-          targetSets={currentExercise.targetSets}
-          className="mt-4 grid gap-2"
-          renderRow={(set, displayNumber) => (
-            // Keyed on updatedAt so a saved correction remounts the row
-            // closed with fresh values, while a rejected one stays open
-            // showing its error.
-            <EditableSetRow
-              key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
-              set={set}
-              displayNumber={displayNumber}
-              edit={{
-                sessionId: session.id,
-                isUnilateral,
-                prescriptionType: currentExercise.prescriptionType,
-                targetRir: currentExercise.targetRir,
-                updateSetAction,
-                deleteSetAction,
-              }}
-            />
-          )}
-        />
-
-        {/* Hidden entirely on a hold that carries no risk flag — the "you are
+  /**
+   * Everything that is not the set you are logging, gathered at the foot of
+   * the page behind its own summary row.
+   *
+   * Asked for after the athletes were interviewed, and their reason is better
+   * than the one the layout had: they want to reach the form without
+   * scrolling. The old order put the logged sets ABOVE the inputs, so every
+   * set pushed the weight box further down the screen — the form moved away
+   * from the thumb precisely as the session went on and fatigue made
+   * precision harder. Nothing here is deleted; it is one tap away, below the
+   * work.
+   */
+  const suggestionPanel =
+        /* Hidden entirely on a hold that carries no risk flag — the "you are
             fine, just not there yet" case, which the branch structure of
             suggestProgression makes the modal one for a healthy athlete
             mid-block. Nothing replaces it: the weight box is already
@@ -670,8 +481,8 @@ export function SessionRunner({
             those would leave the rule computing correctly with nobody seeing
             it, which is exactly the defect this repo shipped on 2026-08-31 and
             found six days later. Doing it deliberately would be worse than
-            doing it by accident. */}
-        {previousPerformance &&
+            doing it by accident. */
+        previousPerformance &&
         previousSuggestion &&
         !(previousSuggestion.action === "hold" && previousSuggestion.riskFlag === "none") ? (
           <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
@@ -741,6 +552,231 @@ export function SessionRunner({
                 the next thirty seconds and must never cost a tap. */}
             <PlateStepLine assist={plateAssist} showStep={showPlateStepArea} />
           </div>
+        ) : null;
+
+  const todaysSetsPanel =
+    currentExercise.loggedSets.length > 0 ? (
+      <details key={`today:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        <summary className={SUPPORT_SUMMARY}>
+          Series de hoy · {currentExercise.loggedSets.length} de {currentExercise.targetSets}
+        </summary>
+        <div className="mt-2">
+        <LoggedSetsList
+          sets={currentExercise.loggedSets}
+          isUnilateral={isUnilateral}
+          targetSets={currentExercise.targetSets}
+          className="mt-4 grid gap-2"
+          renderRow={(set, displayNumber) => (
+            // Keyed on updatedAt so a saved correction remounts the row
+            // closed with fresh values, while a rejected one stays open
+            // showing its error.
+            <EditableSetRow
+              key={`${set.id}:${set.updatedAt?.getTime() ?? 0}`}
+              set={set}
+              displayNumber={displayNumber}
+              edit={{
+                sessionId: session.id,
+                isUnilateral,
+                prescriptionType: currentExercise.prescriptionType,
+                targetRir: currentExercise.targetRir,
+                updateSetAction,
+                deleteSetAction,
+              }}
+            />
+          )}
+        />
+        </div>
+      </details>
+    ) : null;
+
+  const previousSessionPanel = hasPreviousSets ? (
+    <details key={`history:${currentExercise.id}`} className={SUPPORT_PANEL}>
+      <summary className={SUPPORT_SUMMARY}>La vez pasada</summary>
+      <div className="mt-2">
+{hasPreviousSets && previousPerformance ? (
+            <div className="grid gap-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
+              </p>
+              <LoggedSetsList
+                sets={previousPerformance.sets}
+                isUnilateral={previousPerformance.isUnilateral}
+                targetSets={previousPerformance.targetSets}
+                className="grid gap-2"
+                renderRow={(set, displayNumber) => (
+                  <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
+                )}
+              />
+            </div>
+          ) : null}
+      </div>
+    </details>
+  ) : null;
+
+  const sessionInfoPanel = (
+    <details className={SUPPORT_PANEL}>
+      <summary className={SUPPORT_SUMMARY}>Día {template.dayIndex} · {template.nameEs}</summary>
+      <div className="mt-2 grid gap-1">
+        <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
+        <p className="text-xs leading-5 text-zinc-400">{template.mobilityNotesEs}</p>
+      </div>
+    </details>
+  );
+
+  const plateSection =
+    plateAssist || askLoadingModel ? (
+      <details key={`plates:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        {/* The summary IS the state. A recorded build is one short phrase and
+            the single most useful thing this section knows, so it rides the
+            line the athlete is already reading — amber once it no longer
+            matches what they logged, so a stale one is visible without
+            opening anything.
+
+            With nothing recorded it reads "Registrar los discos" and carries
+            NO mass. That is invariant 14 enforced by layout rather than by
+            convention: only a build the athlete gave us may state a weight. */}
+        <summary className={SUPPORT_SUMMARY}>
+          {plateAssist?.savedBuild ? (
+            <>
+              Discos
+              <span
+                className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-200"}`}
+              >
+                {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado ·{" "}
+                {formatKg(String(plateAssist.savedBuild.totalKg), 1)}
+              </span>
+            </>
+          ) : askLoadingModel ? (
+            "¿Esta máquina usa discos?"
+          ) : (
+            "Registrar los discos"
+          )}
+        </summary>
+
+        <div className="mt-2">
+          <PlateBuildSection
+            assist={plateAssist}
+            askLoadingModel={askLoadingModel}
+            exerciseNameEs={currentExercise.exerciseNameEs}
+            exerciseId={currentExercise.exerciseId}
+            sessionId={session.id}
+            setLoadingModelAction={setLoadingModelAction}
+            setPlateBuildAction={setPlateBuildAction}
+          />
+        </div>
+      </details>
+    ) : null;
+
+  const detailsSection =
+    hasCues || hasPreviousSets || canSubstitute ? (
+      <details key={`details:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        <summary className={SUPPORT_SUMMARY}>Detalles del ejercicio</summary>
+
+        <div className="mt-2 grid gap-3">
+          {hasCues ? (
+            <div className="grid gap-1">
+              {currentExercise.notesEs ? (
+                <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
+              ) : null}
+              {currentExercise.painSensitive ? (
+                <p className="text-xs leading-5 text-amber-200">
+                  Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {canSubstitute ? (
+            <button
+              type="button"
+              onClick={() => setShowSubstitutePanel(true)}
+              className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+            >
+              Cambiar ejercicio
+            </button>
+          ) : null}
+        </div>
+      </details>
+    ) : null;
+  const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
+  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
+  const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
+
+  return (
+    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
+      <ExerciseProgressBar
+        exercises={exercises}
+        exerciseIndex={exerciseIndex}
+        exerciseName={currentExercise.exerciseNameEs}
+      />
+
+      {/* scroll-mt clears the sticky bar above, which would otherwise cover
+          the top of the card the effect just scrolled to. */}
+      <section
+        ref={exerciseCardRef}
+        className="mt-4 scroll-mt-16 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+          Ejercicio {exerciseIndex + 1} de {exercises.length}
+        </p>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          {/* tabIndex -1: focused programmatically on exercise change so the
+              swap is announced, never a tab stop in normal keyboard order. */}
+          {/* h1, not h2. The session name used to hold it, at the top of the
+              page; that block is now at the foot, and leaving the h1 there
+              would put the exercise heading before the page heading in the
+              document outline. Promoting it is also just true — this screen is
+              about the exercise in front of you, not the day it belongs to. */}
+          <h1 ref={exerciseHeadingRef} tabIndex={-1} className="text-xl font-semibold text-zinc-100 focus:outline-none">
+            {currentExercise.exerciseNameEs}
+          </h1>
+          <YoutubeTechniqueLink
+            nameEs={currentExercise.exerciseNameEs}
+            nameEn={currentExercise.exerciseNameEn}
+            isUnilateral={currentExercise.isUnilateral}
+          />
+        </div>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm leading-6 text-zinc-400">
+          {isDuration ? (
+            <>
+              {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
+              {isUnilateral ? " por lado" : ""} · descanso {currentExercise.restSeconds}s
+            </>
+          ) : (
+            <>
+              {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
+              {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso{" "}
+              {currentExercise.restSeconds}s
+            </>
+          )}
+          {/* The one thing on this card that never collapses. Everything else
+              the athlete reads once and scrolls past; a pain flag hidden
+              behind a tap is the failure mode this product exists to avoid,
+              so the WARNING stays out here and only its substitution list
+              goes into the disclosure below. */}
+          {currentExercise.painSensitive ? (
+            <span className="rounded-full bg-amber-300/10 px-2 py-1 text-xs font-semibold text-amber-200">
+              Vigilar dolor
+            </span>
+          ) : null}
+        </p>
+        {/* Plate build first, details second, and the order is the point.
+            The build is durable configuration the athlete maintains across
+            months and checks against the bar in front of them; the cue and
+            the substitution list are read once and remembered. Both keyed on
+            the exercise so "Siguiente ejercicio" reopens them closed, and
+            both prefixed because a bare exercise id is already a sibling's
+            key — colliding keys silently rendered two panels twice before. */}
+        {showSubstitutePanel ? (
+          <SubstituteExercisePanel
+            sessionId={session.id}
+            exercise={currentExercise}
+            existingSubstitutes={substitutesByExerciseId[currentExercise.id] ?? []}
+            planChoices={planSubstituteChoices}
+            state={substituteState}
+            formAction={substituteFormAction}
+            onClose={() => setShowSubstitutePanel(false)}
+          />
         ) : null}
 
         {restRemaining !== null && restRemaining > 0 ? (
@@ -934,6 +970,26 @@ export function SessionRunner({
         currentExerciseId={currentExercise.id}
         remainingCount={remainingExerciseCount}
       />
+
+      {/* Below "Terminar entrenamiento" deliberately. Everything above this
+          line is the set in front of you — name, technique link, weight, reps,
+          RIR, save, next — and everything below is available if you want it.
+          The order is the order they were asked for: what you have logged
+          today, what the app suggests, what you did last time, the discs, the
+          exercise, the day.
+
+          The one that matters most is the first. Today's sets used to sit
+          ABOVE the inputs, so each set you logged pushed the weight box
+          further down — the form drifted away from your thumb exactly as
+          fatigue set in. */}
+      <div className="mt-6 grid gap-2">
+        {todaysSetsPanel}
+        {suggestionPanel}
+        {previousSessionPanel}
+        {plateSection}
+        {detailsSection}
+        {sessionInfoPanel}
+      </div>
     </AppShell>
   );
 }
