@@ -113,13 +113,18 @@ rather than trusting the API's success. Two things to know about it:
   `Not able to load user because of unexpected error: User not found. (404)` —
   that comes from the CLI resolving the token's own user, *before* `--scope` is
   consulted, so it means the token rather than the scope. The job now checks
-  those two separately and says which one is wrong; it also strips whitespace
-  from the secret, since a pasted trailing newline produces the identical
-  error.
-- `deployment_status` workflows always run the copy on the **default branch**,
-  so the automatic trigger does nothing until this is merged to `main`. Use the
-  `workflow_dispatch` input (a branch name) to run it by hand before then —
-  or afterwards, to re-point the alias at another branch without pushing.
+  it also strips whitespace from the secret, since a pasted trailing newline
+  produces the identical error. Do **not** re-add a bare `vercel whoami
+  --token` preflight to tell the token and the scope apart: a team-scoped token
+  has no bare user to resolve, so that check rejects a valid token — it was
+  tried, and it failed a token that had aliased a deployment successfully ten
+  minutes earlier.
+- It fires from the branch under test, not only from `main` — measured, after
+  this document claimed the opposite. `deployment_status` carries a ref, so the
+  workflow runs from the deployment's own branch; the "default branch only"
+  rule applies to events with no branch context. `workflow_dispatch` (a branch
+  name) is therefore for re-pointing the alias at an older branch without
+  pushing to it, not a stopgap until merge.
 
 With more than one PR open, the newest preview to finish wins the alias. That
 is the same last-write-wins behaviour as doing it by hand, and `/version` is

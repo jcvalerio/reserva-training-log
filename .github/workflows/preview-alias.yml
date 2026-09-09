@@ -9,10 +9,14 @@ name: Preview alias
 # succeeded — which already cost a review cycle, with a fix reported as "not
 # working" when it had simply never been served.
 #
-# IMPORTANT: `deployment_status` workflows always run the copy of this file on
-# the DEFAULT branch. Until this is merged to `main` the automatic trigger does
-# nothing, no matter what the branch contains. `workflow_dispatch` is here so
-# the job is usable by hand in the meantime, and afterwards for re-pointing the
+# MEASURED, after this file claimed the opposite: `deployment_status` DOES run
+# the copy of the workflow on the deployment's own branch, not only the one on
+# the default branch. Runs 34300196111 and 34300871990 both executed from
+# `feat/plate-load-assistant` before any of this reached `main`. The general
+# "only the default branch" rule applies to events with no branch context;
+# a deployment carries a ref, so this one has context to use.
+#
+# `workflow_dispatch` therefore is not a stopgap — it is for re-pointing the
 # alias at an older branch without pushing to it.
 
 on:
@@ -118,29 +122,25 @@ jobs:
           token=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
           echo "::add-mask::$token"
 
-          # Validated in two steps, because the first run of this workflow
-          # failed with "Not able to load user because of unexpected error:
-          # User not found. (404)" — a message that names neither the token nor
-          # the scope. It comes from the CLI resolving the token's OWN user,
-          # which happens before --scope is consulted, so checking them
-          # separately makes the next failure self-diagnosing.
-          if ! user=$(npx --yes vercel@latest whoami --token="$token" 2>&1 | tail -1); then
-            echo "::error::The token did not resolve to a Vercel user, so this is the token and not the scope. Create a new one at https://vercel.com/account/tokens with scope '$VERCEL_SCOPE' and update the VERCEL_TOKEN secret. CLI said: $user"
-            exit 1
-          fi
-          echo "Token resolves to: $user"
-
-          if ! npx --yes vercel@latest whoami --token="$token" --scope="$VERCEL_SCOPE" >/dev/null 2>&1; then
-            echo "::error::Token is valid as '$user' but cannot see scope '$VERCEL_SCOPE'. Re-create it with that team selected, or correct VERCEL_SCOPE in this workflow."
-            exit 1
-          fi
-
+          # Deliberately NOT preflighted with `vercel whoami --token` on its
+          # own. That check was added here to separate a bad token from a bad
+          # scope, and it was wrong: a TEAM-scoped token has no bare user to
+          # resolve, so `whoami` without --scope rejects a perfectly valid
+          # token and the step then blamed the token. It failed a token that
+          # had aliased a deployment successfully ten minutes earlier.
+          #
+          # There is no cheap way to tell the two apart, so the error says so
+          # instead of picking one. `alias set` reports the CLI's own message,
+          # which is the accurate thing on screen either way.
           # Kept in a local variable rather than a step output: a step output is
           # persisted for the run, and there is no reason for a credential to
           # outlive the command that needs it.
-          npx --yes vercel@latest alias set \
+          if ! npx --yes vercel@latest alias set \
             "$TARGET_URL" "$ALIAS_DOMAIN" \
-            --token="$token" --scope="$VERCEL_SCOPE"
+            --token="$token" --scope="$VERCEL_SCOPE"; then
+            echo "::error::Aliasing failed. Check, in order: VERCEL_TOKEN is a current token with access to '$VERCEL_SCOPE' (re-create at https://vercel.com/account/tokens), and the deployment above belongs to that scope. The CLI's own message is directly above this line and is more specific than anything this workflow can infer."
+            exit 1
+          fi
 
       - name: Prove the alias serves that commit
         id: verify
