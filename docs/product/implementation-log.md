@@ -2,6 +2,28 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-08 — One disclosure with five subjects was not a simplification
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (790 passing, +3)/`build` green. No schema change. Not yet checked on a device.
+
+**Reported from preview, with the screen quoted back**: "the changes duplicate the last session information... we cleaned the view but it is hard to read, too much information, a lot is not related." Both halves were right, and the second is the more interesting one.
+
+**The duplication was committed as a passing test.** `previousPerformance.sets` rendered in full inside the reference disclosure while `matchingPreviousSet` — one of those very sets — rendered again on the card, and `session-runner.test.tsx` asserted `getAllByText(/80kg × 12 · RIR 2 · dolor 0/)).toHaveLength(3)` with a comment explaining why each copy earned its place. None of them did. The athlete's own observation is the sharper framing: the form is *already prefilled* from that set, so the number appeared as history, as a second copy of the history, as the value in the weight box, and as `Sube carga → 66kg`. Four renderings, one fact, and the athlete reconciling all of them before finding the line that says what to do next.
+
+**Deleted: the always-visible row, its two fallback captions, and the whole `matchingPreviousSet` / `upcomingPositionOnSide` / `upcomingSide` machinery.** Kept, against the reviewing designer's recommendation to delete it too: the full previous-session list, one tap away. The athlete asked to "check on demand if you need to remember the weight reps and rir", and the prefill genuinely cannot answer what the history answers — that reps fell across sets, or that set three hurt, is invisible in a single prefilled number. What survives is a clean split: the form carries the fact, and the card carries the recommendation. Renamed **"Última vez" → "Sugerencia"**, since it no longer reports anything that happened.
+
+**The previous pass's consolidation was the wrong kind of win.** Four collapsibles merged into one cut the number of summary rows and left the same pile underneath — opening "Detalles del ejercicio" dumped a coaching cue, a substitution list, the entire plate editor, every set from last session and a static rules paragraph into one 300–400px block. Now two disclosures with one subject each: **Discos** and **Detalles del ejercicio**.
+
+**Tabs were considered and rejected**, and the argument is about cost shape rather than taste. A tab bar is chrome paid on every glance at this card for material read maybe twice per exercise; a disclosure costs a row only when it exists, and its contents cost nothing until tapped. Tabs also imply peers, and a coaching cue that is dead weight after session two is not the peer of a plate build maintained across months. Icons per section were rejected for the reason the YouTube glyph works and these would not: "cue" and "history" have no legible symbol, so an icon-only control is a disclosure with a picture instead of a label — worse to read fast, worse to hit with a chalked thumb.
+
+**The plate summary line is now the state**, `Discos · 3 × 45 lb por lado · 122.5kg`, amber once stale. With nothing recorded it reads `Registrar los discos` and carries **no mass at all** — invariant 14 enforced by layout rather than by convention, and pinned by a test asserting the summary contains neither `kg` nor `lb` until a build exists.
+
+**The pain rules moved into the pain flow**, which is what they were always for. The threshold paragraph now renders inside `ExercisePainQuestion` the moment "Sí, algo me molestó" is tapped, immediately before the 0-10 field — the number about to be typed is the one those rules act on. Ambient on every exercise, identical text each time, it was read by nobody. **This is the rules text, not the pain flag**: the amber "Vigilar dolor" chip stays on the prescription line outside every disclosure, and a test pins that it has no `details` ancestor.
+
+**Measured, ~44px off the card above the form** — modest, and worth stating plainly rather than dressing up. Most of the old bulk was already behind a closed disclosure, so it never counted against always-visible height. The real change is what a tap costs: every expansion is now single-subject and short, where one used to open five unrelated things at once.
+
+**Not yet verified on a device.** Check that the two summary rows read as distinct rather than as a stack of blue links, that `Discos · 3 × 45 lb por lado · 122.5kg` does not wrap badly at 390px, and that the pain rules appearing above the 0-10 field do not push the slider under a thumb.
+
 ## 2026-09-07 (later) — The runner screen was mostly things you read once
 
 Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (782 passing, +1)/`build` green. No schema change. Not yet checked on a device.

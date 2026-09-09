@@ -409,110 +409,135 @@ export function SessionRunner({
   // ask, so the empty case collapses the whole card rather than leaving a
   // bordered box with nothing in it.
   const askLoadingModel = currentExercise.hasPlateInventory && currentExercise.loadingModel === null;
-  const plateBuildSection = (
-    <PlateBuildSection
-      assist={plateAssist}
-      askLoadingModel={askLoadingModel}
-      exerciseNameEs={currentExercise.exerciseNameEs}
-      exerciseId={currentExercise.exerciseId}
-      sessionId={session.id}
-      setLoadingModelAction={setLoadingModelAction}
-      setPlateBuildAction={setPlateBuildAction}
-    />
-  );
   const hasCues = Boolean(currentExercise.notesEs) || currentExercise.painSensitive;
   const canSubstitute = isLoggingAllowed && !showSubstitutePanel;
   const hasPreviousSets = Boolean(previousPerformance && previousPerformance.sets.length > 0);
-  const referenceSection = (
-    <details key={`reference:${currentExercise.id}`} className="mt-2">
-      <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-        Detalles del ejercicio
-        {/* The single most useful fact this section holds, promoted onto the
-            line the athlete is already reading. Amber when the build no
-            longer matches what they last logged, so a stale one is visible
-            without opening anything. */}
-        {plateAssist?.savedBuild ? (
-          <span
-            className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-300"}`}
-          >
-            · {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado
-          </span>
-        ) : null}
-      </summary>
 
-      <div className="mt-2 grid gap-3">
-        {hasCues ? (
-          <div className="grid gap-1">
-            {currentExercise.notesEs ? (
-              <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
-            ) : null}
-            {currentExercise.painSensitive ? (
-              <p className="text-xs leading-5 text-amber-200">
-                Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+  /**
+   * Two disclosures, each with one subject, replacing one that had five.
+   *
+   * The previous pass merged four collapsibles into a single "Detalles del
+   * ejercicio" and counted that a win. It was not: opening it dumped the
+   * coaching cue, the substitution list, the whole plate editor, a second copy
+   * of every set from last session and a static rules paragraph into one
+   * 300-400px block. Fewer summary rows, same pile underneath — which is what
+   * "we cleaned the view but it is hard to read" meant.
+   *
+   * Tabs were considered and rejected. A tab bar is chrome paid on every
+   * glance at this card for material read maybe twice per exercise, while a
+   * disclosure costs a row only when it exists and its contents cost nothing
+   * until tapped. Tabs also imply peers, and a coaching cue that is dead
+   * weight after session two is not the peer of a plate build maintained for
+   * months. Icons per section were rejected for the same reason the YouTube
+   * glyph works and these would not: "cue" and "history" have no legible
+   * symbol, so an icon-only control is a disclosure with a picture instead of
+   * a label — worse to read fast, worse to hit with a chalked thumb.
+   */
+  const plateSection =
+    plateAssist || askLoadingModel ? (
+      <details key={`plates:${currentExercise.id}`} className="mt-2">
+        {/* The summary IS the state. A recorded build is one short phrase and
+            the single most useful thing this section knows, so it rides the
+            line the athlete is already reading — amber once it no longer
+            matches what they logged, so a stale one is visible without
+            opening anything.
 
-        {plateBuildSection}
+            With nothing recorded it reads "Registrar los discos" and carries
+            NO mass. That is invariant 14 enforced by layout rather than by
+            convention: only a build the athlete gave us may state a weight. */}
+        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+          {plateAssist?.savedBuild ? (
+            <>
+              Discos
+              <span
+                className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-200"}`}
+              >
+                {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado ·{" "}
+                {formatKg(String(plateAssist.savedBuild.totalKg), 1)}
+              </span>
+            </>
+          ) : askLoadingModel ? (
+            "¿Esta máquina usa discos?"
+          ) : (
+            "Registrar los discos"
+          )}
+        </summary>
 
-        {hasPreviousSets && previousPerformance ? (
-          <div className="grid gap-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
-            </p>
-            <LoggedSetsList
-              sets={previousPerformance.sets}
-              isUnilateral={previousPerformance.isUnilateral}
-              targetSets={previousPerformance.targetSets}
-              className="grid gap-2"
-              renderRow={(set, displayNumber) => <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />}
-            />
-          </div>
-        ) : null}
-
-        {/* Was an always-open amber block under "Siguiente ejercicio", where
-            it pushed the finish link off the bottom of every exercise. The
-            text is identical on every exercise of every session and already
-            lives on /guía; it is kept here so the rules are still one tap
-            from the screen they govern. Kept honest against
-            suggestProgression: agujetas stopped blocking on 2026-08-31, and a
-            rule stated here that the app no longer applies is worse than no
-            rule at all. */}
-        <div className="grid gap-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Reglas de dolor</p>
-          <p className="text-xs leading-5 text-zinc-400">
-            Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el
-            movimiento. Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar
-            orientación profesional si persiste.
-          </p>
+        <div className="mt-2">
+          <PlateBuildSection
+            assist={plateAssist}
+            askLoadingModel={askLoadingModel}
+            exerciseNameEs={currentExercise.exerciseNameEs}
+            exerciseId={currentExercise.exerciseId}
+            sessionId={session.id}
+            setLoadingModelAction={setLoadingModelAction}
+            setPlateBuildAction={setPlateBuildAction}
+          />
         </div>
+      </details>
+    ) : null;
 
-        {canSubstitute ? (
-          <button
-            type="button"
-            onClick={() => setShowSubstitutePanel(true)}
-            className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-          >
-            Cambiar ejercicio
-          </button>
-        ) : null}
-      </div>
-    </details>
-  );
+  const detailsSection =
+    hasCues || hasPreviousSets || canSubstitute ? (
+      <details key={`details:${currentExercise.id}`} className="mt-2">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+          Detalles del ejercicio
+        </summary>
+
+        <div className="mt-2 grid gap-3">
+          {hasCues ? (
+            <div className="grid gap-1">
+              {currentExercise.notesEs ? (
+                <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
+              ) : null}
+              {currentExercise.painSensitive ? (
+                <p className="text-xs leading-5 text-amber-200">
+                  Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Kept, deliberately, against the recommendation to delete it. The
+              form below already opens with last session's numbers, so this is
+              a second surface — but the two do different jobs. The prefill
+              answers "what am I about to lift"; this answers "how did it
+              actually go", which the prefill flattens: that reps fell across
+              sets, or that set three hurt, is exactly what a single prefilled
+              number cannot say. What was deleted is the THIRD copy — the
+              always-visible row that repeated one of these sets verbatim. */}
+          {hasPreviousSets && previousPerformance ? (
+            <div className="grid gap-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
+              </p>
+              <LoggedSetsList
+                sets={previousPerformance.sets}
+                isUnilateral={previousPerformance.isUnilateral}
+                targetSets={previousPerformance.targetSets}
+                className="grid gap-2"
+                renderRow={(set, displayNumber) => (
+                  <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
+                )}
+              />
+            </div>
+          ) : null}
+
+          {canSubstitute ? (
+            <button
+              type="button"
+              onClick={() => setShowSubstitutePanel(true)}
+              className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+            >
+              Cambiar ejercicio
+            </button>
+          ) : null}
+        </div>
+      </details>
+    ) : null;
   const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
   const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
   const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
-
-  // The set you're about to log next, matched against the same position (and
-  // side, for unilateral exercises) from the previous session — so the
-  // reference tracks whichever set you're on, not just the first.
-  const upcomingSide = isUnilateral ? defaultSide : "bilateral";
-  const upcomingPositionOnSide = isUnilateral ? (defaultSide === "left" ? leftCount : rightCount) + 1 : nextSetNumber;
-  const matchingPreviousSet =
-    previousPerformance && isLoggingAllowed
-      ? (previousPerformance.sets.filter((set) => set.side === upcomingSide)[upcomingPositionOnSide - 1] ?? null)
-      : null;
 
   return (
     <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
@@ -574,22 +599,15 @@ export function SessionRunner({
             </span>
           ) : null}
         </p>
-        {/* ONE disclosure, not three. The card had grown a separate one for
-            coaching cues, another for the previous session's sets and a third
-            for the plate build, plus an always-open rules block below the nav
-            — four summary rows at 44px each, spent on material the athlete
-            reads once and scrolls past every set after.
-
-            The rule for what goes in: anything that does not change what you
-            do in the next thirty seconds. What stays outside is the exercise
-            name, the prescription you are executing, the pain flag, your
-            logged sets, the progression verdict with its "añade X por lado"
-            instruction, and the form. Everything else is reference.
-
-            Keyed so "Siguiente ejercicio" reopens it closed. Prefixed because
-            a bare exercise id is already used as a key by a sibling, and
-            colliding keys silently rendered both panels twice once before. */}
-        {referenceSection}
+        {/* Plate build first, details second, and the order is the point.
+            The build is durable configuration the athlete maintains across
+            months and checks against the bar in front of them; the cue and
+            the substitution list are read once and remembered. Both keyed on
+            the exercise so "Siguiente ejercicio" reopens them closed, and
+            both prefixed because a bare exercise id is already a sibling's
+            key — colliding keys silently rendered two panels twice before. */}
+        {plateSection}
+        {detailsSection}
 
         {showSubstitutePanel ? (
           <SubstituteExercisePanel
@@ -630,23 +648,21 @@ export function SessionRunner({
 
         {previousPerformance && previousSuggestion ? (
           <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-              Última vez
-              {matchingPreviousSet
-                ? ` · Set ${upcomingPositionOnSide}${isUnilateral ? (upcomingSide === "left" ? " · Izq" : " · Der") : ""}`
-                : ""}
-            </p>
-            <div className="mt-2 grid gap-1 text-sm text-zinc-300">
-              {matchingPreviousSet ? (
-                <LoggedSetRow set={matchingPreviousSet} />
-              ) : (
-                <p className="text-xs leading-5 text-zinc-400">
-                  {exerciseTargetReached ? "Series objetivo completadas." : "La vez pasada no llegaste a este set."}
-                </p>
-              )}
-            </div>
+            {/* "Sugerencia", not "Última vez", because it no longer reports a
+                fact. It used to lead with the matching set from last session —
+                the SAME set the form below is already prefilled from, and the
+                same set the history inside "Detalles" lists. Three renderings
+                of one number, which a test had pinned at
+                `toHaveLength(3)` with a comment explaining why each was
+                justified. None of them were: the athlete reconciles four
+                things that all say 63 kg before finding the one that tells
+                them what to do next.
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+                What survives is the split the card should always have had —
+                the form carries the fact, this carries the recommendation. */}
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Sugerencia</p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
                 {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
                 {suggestedWeightKg && !repsFirstIncrease ? ` → ${formatKg(suggestedWeightKg, 2)}` : ""}
@@ -979,6 +995,27 @@ function ExercisePainQuestion({
 
       {escalated ? (
         <>
+          {/* The thresholds, stated at the one moment they are actionable.
+              They used to sit in an always-open block under "Siguiente
+              ejercicio", then in a reference disclosure — ambient on every
+              exercise of every session, read by nobody, and identical text
+              each time. What the athlete is about to type is the number these
+              rules act on, so this is where the rules mean something.
+
+              This is the RULES text, not the pain flag. The amber "Vigilar
+              dolor" chip stays on the prescription line, outside every
+              disclosure — hiding a pain signal behind a tap is the failure
+              this product exists to avoid, and it is not what moved here.
+
+              Kept honest against suggestProgression: agujetas stopped
+              blocking on 2026-08-31, and a rule stated here that the app no
+              longer applies is worse than no rule at all. */}
+          <p className="text-xs leading-5 text-zinc-400">
+            Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el
+            movimiento. Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar
+            orientación profesional si persiste.
+          </p>
+
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>¿Cuánto? (0-10)</span>
             <input

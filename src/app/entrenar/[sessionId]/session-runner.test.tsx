@@ -304,12 +304,13 @@ describe("SessionRunner", () => {
   });
 
   /**
-   * The card had grown four separate collapsibles — cues, the previous
-   * session's sets, the plate build, and an always-open rules block below the
-   * nav. Four summary rows at 44px each, spent on material read once and
-   * scrolled past every set after.
+   * One disclosure holding five subjects was the previous pass's mistake: it
+   * cut the number of summary rows and left the same pile underneath, so
+   * opening it dumped a cue, a substitution list, a plate editor, every set
+   * from last session and a static rules paragraph into one block. Two
+   * disclosures with one subject each is the correction.
    */
-  it("gathers every piece of reference material into one disclosure", () => {
+  it("splits reference material into two single-subject disclosures", () => {
     const exercise = buildExercise({
       notesEs: "Escápulas estables.",
       painSensitive: true,
@@ -326,16 +327,18 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getAllByRole("group")).toHaveLength(1);
-
-    const section = screen.getByText("Detalles del ejercicio").closest("details")!;
-    for (const text of ["Escápulas estables.", "Reglas de dolor", "Cambiar ejercicio"]) {
-      expect(section).toContainElement(screen.getByText(text));
+    const details = screen.getByText("Detalles del ejercicio").closest("details")!;
+    for (const text of ["Escápulas estables.", "Cambiar ejercicio", "La serie de la vez pasada"]) {
+      expect(details).toContainElement(screen.getByText(text));
     }
+
+    // The pain rules are no longer ambient reference on every exercise; they
+    // belong to the moment someone is actually recording pain.
+    expect(screen.queryByText(/Dolor articular >2 bloquea/)).toBeNull();
 
     // The pain flag is the one thing that never collapses: hiding it behind a
     // tap is the failure this product exists to avoid. It rides on the
-    // prescription line, outside the disclosure entirely.
+    // prescription line, outside every disclosure.
     const flag = screen.getByText("Vigilar dolor");
     expect(flag).toBeVisible();
     expect(flag.closest("details")).toBeNull();
@@ -641,11 +644,14 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText(/Última vez/)).toBeVisible();
-    // One as the single "Última vez · Set 1" reference row, plus both prior
-    // sets again inside the (collapsed-by-default) "ver todas las series"
-    // history — see the dedicated test below for that disclosure itself.
-    expect(screen.getAllByText(byNormalizedText(/80kg × 12 · RIR 2 · dolor 0/))).toHaveLength(3);
+    expect(screen.getByText("Sugerencia")).toBeVisible();
+    // Was toHaveLength(3), with a comment explaining why each copy earned its
+    // place. None of them did: the athlete reconciled the same 80 kg written
+    // three ways before finding the one line telling them what to do next.
+    // Now the history is the only rendering of the fact — one row per set of
+    // last session, behind "Detalles del ejercicio" — and the form prefill
+    // plus the suggestion carry what to do about it.
+    expect(screen.getAllByText(byNormalizedText(/80kg × 12 · RIR 2 · dolor 0/))).toHaveLength(2);
     expect(screen.getByText(/Sube carga/)).toBeVisible();
     expect(screen.getByText(/84kg/)).toBeVisible();
 
@@ -897,7 +903,15 @@ describe("SessionRunner", () => {
     expect(screen.getByText(/82kg/)).toBeVisible();
   });
 
-  it("keeps the previous-performance reference visible after logging a set, matched to the set you're about to log", () => {
+  /**
+   * The per-set "Última vez · Set 2" row is gone, and with it the machinery
+   * that matched a previous set to the one you are about to log. It rendered
+   * a number the form was already prefilled with and the history already
+   * listed — the same fact three times, which is what made this card hard to
+   * read. Every previous set is still one tap away, which is where you go to
+   * see how it actually went rather than just what to lift.
+   */
+  it("keeps last session's sets reachable without repeating one of them on the card", () => {
     const exercise = buildExercise({
       targetSets: 3,
       loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
@@ -916,38 +930,22 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    // One set already logged today, so the next set to log is set 2 — the
-    // reference should show set 2's previous value (82.5kg), not set 1's.
-    expect(screen.getByText(/Última vez · Set 2/)).toBeVisible();
-    expect(screen.getAllByText(/82.5kg/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Última vez/)).toBeNull();
+    // The full logged-row shape, not a bare "82.5kg" — the suggestion says
+    // "Mantén la carga → 82.5kg", which is the same number doing a genuinely
+    // different job and must not be counted as a repetition of the history.
+    expect(screen.getAllByText(byNormalizedText(/82\.5kg × 10 · RIR 2/))).toHaveLength(1);
+    const previous = screen.getByText("Las series de la vez pasada").closest("details")!;
+    expect(previous).toContainElement(screen.getByText(byNormalizedText(/82\.5kg × 10 · RIR 2/)));
+    expect(previous).not.toHaveAttribute("open");
   });
 
-  it("shows a fallback message once you're past what was recorded last time", () => {
-    const exercise = buildExercise({
-      targetSets: 3,
-      loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
-      previousPerformance: {
-        sessionId: "session-previous",
-        prescriptionType: "strength",
-        targetRepMax: 12,
-        targetSets: 1,
-        isUnilateral: false,
-        sets: [buildSet({ id: "prev-1", setNumber: 1 })],
-      },
-    });
-
-    renderRunner({ exercises: [exercise] });
-
-    expect(screen.getByText(/Última vez/)).toBeVisible();
-    expect(screen.getByText("La vez pasada no llegaste a este set.")).toBeVisible();
-  });
-
-  it("does not show a previous-performance card when there is none", () => {
+  it("does not show a suggestion card when there is no previous performance", () => {
     const exercise = buildExercise({ previousPerformance: null });
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.queryByText("Última vez")).toBeNull();
+    expect(screen.queryByText("Sugerencia")).toBeNull();
   });
 
   it("anchors the suggested next weight on the previous session's last *planned* set, not a bonus set logged after it", () => {
@@ -1660,6 +1658,28 @@ describe("SessionRunner — the once-per-exercise pain question", () => {
     // The accessible name of this label swallows its own option list and
     // helper copy, so match the question rather than the whole string.
     expect(screen.getByLabelText(/^¿Dónde\?/)).toBeInTheDocument();
+
+    // The thresholds appear here and only here. They spent months as an
+    // always-open block under "Siguiente ejercicio" and then inside a
+    // reference disclosure — ambient on every exercise of every session,
+    // identical text each time. The number about to be typed is the one these
+    // rules act on, so this is the moment they mean anything.
+    expect(screen.getByText(/Dolor articular >2 bloquea/)).toBeVisible();
+  });
+
+  it("keeps the pain rules out of the way until pain is actually being recorded", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [buildSet({ setNumber: 1 }), buildSet({ id: "set-2", setNumber: 2 })],
+        }),
+      ],
+    });
+
+    // Asked, not yet escalated: nothing to explain.
+    expect(screen.getByRole("button", { name: "Sí, algo me molestó" })).toBeInTheDocument();
+    expect(screen.queryByText(/Dolor articular >2 bloquea/)).toBeNull();
   });
 
   it("reports an already-answered exercise instead of asking again", () => {
@@ -1803,6 +1823,45 @@ describe("SessionRunner — what to put on the bar", () => {
     expect(screen.getByText(/122.5kg reales · 6 discos/)).toBeInTheDocument();
     // The guess is withdrawn once there is an answer.
     expect(screen.queryByText(/podrías armarlo así/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The plate build is durable configuration the athlete maintains across
+   * months and checks against the bar in front of them. It gets its own row,
+   * labelled with its own state, rather than riding on a summary about
+   * coaching cues.
+   */
+  it("puts the recorded build on its own summary line, so no tap is needed to read it", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    const summary = screen.getByText("Discos").closest("summary")!;
+    expect(summary).toHaveTextContent("3 × 45 lb por lado");
+    expect(summary).toHaveTextContent("122.5kg");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    // Its own disclosure, not the one holding cues and substitutions.
+    expect(summary.closest("details")).not.toContainElement(screen.getByText("Detalles del ejercicio"));
+  });
+
+  /**
+   * Invariant 14 enforced by layout rather than convention: only a build the
+   * athlete recorded may state a mass, so the unrecorded summary carries none.
+   */
+  it("names no weight on the summary until a build has been recorded", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const summary = screen.getByText("Registrar los discos").closest("summary")!;
+    expect(summary).not.toHaveTextContent(/kg/);
+    expect(summary).not.toHaveTextContent(/lb/);
   });
 
   it("offers a way to disagree with the computed build", () => {
