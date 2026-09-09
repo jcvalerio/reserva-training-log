@@ -1,0 +1,146 @@
+name: Preview alias
+
+# Points preview.gym.jcvalerio.com at the newest preview build.
+#
+# Why this exists: BETTER_AUTH_URL is pinned to that hostname so Google OAuth
+# has a fixed redirect URI, but every push creates a NEW preview URL and the
+# alias keeps pointing at whichever deployment was aliased last. Signing in
+# there then shows a build several commits old while the deploy for HEAD
+# succeeded — which already cost a review cycle, with a fix reported as "not
+# working" when it had simply never been served.
+#
+# IMPORTANT: `deployment_status` workflows always run the copy of this file on
+# the DEFAULT branch. Until this is merged to `main` the automatic trigger does
+# nothing, no matter what the branch contains. `workflow_dispatch` is here so
+# the job is usable by hand in the meantime, and afterwards for re-pointing the
+# alias at an older branch without pushing to it.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch whose newest successful preview should get the alias"
+        required: true
+        type: string
+
+concurrency:
+  # Never cancel: a half-applied alias is worse than a slow one, and these
+  # finish in seconds. Serialised so two deploys landing together cannot
+  # interleave and leave the alias pointing somewhere neither of them chose.
+  group: preview-alias
+  cancel-in-progress: false
+
+env:
+  ALIAS_DOMAIN: preview.gym.jcvalerio.com
+  VERCEL_SCOPE: juan-carlos-valerios-projects
+
+jobs:
+  alias:
+    # On the event path, only successful PREVIEW deployments. Production has
+    # its own domain and must never be re-pointed here.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Preview')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      pull-requests: read
+    steps:
+      - name: Resolve the deployment to alias
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_URL: ${{ github.event.deployment_status.environment_url }}
+          EVENT_SHA: ${{ github.event.deployment.sha }}
+          EVENT_REF: ${{ github.event.deployment.ref }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Newest successful Preview deployment for the requested branch.
+            # Asking GitHub rather than Vercel keeps this to one credential.
+            deployment=$(gh api "repos/$REPO/deployments?ref=$INPUT_REF&environment=Preview&per_page=1" \
+              --jq '.[0] // empty')
+            if [ -z "$deployment" ]; then
+              echo "No preview deployment found for ref '$INPUT_REF'." >&2
+              exit 1
+            fi
+            id=$(echo "$deployment" | jq -r '.id')
+            sha=$(echo "$deployment" | jq -r '.sha')
+            ref="$INPUT_REF"
+            url=$(gh api "repos/$REPO/deployments/$id/statuses" \
+              --jq '[.[] | select(.state == "success")][0].environment_url // empty')
+          else
+            url="$EVENT_URL"
+            sha="$EVENT_SHA"
+            ref="$EVENT_REF"
+          fi
+
+          if [ -z "$url" ]; then
+            echo "Deployment has no environment_url; nothing to alias." >&2
+            exit 1
+          fi
+
+          {
+            echo "url=$url"
+            echo "sha=$sha"
+            echo "short_sha=${sha:0:7}"
+            echo "ref=$ref"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Point the alias at it
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions." >&2
+            exit 1
+          fi
+          npx --yes vercel@latest alias set \
+            "${{ steps.target.outputs.url }}" "$ALIAS_DOMAIN" \
+            --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE"
+
+      - name: Prove the alias serves that commit
+        id: verify
+        run: |
+          set -euo pipefail
+          expected="${{ steps.target.outputs.short_sha }}"
+
+          # The step that makes this workflow worth having. "vercel alias set"
+          # reporting success only means the API accepted it; the thing that
+          # actually matters is what the hostname serves, so ask it. /version
+          # is public and static per deployment, so it cannot answer with
+          # another build's commit.
+          for attempt in 1 2 3 4 5; do
+            served=$(curl -fsS --max-time 15 "https://$ALIAS_DOMAIN/version" | jq -r '.commit' || echo "")
+            if [ "$served" = "$expected" ]; then
+              echo "served=$served" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt $attempt: serving '${served:-<no answer>}', expected '$expected'."
+            sleep 5
+          done
+
+          echo "Alias did not serve $expected after 5 attempts." >&2
+          exit 1
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Preview alias"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Domain | \`$ALIAS_DOMAIN\` |"
+            echo "| Commit | \`${{ steps.target.outputs.short_sha }}\` |"
+            echo "| Branch | \`${{ steps.target.outputs.ref }}\` |"
+            echo "| Serving | \`${{ steps.verify.outputs.served || 'not confirmed' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

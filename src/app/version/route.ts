@@ -5,10 +5,14 @@ import { appVersion } from "@/lib/app-version";
 /**
  * Which commit is serving this URL, as JSON, without signing in.
  *
- * Public and unauthenticated on purpose. The case it exists for is an athlete
- * on a phone saying "this still looks like the old version" — the answer has
- * to be one tap away on whatever URL they actually have open, and a signed-out
- * check is also the only way to tell a stale ALIAS from a stale session.
+ * Unauthenticated by this app on purpose. The case it exists for is an athlete
+ * on a phone saying "this still looks like the old version", and a signed-out
+ * check is the only way to tell a stale ALIAS from a stale session.
+ *
+ * "Public" is bounded by Vercel rather than by us: raw `*.vercel.app` preview
+ * URLs sit behind Vercel's deployment protection and answer with an SSO
+ * redirect, so this is directly reachable on production and on the aliased
+ * preview hostname — which are the two places anyone is actually testing.
  *
  * The commit SHA of a public repository is not a secret; the branch name and
  * build time are the two other things you need to tell two previews apart.

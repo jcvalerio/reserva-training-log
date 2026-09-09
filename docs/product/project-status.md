@@ -100,11 +100,31 @@ pages (`/`, `/privacidad`, `/version`) work on any preview URL without aliasing.
 **The alias does not follow new pushes, and that has already cost a review
 cycle.** Every push builds a new preview URL; `preview.gym.jcvalerio.com` keeps
 pointing at whichever deployment was aliased last, so signing in there can show
-a build several commits old while the deploy for HEAD succeeded. Re-run the
-alias after each push you intend to test. To check what you are actually
-looking at, open **`/version`** — it is public, static per deployment, and
-returns the commit, branch, environment and build time. The same stamp is at
-the foot of every page (`preview · 901eba3`), including the session runner.
+a build several commits old while the deploy for HEAD succeeded.
+
+**`.github/workflows/preview-alias.yml` now re-points it** on every successful
+preview deployment, and verifies the hostname actually serves that commit
+rather than trusting the API's success. Two things to know about it:
+
+- It needs a **`VERCEL_TOKEN`** repository secret (Settings → Secrets and
+  variables → Actions). Without it the job fails loudly rather than silently
+  leaving the alias stale.
+- `deployment_status` workflows always run the copy on the **default branch**,
+  so the automatic trigger does nothing until this is merged to `main`. Use the
+  `workflow_dispatch` input (a branch name) to run it by hand before then —
+  or afterwards, to re-point the alias at another branch without pushing.
+
+With more than one PR open, the newest preview to finish wins the alias. That
+is the same last-write-wins behaviour as doing it by hand, and `/version` is
+how you notice.
+
+To check what you are actually looking at, open **`/version`** — static per
+deployment, returning the commit, branch, environment and build time. The same
+stamp is at the foot of every page (`preview · 032924b`), including the session
+runner. Note that Vercel's deployment protection puts raw `*.vercel.app`
+preview URLs behind SSO, so `/version` answers directly on production and on
+the aliased hostname; a 404 there means the alias predates the commit that
+added the route.
 
 `npx vercel deploy --prod --yes` remains for an out-of-band production deploy
 (npx, not bare `vercel`) — but note it uploads the **working tree**, not `HEAD`,
