@@ -33,7 +33,13 @@ concurrency:
 
 env:
   ALIAS_DOMAIN: preview.gym.jcvalerio.com
+  # The team slug, confirmed against `vercel teams ls` rather than read off a
+  # deployment URL. Both happen to be the same string here, which is exactly
+  # why it was worth confirming.
   VERCEL_SCOPE: juan-carlos-valerios-projects
+  # Keeps the CLI's telemetry notice out of the logs, so the last line of
+  # `whoami` is the username and a failure reads as a failure.
+  VERCEL_TELEMETRY_DISABLED: "1"
 
 jobs:
   alias:
@@ -96,16 +102,45 @@ jobs:
 
       - name: Point the alias at it
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RAW_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_URL: ${{ steps.target.outputs.url }}
         run: |
           set -euo pipefail
-          if [ -z "${VERCEL_TOKEN:-}" ]; then
-            echo "VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions." >&2
+
+          if [ -z "${RAW_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions."
             exit 1
           fi
+
+          # Strip whitespace. A token pasted into the secret box with a
+          # trailing newline is indistinguishable from a revoked one in the
+          # CLI's error message, and costs a whole debugging round.
+          token=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
+          echo "::add-mask::$token"
+
+          # Validated in two steps, because the first run of this workflow
+          # failed with "Not able to load user because of unexpected error:
+          # User not found. (404)" — a message that names neither the token nor
+          # the scope. It comes from the CLI resolving the token's OWN user,
+          # which happens before --scope is consulted, so checking them
+          # separately makes the next failure self-diagnosing.
+          if ! user=$(npx --yes vercel@latest whoami --token="$token" 2>&1 | tail -1); then
+            echo "::error::The token did not resolve to a Vercel user, so this is the token and not the scope. Create a new one at https://vercel.com/account/tokens with scope '$VERCEL_SCOPE' and update the VERCEL_TOKEN secret. CLI said: $user"
+            exit 1
+          fi
+          echo "Token resolves to: $user"
+
+          if ! npx --yes vercel@latest whoami --token="$token" --scope="$VERCEL_SCOPE" >/dev/null 2>&1; then
+            echo "::error::Token is valid as '$user' but cannot see scope '$VERCEL_SCOPE'. Re-create it with that team selected, or correct VERCEL_SCOPE in this workflow."
+            exit 1
+          fi
+
+          # Kept in a local variable rather than a step output: a step output is
+          # persisted for the run, and there is no reason for a credential to
+          # outlive the command that needs it.
           npx --yes vercel@latest alias set \
-            "${{ steps.target.outputs.url }}" "$ALIAS_DOMAIN" \
-            --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE"
+            "$TARGET_URL" "$ALIAS_DOMAIN" \
+            --token="$token" --scope="$VERCEL_SCOPE"
 
       - name: Prove the alias serves that commit
         id: verify

@@ -107,8 +107,15 @@ preview deployment, and verifies the hostname actually serves that commit
 rather than trusting the API's success. Two things to know about it:
 
 - It needs a **`VERCEL_TOKEN`** repository secret (Settings → Secrets and
-  variables → Actions). Without it the job fails loudly rather than silently
-  leaving the alias stale.
+  variables → Actions), created at `vercel.com/account/tokens` with the
+  **`Juan Carlos Valerio's projects`** scope. Without it the job fails loudly
+  rather than silently leaving the alias stale. The first attempt failed with
+  `Not able to load user because of unexpected error: User not found. (404)` —
+  that comes from the CLI resolving the token's own user, *before* `--scope` is
+  consulted, so it means the token rather than the scope. The job now checks
+  those two separately and says which one is wrong; it also strips whitespace
+  from the secret, since a pasted trailing newline produces the identical
+  error.
 - `deployment_status` workflows always run the copy on the **default branch**,
   so the automatic trigger does nothing until this is merged to `main`. Use the
   `workflow_dispatch` input (a branch name) to run it by hand before then —
