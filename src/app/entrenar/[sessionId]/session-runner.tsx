@@ -399,6 +399,15 @@ export function SessionRunner({
           ? (plateAssist.trueStepKg ?? plateAssist.trueHoldKg)
           : plateAssist.trueHoldKg;
 
+  // Two conditions, not one, and collapsing them cost the honest refusal.
+  // `showPlateStepArea` is whether this is a load increase at all — when it is
+  // and no disc pair fits the band, PlateStepLine says so ("no hay un salto de
+  // carga apropiado"), which is a real answer and must still render.
+  // `plateStepShown` is the narrower question the badge cares about: is a
+  // better number about to appear directly below me?
+  const showPlateStepArea = Boolean(previousSuggestion?.action === "increase" && !repsFirstIncrease);
+  const plateStepShown = showPlateStepArea && Boolean(plateAssist?.step);
+
   const rawDefaultWeightKg = lastSet?.actualWeightKg ?? truePrefillKg ?? suggestedWeightKg ?? "";
 
   // Built once and placed by whichever branch renders. Both need identical
@@ -646,55 +655,91 @@ export function SessionRunner({
           )}
         />
 
-        {previousPerformance && previousSuggestion ? (
+        {/* Hidden entirely on a hold that carries no risk flag — the "you are
+            fine, just not there yet" case, which the branch structure of
+            suggestProgression makes the modal one for a healthy athlete
+            mid-block. Nothing replaces it: the weight box is already
+            prefilled with the same load, so a sentence saying "keep the same
+            weight" would be one more restatement of a number already on
+            screen.
+
+            NOT hidden on every hold, which is what was asked for. Five of the
+            six branches that produce a hold carry a riskFlag — pain over 2,
+            a sharp rep drop, a flagged note, too few sets, and the weekly-load
+            guardrail holding back an increase the athlete EARNED. Hiding
+            those would leave the rule computing correctly with nobody seeing
+            it, which is exactly the defect this repo shipped on 2026-08-31 and
+            found six days later. Doing it deliberately would be worse than
+            doing it by accident. */}
+        {previousPerformance &&
+        previousSuggestion &&
+        !(previousSuggestion.action === "hold" && previousSuggestion.riskFlag === "none") ? (
           <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
             {/* "Sugerencia", not "Última vez", because it no longer reports a
                 fact. It used to lead with the matching set from last session —
                 the SAME set the form below is already prefilled from, and the
                 same set the history inside "Detalles" lists. Three renderings
-                of one number, which a test had pinned at
-                `toHaveLength(3)` with a comment explaining why each was
-                justified. None of them were: the athlete reconciles four
-                things that all say 63 kg before finding the one that tells
-                them what to do next.
+                of one number, which a test had pinned at `toHaveLength(3)`
+                with a comment explaining why each was justified. None of them
+                were.
 
                 What survives is the split the card should always have had —
                 the form carries the fact, this carries the recommendation. */}
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Sugerencia</p>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
-                {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
-                {suggestedWeightKg && !repsFirstIncrease ? ` → ${formatKg(suggestedWeightKg, 2)}` : ""}
-              </div>
-              {previousSuggestion.riskFlag !== "none" ? (
+            <details>
+              {/* The verdict and the risk chip never collapse. The chip is a
+                  pain / fatigue / technique / weekly-load signal, and this
+                  card is the only place on the screen it appears — putting it
+                  behind a tap is the same failure as hiding "Vigilar dolor".
+                  What collapses is the justification: the reason paragraph
+                  and the "why" link argue the case for someone who wants to
+                  disagree with the app later, which is not what anyone needs
+                  while standing at the machine. */}
+              <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Sugerencia</span>
                 <span
-                  className={`rounded-full px-2 py-1 text-xs font-semibold ${riskFlagClass(previousSuggestion.riskFlag)}`}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}
                 >
-                  {riskFlagLabelEs(previousSuggestion.riskFlag)}
+                  {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
+                  {/* No number when the discs can express the move. The badge
+                      shows suggestNextWeightKg — a flat percentage of the last
+                      load, rounded to the nearest half kilo — while the line
+                      below shows the nearest total this gym can actually
+                      build. They disagree by design: on the real hip thrust
+                      the badge said "→ 66kg" while the instruction under it
+                      said "→ 67.5kg", two answers to one question, on screen
+                      together since the feature shipped. The buildable one is
+                      the one you can act on, so it is the only one kept. */}
+                  {suggestedWeightKg && !repsFirstIncrease && !plateStepShown
+                    ? ` → ${formatKg(suggestedWeightKg, 2)}`
+                    : ""}
                 </span>
-              ) : null}
-            </div>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">
-              {repsFirstIncrease
-                ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
-                : previousSuggestion.reasonEs}
-            </p>
-            <Link
-              href="/guia?open=matematica"
-              className="mt-2 inline-block text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-            >
-              ¿Por qué esta sugerencia?
-            </Link>
+                {previousSuggestion.riskFlag !== "none" ? (
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${riskFlagClass(previousSuggestion.riskFlag)}`}
+                  >
+                    {riskFlagLabelEs(previousSuggestion.riskFlag)}
+                  </span>
+                ) : null}
+              </summary>
 
-            {/* The decision half only. Which discs are currently on the
-                machine is reference and lives in the one collapsed section
-                at the top of the card; what to ADD changes what you do in the
-                next thirty seconds, so it stays beside the verdict. */}
-            <PlateStepLine
-              assist={plateAssist}
-              showStep={previousSuggestion.action === "increase" && !repsFirstIncrease}
-            />
+              <p className="mt-2 text-xs leading-5 text-zinc-400">
+                {repsFirstIncrease
+                  ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
+                  : previousSuggestion.reasonEs}
+              </p>
+              <Link
+                href="/guia?open=matematica"
+                className="mt-2 inline-block text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              >
+                ¿Por qué esta sugerencia?
+              </Link>
+            </details>
+
+            {/* Outside the <details> on purpose: it hides every child that is
+                not the <summary>, so "always visible" here means "not a child
+                of it". What to ADD is the instruction the athlete acts on in
+                the next thirty seconds and must never cost a tap. */}
+            <PlateStepLine assist={plateAssist} showStep={showPlateStepArea} />
           </div>
         ) : null}
 

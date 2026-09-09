@@ -842,8 +842,16 @@ describe("SessionRunner", () => {
         loadFlaggedPrescriptionIds: [exercise.id],
       });
 
+      // The chip never collapses: it is a fatigue/pain/technique/load signal
+      // and this card is the only place it appears. The REASON does collapse —
+      // it argues the case for someone who wants to disagree with the app
+      // later, which is not what anyone needs at the machine.
       expect(screen.getByText("Carga semanal")).toBeVisible();
-      expect(screen.getByText(/volumen semanal de ese grupo muscular/)).toBeVisible();
+      const reason = screen.getByText(/volumen semanal de ese grupo muscular/);
+      expect(reason).not.toBeVisible();
+
+      fireEvent.click(screen.getByText("Sugerencia"));
+      expect(reason).toBeVisible();
     });
 
     it("only vetoes the flagged exercise, not every exercise in the session", () => {
@@ -938,6 +946,126 @@ describe("SessionRunner", () => {
     const previous = screen.getByText("Las series de la vez pasada").closest("details")!;
     expect(previous).toContainElement(screen.getByText(byNormalizedText(/82\.5kg × 10 · RIR 2/)));
     expect(previous).not.toHaveAttribute("open");
+  });
+
+  /**
+   * The athlete asked to hide the card on "Mantén la carga". Narrowed to holds
+   * carrying NO risk flag, because five of the six branches that produce a
+   * hold carry one — pain over 2, a sharp rep drop, a flagged note, too few
+   * sets, and the weekly-load guardrail holding back an increase that was
+   * earned. Hiding those would leave the rule computing correctly with nobody
+   * seeing it, which is the defect this repo shipped on 2026-08-31 and found
+   * six days later.
+   */
+  it("hides a hold that has nothing to report, and keeps one that does", () => {
+    // Reps short of the top of the range: a plain "keep training" hold.
+    const quiet = buildExercise({
+      targetSets: 2,
+      targetRepMax: 12,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+        ],
+      },
+    });
+    const { unmount } = renderRunner({ exercises: [quiet] });
+
+    expect(screen.queryByText("Sugerencia")).toBeNull();
+    // Nothing replaces it: the weight box already carries the same load, so a
+    // sentence saying "keep the same weight" would restate a number that is
+    // on screen twice already.
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(80);
+    unmount();
+
+    // Same hold, but joint pain was reported — the card must stay.
+    const flagged = buildExercise({
+      targetSets: 2,
+      targetRepMax: 12,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+          buildSet({
+            id: "p2",
+            setNumber: 2,
+            actualWeightKg: "80.00",
+            actualReps: 8,
+            rir: 2,
+            painScore: 3,
+            painLocation: "hombro",
+          }),
+        ],
+      },
+    });
+    renderRunner({ exercises: [flagged] });
+
+    expect(screen.getByText("Sugerencia")).toBeVisible();
+    expect(screen.getByText("Dolor")).toBeVisible();
+  });
+
+  /**
+   * Two answers to one question, on screen together since the feature
+   * shipped: the badge shows suggestNextWeightKg (a flat percentage of the
+   * last load, rounded to the nearest half kilo) while the line beneath shows
+   * the nearest total the gym's discs can actually build. On the real hip
+   * thrust that read "Sube carga → 66kg" above "Añade 1 × 5 lb por lado →
+   * 67.5kg". The buildable number is the one you can act on.
+   */
+  it("shows one target weight, not two that disagree", () => {
+    const GYM_INVENTORY = [
+      { value: 45, unit: "lb" as const },
+      { value: 5, unit: "lb" as const },
+      { value: 2.5, unit: "lb" as const },
+    ];
+    const exercise = buildExercise({
+      targetSets: 3,
+      targetRepMax: 12,
+      loadMechanism: "machine",
+      isCompound: true,
+      loggedSets: [],
+      loadingModel: "plate_loaded",
+      hasPlateInventory: true,
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122.47,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM_INVENTORY,
+      }),
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p3", setNumber: 3, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    // The verdict keeps its words and drops its number; the instruction below
+    // carries the only weight on the card.
+    const badge = screen.getByText("Sube carga");
+    expect(badge).toBeVisible();
+    expect(badge).not.toHaveTextContent("→");
+    expect(screen.getByText(/Añade/)).toBeVisible();
   });
 
   it("does not show a suggestion card when there is no previous performance", () => {

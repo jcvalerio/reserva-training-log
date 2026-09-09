@@ -2,6 +2,27 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-08 (later) — The card was showing two different next-weights, and had been since it shipped
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (792 passing, +2)/`build` green. No schema change. Not yet checked on a device.
+
+**Found by a review pass, visible in the athlete's very first screenshot, unnoticed by anyone for four days:**
+
+> Sube carga → 66kg
+> Añade 1 × 5 lb por lado → 67.5kg
+
+Two answers to one question, stacked. The badge renders `suggestNextWeightKg` — a flat percentage of the last load, rounded to the nearest half kilo, which knows nothing about what discs exist. The line under it renders `assist.step.totalKg` — the nearest total this gym can actually build. They are independent computations and disagree by design. The irony is that `PlateBuildSection` two hundred lines below carries a long comment about tracking provenance exactly so a derived number never impersonates a real one; the same discipline was never applied to the two numbers sitting directly above it. **The badge now drops its number whenever a buildable step is about to render beneath it**, so the only weight on the card is one the athlete can load. Where no step exists — not plate-loaded, or no disc pair fits the band — the badge keeps its number, and the honest refusal ("no hay un salto de carga apropiado") still renders.
+
+**That refusal was briefly deleted by this very change**, which is worth recording: collapsing "is this a load increase" and "does a step exist" into one flag removed the branch that says a jump is impossible. Two conditions now, `showPlateStepArea` and `plateStepShown`, and an existing test caught it immediately.
+
+**"Hide the card on Mantén la carga" was asked for, and shipped narrower: hidden only when the hold carries no risk flag.** Reading `suggestProgression`, six branches produce a `hold` and five of them set a flag — pain above 2, a sharp rep drop, a note flagged for technique or discomfort, too few sets, and the weekly-load guardrail holding back an increase the athlete *earned*. A blanket hide would leave those computing correctly with nobody seeing the output, which is precisely the defect this repo shipped on 2026-08-31 and found six days later. Doing that deliberately would be worse than doing it by accident. The unflagged hold — "you are fine, just not at the top of the range yet" — is the modal case for a healthy athlete mid-block, so the simplification still lands where it was wanted. Nothing replaces the hidden card: the weight box is already prefilled with the same load.
+
+**The Sugerencia card became a disclosure, but only its justification collapses.** The verdict badge and the risk chip stay on the summary line; the reason paragraph and "¿Por qué esta sugerencia?" go behind the tap. The split is between an instruction for the next thirty seconds and an argument for someone who wants to disagree with the app later. `PlateStepLine` renders *outside* the `<details>` element, not merely outside its visible region — `<details>` hides every child that is not the `<summary>`, so "always visible" has to mean "not a child of it".
+
+**Rejected: merging the two disclosure summaries onto one row with a divider.** The arithmetic fails on the state that matters. At ~326px of content, `Registrar los discos` + divider + `Detalles del ejercicio` fits at ~277px, but the recorded state `Discos · 3 × 45 lb por lado · 122.5kg` is ~229px and the row wraps at ~383px — and worse, `formatPlateCounts` joins every denomination on the bar, so a two-plate build (`3 × 45 lb + 1 × 5 lb`, which any weight that is not a clean multiple of the largest disc produces) is unbounded on the athlete's data rather than on our wording. No shorter label fixes an input with no upper bound. The mechanism would also cost native `<details>`: two side by side means an opened panel expands into a ~160px column, so keeping one row requires custom `aria-expanded`/`aria-controls` state — abandoning free keyboard and VoiceOver semantics on an iPhone-Safari target to save a single 44px row in the best case.
+
+**Not yet verified on a device.** Check that the collapsed Sugerencia summary does not wrap awkwardly when a risk chip sits beside a long verdict, and that tapping it does not push the weight box under a thumb.
+
 ## 2026-09-08 — One disclosure with five subjects was not a simplification
 
 Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (790 passing, +3)/`build` green. No schema change. Not yet checked on a device.
