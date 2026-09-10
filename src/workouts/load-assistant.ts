@@ -177,12 +177,25 @@ export function buildLoadAssist(input: LoadAssistInput): LoadAssist | null {
   const isStale = savedBuild !== null && Math.abs(driftKg) > tolerance + 0.001;
   const isFresh = savedBuild !== null && !isStale;
 
-  // A fresh recorded build is the truer base for plate arithmetic: the athlete
-  // typed 122 and 3 x 45 lb is 122.47, so a step computed off 122 lands half a
-  // kilo out. The progression suggestion itself is deliberately NOT rebased —
+  // A recorded build is the truer base for plate arithmetic: the athlete typed
+  // 122 and 3 x 45 lb is 122.47, so a step computed off 122 lands half a kilo
+  // out. The progression suggestion itself is deliberately NOT rebased —
   // suggestNextWeightKg still reads the logged weight, so no stored number and
   // no guardrail sees a value it did not see before.
-  const baseKg = isFresh ? savedBuild.totalKg : lastWeightKg;
+  //
+  // Judged against the PREVIOUS session's weight, and deliberately not against
+  // `isFresh`, which is judged against today's set. The two differ exactly
+  // once the athlete has taken the increase: they load 129.27, record that
+  // build, log it, and `isFresh` becomes true against today's number — so a
+  // base of `savedBuild.totalKg` made set 2 prescribe another pair of discs on
+  // top of the increase already made, compounding the step within one session.
+  // The build only corrects the PRECISION of the weight it actually describes.
+  const describesLastWeight =
+    savedBuild !== null &&
+    lastWeightKg !== null &&
+    Math.abs(savedBuild.totalKg - lastWeightKg) <=
+      Math.max(STALE_TOLERANCE_FLOOR_KG, lastWeightKg * STALE_TOLERANCE_RATIO) + 0.001;
+  const baseKg = describesLastWeight ? savedBuild.totalKg : lastWeightKg;
   const band = increaseBandFor(input.loadMechanism, input.isCompound);
   // Gated on a previous WEIGHT, not merely on a base. A recorded build gives a
   // base even on a first session, but "what do I add" is a question about

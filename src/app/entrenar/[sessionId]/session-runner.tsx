@@ -422,7 +422,16 @@ export function SessionRunner({
   const showPlateStepArea = Boolean(previousSuggestion?.action === "increase" && !repsFirstIncrease);
   const plateStepShown = showPlateStepArea && Boolean(plateAssist?.step);
 
-  const rawDefaultWeightKg = lastSet?.actualWeightKg ?? truePrefillKg ?? suggestedWeightKg ?? "";
+  // When the plate instruction is on screen, the box takes ITS number. The two
+  // are computed differently — `suggestedWeightKg` rounds a percentage to the
+  // half kilo, `step.totalKg` is what the discs in this gym actually come to —
+  // so leaving the box on the percentage put "Añade 1 x 5 lb + 1 x 2.5 lb por
+  // lado -> 129.3kg" directly above a box reading 128.5. Suppressing the
+  // badge's arrow was only half the fix: without a recorded build
+  // `truePrefillKg` is null, which is the common case, not the edge one.
+  const plateStepWeightKg = plateStepShown ? (plateAssist?.step?.totalKg ?? null) : null;
+  const rawDefaultWeightKg =
+    lastSet?.actualWeightKg ?? truePrefillKg ?? plateStepWeightKg ?? suggestedWeightKg ?? "";
 
   // Built once and placed by whichever branch renders. Both need identical
   // props, and the panel carries editor state — two call sites would be two

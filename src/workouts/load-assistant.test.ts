@@ -39,6 +39,39 @@ describe("buildLoadAssist", () => {
     expect(assist.step!.totalKg).toBe(129.27);
   });
 
+  it("does not compound the step once the increase has been taken", () => {
+    // The athlete loads 129.27, records that build and logs set 1 at it. The
+    // build is now fresh against TODAY's weight, which used to rebase the step
+    // and prescribe another pair of discs on top of the increase already made.
+    const assist = buildLoadAssist(
+      input({
+        lastWeightKg: 122.47,
+        loggedWeightKg: 129.27,
+        recordedBuild: [
+          { value: 45, unit: "lb", count: 3 },
+          { value: 5, unit: "lb", count: 1 },
+          { value: 2.5, unit: "lb", count: 1 },
+        ],
+      }),
+    )!;
+
+    expect(assist.step!.totalKg).toBe(129.27);
+  });
+
+  it("still takes the recorded build's precision for the weight it describes", () => {
+    // The other half of the same rule: a build that matches the PREVIOUS
+    // session's weight is the truer base, so the step is computed off 122.47
+    // rather than the 122 the athlete typed.
+    const assist = buildLoadAssist(
+      input({
+        lastWeightKg: 122,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    )!;
+
+    expect(assist.step!.totalKg).toBe(129.27);
+  });
+
   it("states the convention, which nothing in the app has ever done", () => {
     expect(buildLoadAssist(input())!.conventionEs).toBe("discos en total, sin contar la barra");
   });

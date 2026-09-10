@@ -6,6 +6,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { getExerciseSetupsForNames, getOrCreateDefaultGym, resolvePlateInventory } from "@/training/gym-repository";
 import { buildLoadAssist, type LoadAssist } from "./load-assistant";
+import { splitPlannedAndBonusSets } from "./set-split";
 import type { LoadingModel } from "@/training/plate-math";
 import { normalizeExerciseName } from "@/training/muscle-taxonomy";
 import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
@@ -203,7 +204,13 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
       const setup = setupsByKey.get(normalizeExerciseName(exercise.exerciseNameEs));
       const previousLastWeightKg =
         previousPerformance?.prescriptionType === "strength"
-          ? Number(previousPerformance.sets.at(-1)?.actualWeightKg ?? 0) || null
+          ? Number(
+              splitPlannedAndBonusSets(
+                previousPerformance.sets,
+                previousPerformance.targetSets,
+                previousPerformance.isUnilateral,
+              ).planned.at(-1)?.actualWeightKg ?? 0,
+            ) || null
           : null;
       // What is on the bar RIGHT NOW, if anything has been logged for this
       // exercise today. Separate from previousLastWeightKg because they answer
@@ -255,6 +262,13 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     .from(exercisePrescription)
     .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
     .where(eq(planSessionTemplate.workoutPlanId, session.workoutPlanId));
+      // The last PLANNED set of the previous session, not simply the last one
+      // logged. session-runner.tsx anchors the suggested weight the same way
+      // and for the same reason: a bonus backoff set at the end must not
+      // become the baseline. Reading `sets.at(-1)` here let the plate step
+      // bypass that guard, so on two planned sets at 80 kg plus a bonus third
+      // at 40 kg the weight box read 84 while the plate line was computed off
+      // 40 — the two numbers this panel exists to make agree.
 
   return {
     template,

@@ -1094,6 +1094,13 @@ describe("SessionRunner", () => {
     expect(badge).toBeVisible();
     expect(badge).not.toHaveTextContent("→");
     expect(screen.getByText(/Añade/)).toBeVisible();
+
+    // And the box agrees with it. Dropping the badge's arrow was only half the
+    // fix: the prefill still fell through to suggestNextWeightKg, so the card
+    // read "Añade ... → 129.27kg" above a box holding 128.5 — the same two
+    // disagreeing answers, one field lower. No recorded build here, which is
+    // the ordinary case rather than the edge one.
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(129.27);
   });
 
   /**
@@ -2271,7 +2278,8 @@ describe("SessionRunner — what to put on the bar", () => {
       }),
     });
     const { rerender } = renderRunner({ exercises: [withoutBuild] });
-    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
+    // Where this gym's discs land stepping up from the 122 the athlete typed.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.8);
 
     // What revalidatePath does after "Guardar discos": same session, same set
     // number, new loadAssist.
@@ -2325,12 +2333,22 @@ describe("SessionRunner — what to put on the bar", () => {
     expect(screen.getByRole("button", { name: "Restar 0.5" })).toBeInTheDocument();
   });
 
-  it("leaves the weight box alone while the build is only a guess", () => {
+  /**
+   * A *suggested build* is a guess and never reaches the box — but the step is
+   * not a guess about history, it is the instruction printed directly above
+   * the box ("Añade 1 x 5 lb + 1 x 2.5 lb por lado -> 129.27kg"). Leaving the
+   * box on suggestNextWeightKg's percentage put 128.5 under an instruction
+   * that lands on 129.27, which is the same two-disagreeing-answers defect
+   * this screen removed from the badge one commit earlier. The athlete cannot
+   * load 128.5 with these discs.
+   */
+  it("takes the step's own total, since that is the instruction on screen", () => {
     renderRunner({ exercises: [hipThrust()] });
 
-    // suggestNextWeightKg's own answer, unchanged: nothing here is true enough
-    // to override it.
-    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
+    // The line rounds for display, the box carries what the server stores —
+    // the same number, and no longer two different ones.
+    expect(screen.getByText(/Añade/)).toHaveTextContent("129.3kg");
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
   });
 
   it("says there is no appropriate jump rather than inventing one", () => {
@@ -2348,6 +2366,10 @@ describe("SessionRunner — what to put on the bar", () => {
     renderRunner({ exercises: [coarse] });
 
     expect(screen.getByText(/no hay un salto de carga apropiado/i)).toBeInTheDocument();
+    // And with no step to follow, the box keeps suggestNextWeightKg's answer
+    // for this exercise's own history: the override is scoped to an
+    // instruction actually being on screen.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
   });
 
   /**

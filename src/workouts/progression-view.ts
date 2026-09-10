@@ -1,6 +1,7 @@
 import { suggestProgression, type ProgressionAction, type ProgressionSuggestion } from "@/training/progression";
 import type { Rir } from "@/training/rir";
 
+import { splitPlannedAndBonusSets } from "./set-split";
 import { toStrengthSetLog, type SetLog } from "./set-log-view";
 
 export type LoadMechanism = "bodyweight" | "dumbbell" | "machine" | "barbell";
@@ -39,32 +40,9 @@ export function increaseBandFor(loadMechanism?: LoadMechanism | null, isCompound
     : FALLBACK_INCREASE_BAND;
 }
 
-/**
- * Splits a set list (already ordered by setNumber) into the ones that count
- * toward the plan — the first targetSets per side for a unilateral exercise,
- * or the first targetSets overall otherwise — and any bonus sets logged
- * beyond that. Shared by buildProgressionSuggestion (which sets don't count
- * toward RIR/rep-range signals) and the session runner (which set to anchor
- * the next suggested weight on).
- */
-export function splitPlannedAndBonusSets<T extends { side: SetLog["side"] }>(
-  sets: T[],
-  targetSets: number,
-  isUnilateral: boolean,
-): { planned: T[]; bonus: T[] } {
-  const planned: T[] = [];
-  const bonus: T[] = [];
-  const countBySide = new Map<string, number>();
-
-  for (const set of sets) {
-    const key = isUnilateral ? set.side : "all";
-    const positionOnKey = (countBySide.get(key) ?? 0) + 1;
-    countBySide.set(key, positionOnKey);
-    (positionOnKey <= targetSets ? planned : bonus).push(set);
-  }
-
-  return { planned, bonus };
-}
+// Moved to ./set-split so workout-repository can use it without importing
+// this module at runtime. Re-exported so every existing call site is unchanged.
+export { splitPlannedAndBonusSets };
 
 /**
  * For a unilateral exercise, targetSets means sets per side, not a shared
