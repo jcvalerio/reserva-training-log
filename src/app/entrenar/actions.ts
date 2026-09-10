@@ -5,6 +5,15 @@ import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth-server";
 import {
+  getExerciseSetupsForNames,
+  getOrCreateDefaultGym,
+  resolvePlateInventory,
+  saveExerciseSetup,
+} from "@/training/gym-repository";
+import { normalizeExerciseName } from "@/training/muscle-taxonomy";
+import { parsePlateBuild } from "@/training/plate-build";
+import { loadingModels, type LoadingModel } from "@/training/plate-math";
+import {
   createSubstituteExercise,
   getActivePlanForProfile,
   updateExercisePrescriptionTargetSets,
@@ -21,6 +30,7 @@ import {
   completeWorkoutSession,
   deleteSetForSession,
   getWorkoutSessionForProfile,
+  findSessionExerciseByName,
   hasOtherActiveSessionForTemplate,
   markExerciseChosenForSession,
   reassignExerciseLog,
@@ -60,9 +70,9 @@ export async function startOrResumeSessionAction(formData: FormData) {
 export type SaveSetActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  // No painScore any more: a set no longer carries one. The high-pain warning
-  // it used to drive now hangs off the once-per-exercise answer instead, in
-  // RecordExercisePainActionState.
+  // No painScore: pain is asked once per exercise, not once per set, so the
+  // answer and the high-pain warning it drives belong to
+  // RecordExercisePainActionState. See invariant 10 in data-model.md.
   | { status: "saved"; exercisePrescriptionId: string; setNumber: number };
 
 export type RecordExercisePainActionState =
@@ -577,4 +587,142 @@ export async function reopenSessionAction(
   revalidatePath("/progreso");
   revalidatePath(`/entrenar/${session.id}`);
   redirect(`/entrenar/${session.id}`);
+}
+
+
+export type SetLoadingModelActionState = { status: "idle" } | { status: "error"; message: string };
+
+/**
+ * The one-tap "¿lleva discos?" from inside a session.
+ *
+ * It exists here rather than only on a settings screen because the moment you
+ * discover the app does not know how a machine loads is the moment you are
+ * standing in front of it. Sending someone to /perfil mid-session to answer a
+ * yes/no question is how a feature goes unused.
+ *
+ * A "no" is recorded as a real answer ("other"), not left null — otherwise the
+ * question reappears every session and becomes noise. Same reasoning as
+ * storing a real 0 for "no pain".
+ */
+export async function setExerciseLoadingModelAction(
+  _previousState: SetLoadingModelActionState,
+  formData: FormData,
+): Promise<SetLoadingModelActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const exerciseNameEs = formData.get("exerciseNameEs");
+  const workoutSessionId = formData.get("workoutSessionId");
+  const rawModel = formData.get("loadingModel");
+
+  if (
+    typeof exerciseNameEs !== "string" ||
+    typeof workoutSessionId !== "string" ||
+    typeof rawModel !== "string" ||
+    !(loadingModels as readonly string[]).includes(rawModel)
+  ) {
+    return { status: "error", message: "No se pudo guardar cómo carga este ejercicio." };
+  }
+
+  // Resolved against the session's own exercises, which is also this action's
+  // ownership check — it had none, and wrote a row keyed on whatever name was
+  // posted. The plan's name and its exerciseId are what get stored.
+  const exercise = await findSessionExerciseByName(profile.id, workoutSessionId, exerciseNameEs);
+  if (!exercise) {
+    return { status: "error", message: "No se pudo guardar cómo carga este ejercicio." };
+  }
+
+  const gym = await getOrCreateDefaultGym(profile.id);
+  await saveExerciseSetup(profile.id, gym.id, exercise.exerciseNameEs, exercise.exerciseId, {
+    loadingModel: rawModel as LoadingModel,
+  });
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "idle" };
+}
+
+
+/** `saved` is distinct from `idle` on purpose: the editor closes itself on a
+ *  confirmed write, and with one shared "idle" it could not tell a completed
+ *  save from the state it started in. */
+export type SetPlateBuildActionState =
+  | { status: "idle" }
+  | { status: "saved" }
+  | { status: "error"; message: string };
+
+/**
+ * Record which discs are actually on the bar.
+ *
+ * The one fact in this feature. Everything else is arithmetic, and arithmetic
+ * cannot recover which discs someone actually picked up — invariant 14 in
+ * docs/architecture/data-model.md. So: ask, and believe the answer.
+ *
+ * Written to exercise_setup rather than set_log: a build is configuration
+ * (which discs this athlete reaches for on this machine at this gym), it must
+ * outlive the `.limit(1)` history window that ate the notes people were using
+ * for this, and putting it on set_log would add an input to every set on the
+ * hottest screen in the app.
+ */
+export async function setExercisePlateBuildAction(
+  _previousState: SetPlateBuildActionState,
+  formData: FormData,
+): Promise<SetPlateBuildActionState> {
+  const user = await requireCurrentUser();
+  const profile = await getAthleteProfileForUser(user.id);
+
+  if (!profile) {
+    return { status: "error", message: "No se encontró tu perfil." };
+  }
+
+  const exerciseNameEs = formData.get("exerciseNameEs");
+  const workoutSessionId = formData.get("workoutSessionId");
+  const rawBuild = formData.get("plateBuild");
+
+  if (typeof exerciseNameEs !== "string" || typeof workoutSessionId !== "string" || typeof rawBuild !== "string") {
+    return { status: "error", message: "No se pudieron guardar los discos." };
+  }
+
+  // Same resolution as setExerciseLoadingModelAction, and for the same reason:
+  // the name is the row's key, so it has to be a name from this athlete's own
+  // session rather than a string off the wire.
+  const exercise = await findSessionExerciseByName(profile.id, workoutSessionId, exerciseNameEs);
+  if (!exercise) {
+    return { status: "error", message: "No se pudieron guardar los discos." };
+  }
+
+  const gym = await getOrCreateDefaultGym(profile.id);
+  const setups = await getExerciseSetupsForNames(profile.id, gym.id, [exercise.exerciseNameEs]);
+  const setup = setups.get(normalizeExerciseName(exercise.exerciseNameEs));
+  // Validated against THIS exercise's rack, not the raw string. A build is the
+  // only input in this feature whose numbers do not come from the inventory,
+  // so an unchecked one would let a disc that does not exist into every recipe
+  // and prefilled weight downstream.
+  const plateBuild = parsePlateBuild(rawBuild, resolvePlateInventory(gym, setup));
+
+  if (plateBuild === null) {
+    return { status: "error", message: "Esos discos no coinciden con los de tu gimnasio." };
+  }
+
+  await saveExerciseSetup(
+    profile.id,
+    gym.id,
+    exercise.exerciseNameEs,
+    exercise.exerciseId,
+    {
+      plateBuild,
+      // Recording a build IS the answer to "¿lleva discos?" — nobody lists
+      // plates for a pin stack. Saves the athlete a second question, and
+      // matters because the panel is invisible until loadingModel is set.
+      ...(setup?.loadingModel ? {} : { loadingModel: "plate_loaded" as LoadingModel }),
+    },
+  );
+
+  revalidatePath(`/entrenar/${workoutSessionId}`);
+
+  return { status: "saved" };
 }

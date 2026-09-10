@@ -95,7 +95,48 @@ Google OAuth needs an exact redirect URI, and preview URLs are dynamic, so
 `BETTER_AUTH_URL` is pinned to `https://preview.gym.jcvalerio.com` for Preview
 and that URI is registered in Google. To sign in on a preview, alias it first:
 `npx vercel alias <preview-url> preview.gym.jcvalerio.com`. Unauthenticated
-pages (`/`, `/privacidad`) work on any preview URL without aliasing.
+pages (`/`, `/privacidad`, `/version`) work on any preview URL without aliasing.
+
+**The alias does not follow new pushes, and that has already cost a review
+cycle.** Every push builds a new preview URL; `preview.gym.jcvalerio.com` keeps
+pointing at whichever deployment was aliased last, so signing in there can show
+a build several commits old while the deploy for HEAD succeeded.
+
+**`.github/workflows/preview-alias.yml` now re-points it** on every successful
+preview deployment, and verifies the hostname actually serves that commit
+rather than trusting the API's success. Two things to know about it:
+
+- It needs a **`VERCEL_TOKEN`** repository secret (Settings → Secrets and
+  variables → Actions), created at `vercel.com/account/tokens` with the
+  **`Juan Carlos Valerio's projects`** scope. Without it the job fails loudly
+  rather than silently leaving the alias stale. The first attempt failed with
+  `Not able to load user because of unexpected error: User not found. (404)` —
+  that comes from the CLI resolving the token's own user, *before* `--scope` is
+  consulted, so it means the token rather than the scope. The job now checks
+  it also strips whitespace from the secret, since a pasted trailing newline
+  produces the identical error. Do **not** re-add a bare `vercel whoami
+  --token` preflight to tell the token and the scope apart: a team-scoped token
+  has no bare user to resolve, so that check rejects a valid token — it was
+  tried, and it failed a token that had aliased a deployment successfully ten
+  minutes earlier.
+- It fires from the branch under test, not only from `main` — measured, after
+  this document claimed the opposite. `deployment_status` carries a ref, so the
+  workflow runs from the deployment's own branch; the "default branch only"
+  rule applies to events with no branch context. `workflow_dispatch` (a branch
+  name) is therefore for re-pointing the alias at an older branch without
+  pushing to it, not a stopgap until merge.
+
+With more than one PR open, the newest preview to finish wins the alias. That
+is the same last-write-wins behaviour as doing it by hand, and `/version` is
+how you notice.
+
+To check what you are actually looking at, open **`/version`** — static per
+deployment, returning the commit, branch, environment and build time. The same
+stamp is at the foot of every page (`preview · 032924b`), including the session
+runner. Note that Vercel's deployment protection puts raw `*.vercel.app`
+preview URLs behind SSO, so `/version` answers directly on production and on
+the aliased hostname; a 404 there means the alias predates the commit that
+added the route.
 
 `npx vercel deploy --prod --yes` remains for an out-of-band production deploy
 (npx, not bare `vercel`) — but note it uploads the **working tree**, not `HEAD`,

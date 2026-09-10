@@ -2,7 +2,58 @@
 
 Short and rolling: what is immediately next. **For where the project is and what constrains a new feature, read `docs/product/project-status.md` first.** For how any past decision was reached, `docs/product/implementation-log.md` is the source of truth.
 
-## Status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
+## Status: the runner screen is the set you are logging, not the manual. Not yet deployed; PR #19.
+
+**Reported from a real session**: between sets you need to log the set and hit "Siguiente ejercicio", and neither was on screen. ~534px per exercise went to things read once on set one — the cue, the substitution list, "Cambiar ejercicio", two `<summary>` rows, the saved plate build with its date and button, the convention line, and an always-open rules block below the nav.
+
+**Four collapsibles became one.** `Detalles del ejercicio` holds the cue, substitutions, the plate build and its editor, the previous session's sets, the pain rules and "Cambiar ejercicio". **~534px → 44px.**
+
+**The rule is not "secondary", it is "does not change what you do in the next thirty seconds".** That split `PlateAssistPanel` into `PlateStepLine` (*"Añade 1 × 5 lb por lado"* — stays out, beside the verdict) and `PlateBuildSection` (which discs are on the machine — collapses). Same test moved the amber **"Vigilar dolor"** chip onto the prescription line where it never collapses, with only its substitution list inside.
+
+**Two defects fixed from the same screenshots.** A `border-t` on the plate panel rendered as a line floating under a card edge once the panel could stand alone. And staleness was judged only against the *previous* session, so a `3 × 45 lb` build was asserted as fact on an exercise being logged at 35 kg — `loggedWeightKg` (this session) now takes precedence for drift and staleness, while `lastWeightKg` still drives the step.
+
+**Check on a phone before merging #19:** that the form is reachable without scrolling past the exercise name, and that opening the section does not shift the weight input under a thumb.
+
+## Prior status (same branch): you can tell the app which discs you actually used.
+
+**Preview caught the calculator lying.** "Armar desde cero" printed `La vez pasada: 1 × 20 kg + 1 × 25 lb por lado (62.7kg reales)` for a 63 kg lift the athlete had loaded with 45 lb discs — because the 25 kg plates are at the far end of that gym. The recipe was `buildFromScratch`'s guess wearing a history label, and the "reales" mass was a physical claim derived from that guess.
+
+**No objective function fixes it.** Walking distance to the rack is not in the model and never will be. The failure was provenance, not accuracy — so the rule is now about language: a **derived** build is offered in the conditional and claims no mass; a **recorded** build is stated flatly and is the only thing allowed to say *reales*. Invariant 14 in `data-model.md`.
+
+**`exercise_setup` gains `plate_build` / `plate_build_total_kg` / `plate_build_recorded_at`** (migration `0027`, three nullable columns). Recorded by tapping the denominations the gym stocks, per side, with the mass and the disc count live. It rebases the plate arithmetic only — `suggestNextWeightKg` still reads the logged weight, and the true mass reaches `set_log` only as a prefill on the next set.
+
+**The first-session gap is closed**, and it was the athlete who hit it. The panel used to live inside the "última vez" card and `buildLoadAssist` refused to return anything without a previous weight, so a first session on an exercise offered nothing — no build, and "¿lleva discos?" unanswerable until session two. The step and the suggested recipe still need history; recording a build does not. On a first session the recorded build has nothing to contradict, so it fills the weight box outright: load the bar, tap three 45s, read 122.47.
+
+**The editor is chips until a disc is in play.** Eleven full steppers cost 572px to ask about eight discs nobody touched, and the list was ordered by *printed number within unit family* — so `45 lb` (20.41 kg) rendered sixth, below `5 kg`, which is why the athlete had to scroll to their own plates. One `byHeaviestFirst` in `units.ts` now serves all three call sites. A denomination becomes a stepper row once its count exceeds zero: empty state ≈156px, a recorded `3 × 45 lb + 1 × 35 lb` ≈260px. Two columns (kg | lb) was proposed and rejected on width — 159px per column against a 114px stepper cluster leaves 45px for a label needing 52–56px.
+
+**Two defects from real use.** The weight box did not move when a build was saved — `StrengthSetFields` seeds `useState` from its props and the form is keyed on the set number, so `revalidatePath` handed a new weight to a component that had stopped listening; keyed on the value now. And `NumericStepperField` used one `step` for both the ± buttons and HTML validation, so the browser accepted only multiples of 0.5: **20.2** was refused, and so was the app's own **122.47** prefill, which made the set unsubmittable. Split — buttons stay 0.5, the attribute is 0.01, matching `numeric(6,2)`.
+
+**Check on a phone before merging #19:** chip wrapping at 390px with mixed-unit labels, and that promoting a chip does not shift the weight input under a thumb.
+
+**Now genuinely possible, and not done:** a removal instruction for reductions. It needed to know what is on the bar, and now something does.
+
+## Prior status (same branch, superseded above): the app tells you which discs to put on the bar. Not yet deployed.
+
+**The complaint:** they read "122 kg", the gym stocks discs in pounds, and they convert and hunt for a combination before they can lift — recording the working-out in `setLog.notes`, which decays after two sessions because `getPreviousExercisePerformance` is `.limit(1)`. Both halves checked against the code first.
+
+**The convention was measured, not assumed**, and it inverted the design: plate-loaded lifts are logged as **total discs, both sides, bar excluded** (122 for 6 × 45 lb), dumbbells as **one** dumbbell. That killed a tare model and two columns before they were written. **Nothing reinterprets a logged weight** — now invariant 13 in `data-model.md`, because adding the bar would trip the 1.3 weekly-load guardrail and suppress earned increases for weeks.
+
+**Minimum change, not minimum plates.** The primary output is `Añade 1 × 5 lb + 1 × 2.5 lb por lado → 129.3 kg`, not a recipe to rebuild the bar with. The same error appeared one level down and was caught by testing: `buildFromScratch(122)` returned six discs of four denominations to be 0.06 kg nearer than the `3 × 45 lb` actually on the bar.
+
+**Issue #5 caught live**: an exercise at 20 kg earned an increase and the app suggested **21 kg**, which cannot be built from this gym's discs. It now says to add a rep instead. Worth re-scoping #5 to *"suggest a load change the athlete can actually perform, or suggest reps instead"* — impossible, impractical and too-large in one rule.
+
+**Athlete B's gym**: `45, 35, 25, 10, 5, 2.5` lb and `25, 20, 15, 10, 5` kg — 11 denominations, both families, which is what made this necessary. Entered on the dev branch already.
+
+**Not yet built, in order:**
+
+1. **The uniform-increment grid** for stacks and fixed dumbbells. `increment_*` / `add_on_*` exist on `exercise_setup` with no consumer; until it lands, `suggestNextWeightKg` still rounds those to 0.5 kg. This is what actually closes #5.
+2. **Persistent last note (R4)** — the `.limit(1)` decay for genuine per-set observations. No migration, order-independent, one-day win.
+3. **The setup card** (`setup_notes_es` exists, unused) — seat height, pin position, which machine. Demoted below the calculator because a computed recipe beats a note about one.
+4. **`getPreviousExercisePerformance` has no `status = 'completed'` filter** while all three sibling queries do, so a stale active session can feed "Última vez" and the weight suggestion. Separate PR; check production for stale active rows first.
+
+**Known gaps** (as written at the time; the first is closed by the entry above, and the second is now possible): the panel needs a previous performance, so a first session on an exercise gets nothing and "¿lleva discos?" cannot be answered until the second. Reductions render a from-scratch recipe rather than a removal instruction. Nobody has used it in a real session.
+
+## Prior status: nerve symptoms now escalate on their own — and the pain-location rule they join was inert in production until today. Not yet deployed.
 
 **Issue #2 closed.** `neural` is the tenth `painLocation` (migration `0025`), and the only one read off its presence rather than its 0-10 score: a 2/10 tingling outranks 6/10 of agujetas, so ranking them by number inverts them. It escalates to `reduce_or_modify` ahead of the `>= 7` branch, and on `/progreso` it sorts above every other row and opens the pain section on its own.
 

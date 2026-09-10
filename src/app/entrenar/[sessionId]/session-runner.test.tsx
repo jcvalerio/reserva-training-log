@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { toDisplayRir } from "@/training/rir";
 import type { SessionRecap } from "@/workouts/session-recap";
+import { buildLoadAssist } from "@/workouts/load-assistant";
 import type { ExerciseWithLoggedSets, SetLog, WorkoutSession } from "@/workouts/workout-repository";
 
 import type {
@@ -14,6 +15,8 @@ import type {
   SaveSetActionState,
   SubstituteExerciseActionState,
   UpdateTargetSetsActionState,
+  SetLoadingModelActionState,
+  SetPlateBuildActionState,
 } from "../actions";
 import { SessionRunner } from "./session-runner";
 
@@ -118,6 +121,13 @@ function buildRecap(overrides: Partial<SessionRecap> = {}): SessionRecap {
 
 function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): ExerciseWithLoggedSets {
   return {
+    // Plate assistance off by default: it needs an explicit plate_loaded
+    // model and a gym with discs recorded, so every existing test keeps
+    // rendering exactly what it did before.
+    setupNotesEs: null,
+    loadingModel: null,
+    loadAssist: null,
+    hasPlateInventory: false,
     id: "exercise-a",
     planSessionTemplateId: "template-1",
     orderIndex: 1,
@@ -148,13 +158,18 @@ function buildExercise(overrides: Partial<ExerciseWithLoggedSets> = {}): Exercis
   };
 }
 
-function renderRunner({
+const noopSetLoadingModelAction = async () => ({ status: "idle" }) as const;
+const noopSetPlateBuildAction = async () => ({ status: "idle" }) as const;
+
+function runnerElement({
   exercises,
   session = buildSession(),
   recap = null,
   saveSetAction = noopSaveSetAction,
   reopenSessionAction = noopReopenSessionAction,
   updateTargetSetsAction = noopUpdateTargetSetsAction,
+  setLoadingModelAction = noopSetLoadingModelAction,
+  setPlateBuildAction = noopSetPlateBuildAction,
   updateSetAction = noopUpdateSetAction,
   deleteSetAction = noopDeleteSetAction,
   substituteExerciseAction = noopSubstituteExerciseAction,
@@ -201,9 +216,17 @@ function renderRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  setLoadingModelAction?: (
+    prevState: SetLoadingModelActionState,
+    formData: FormData,
+  ) => Promise<SetLoadingModelActionState>;
+  setPlateBuildAction?: (
+    prevState: SetPlateBuildActionState,
+    formData: FormData,
+  ) => Promise<SetPlateBuildActionState>;
   loadFlaggedPrescriptionIds?: string[];
 }) {
-  return render(
+  return (
     <SessionRunner
       session={session}
       template={template}
@@ -212,6 +235,8 @@ function renderRunner({
       saveSetAction={saveSetAction}
       reopenSessionAction={reopenSessionAction}
       updateTargetSetsAction={updateTargetSetsAction}
+      setLoadingModelAction={setLoadingModelAction}
+      setPlateBuildAction={setPlateBuildAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
       substituteExerciseAction={substituteExerciseAction}
@@ -223,8 +248,31 @@ function renderRunner({
       addSetToCompletedSessionAction={addSetToCompletedSessionAction}
       recordExercisePainAction={recordExercisePainAction}
       loadFlaggedPrescriptionIds={loadFlaggedPrescriptionIds}
-    />,
+    />
   );
+}
+
+/**
+ * Split from the element factory above so a test can re-render the SAME tree
+ * with new props — which is what `revalidatePath` does after a server action,
+ * and the only way to catch state that was seeded from a prop and then never
+ * read again.
+ */
+/**
+ * Opens one of the support panels at the foot of the runner.
+ *
+ * They live below "Terminar entrenamiento" now, collapsed, so that the form is
+ * the first thing under the exercise name and stops drifting down the screen
+ * as sets are logged. jsdom honours <details>, so anything inside one is
+ * genuinely not visible until opened — which is the behaviour worth asserting
+ * rather than working around.
+ */
+function openPanel(label: string | RegExp) {
+  fireEvent.click(screen.getByText(label));
+}
+
+function renderRunner(props: Parameters<typeof runnerElement>[0]) {
+  return render(runnerElement(props));
 }
 
 describe("SessionRunner", () => {
@@ -249,13 +297,71 @@ describe("SessionRunner", () => {
     expect(screen.getByRole("button", { name: "Guardar set 1" })).toBeVisible();
   });
 
-  it("shows the exercise's notes and the session's mobility notes as coaching cues while training", () => {
+  it("keeps the coaching cue one tap away, not in the way of logging a set", () => {
     const exercise = buildExercise({ notesEs: "Ajusta la carga usando tus pesos base y conserva técnica estricta." });
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.")).toBeVisible();
+    // The session's own notes moved to the foot with everything else that is
+    // not the set in front of you — present, one tap away, out of the path
+    // between the exercise name and the weight box.
+    expect(screen.getByText(template.mobilityNotesEs)).not.toBeVisible();
+    openPanel(/^Día /);
     expect(screen.getByText(template.mobilityNotesEs)).toBeVisible();
+
+    // The exercise's cue is reference material — present, and behind the one
+    // disclosure, so it does not sit between the exercise name and the form.
+    const cue = screen.getByText("Ajusta la carga usando tus pesos base y conserva técnica estricta.");
+    expect(cue.closest("details")).not.toHaveAttribute("open");
+
+    fireEvent.click(screen.getByText("Detalles del ejercicio"));
+
+    expect(cue).toBeVisible();
+  });
+
+  /**
+   * One disclosure holding five subjects was the previous pass's mistake: it
+   * cut the number of summary rows and left the same pile underneath, so
+   * opening it dumped a cue, a substitution list, a plate editor, every set
+   * from last session and a static rules paragraph into one block. Two
+   * disclosures with one subject each is the correction.
+   */
+  it("splits reference material into two single-subject disclosures", () => {
+    const exercise = buildExercise({
+      notesEs: "Escápulas estables.",
+      painSensitive: true,
+      substitutionOptionsEs: ["Máquina equivalente"],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 1,
+        isUnilateral: false,
+        sets: [buildSet({ id: "prev-1", setNumber: 1 })],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    const details = screen.getByText("Detalles del ejercicio").closest("details")!;
+    for (const text of ["Escápulas estables.", "Cambiar ejercicio"]) {
+      expect(details).toContainElement(screen.getByText(text));
+    }
+    // Last session is its own panel now, not a third subject inside this one.
+    const history = screen.getByText("La vez pasada").closest("details")!;
+    expect(history).toContainElement(screen.getByText(byNormalizedText(/80kg × 10 · RIR 2/)));
+    expect(history).not.toBe(details);
+
+    // The pain rules are no longer ambient reference on every exercise; they
+    // belong to the moment someone is actually recording pain.
+    expect(screen.queryByText(/Dolor articular >2 bloquea/)).toBeNull();
+
+    // The pain flag is the one thing that never collapses: hiding it behind a
+    // tap is the failure this product exists to avoid. It rides on the
+    // prescription line, outside every disclosure.
+    const flag = screen.getByText("Vigilar dolor");
+    expect(flag).toBeVisible();
+    expect(flag.closest("details")).toBeNull();
   });
 
   it("advances and returns between exercises with Anterior/Siguiente ejercicio", () => {
@@ -344,6 +450,10 @@ describe("SessionRunner", () => {
     });
 
     renderRunner({ exercises: [exercise] });
+
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
 
     // rir: 1 against the exercise's default targetRir of 2 is harder than
     // prescribed, so the row now shows the target alongside the actual.
@@ -558,11 +668,14 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText(/Última vez/)).toBeVisible();
-    // One as the single "Última vez · Set 1" reference row, plus both prior
-    // sets again inside the (collapsed-by-default) "ver todas las series"
-    // history — see the dedicated test below for that disclosure itself.
-    expect(screen.getAllByText(byNormalizedText(/80kg × 12 · RIR 2 · dolor 0/))).toHaveLength(3);
+    expect(screen.getByText("Sugerencia")).toBeVisible();
+    // Was toHaveLength(3), with a comment explaining why each copy earned its
+    // place. None of them did: the athlete reconciled the same 80 kg written
+    // three ways before finding the one line telling them what to do next.
+    // Now the history is the only rendering of the fact — one row per set of
+    // last session, behind "Detalles del ejercicio" — and the form prefill
+    // plus the suggestion carry what to do about it.
+    expect(screen.getAllByText(byNormalizedText(/80kg × 12 · RIR 2 · dolor 0/))).toHaveLength(2);
     expect(screen.getByText(/Sube carga/)).toBeVisible();
     expect(screen.getByText(/84kg/)).toBeVisible();
 
@@ -606,6 +719,10 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
+
     expect(screen.getByText("Izquierda · 2/3")).toBeVisible();
     expect(screen.getByText("Derecha · 1/3")).toBeVisible();
 
@@ -618,7 +735,7 @@ describe("SessionRunner", () => {
     expect(screen.queryByText(/Set 3 · Izq/)).toBeNull();
   });
 
-  it("keeps the full 'última vez' history collapsed by default, present in the DOM either way", () => {
+  it("keeps last session's history collapsed by default, present in the DOM either way", () => {
     const exercise = buildExercise({
       targetSets: 2,
       loggedSets: [],
@@ -637,20 +754,21 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    const summary = screen.getByText("Ver las 2 series de la vez pasada");
+    const summary = screen.getByText("La vez pasada");
     expect(summary).toBeVisible();
     expect(summary.closest("details")).not.toHaveAttribute("open");
-    // Native <details> keeps its content in the DOM while closed — the
-    // second prior set is findable without opening anything, proving
-    // nothing from the fully-loaded history is being silently dropped.
+    // Native <details> keeps its content in the DOM while closed — the second
+    // prior set is findable without opening anything, proving nothing from the
+    // fully-loaded history is being silently dropped.
     expect(screen.getByText(byNormalizedText(/82\.5kg × 10/))).toBeInTheDocument();
 
     fireEvent.click(summary);
 
     expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText(byNormalizedText(/82\.5kg × 10/))).toBeVisible();
   });
 
-  it("resets the 'última vez' history disclosure to closed when moving to another exercise", () => {
+  it("resets the reference disclosure to closed when moving to another exercise", () => {
     const previousPerformance = {
       sessionId: "session-previous",
       prescriptionType: "strength" as const,
@@ -676,13 +794,13 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exerciseA, exerciseB] });
 
-    const summaryOnA = screen.getByText("Ver la serie de la vez pasada");
+    const summaryOnA = screen.getByText("Detalles del ejercicio");
     fireEvent.click(summaryOnA);
     expect(summaryOnA.closest("details")).toHaveAttribute("open");
 
     fireEvent.click(screen.getByRole("button", { name: "Siguiente ejercicio" }));
 
-    const summaryOnB = screen.getByText("Ver la serie de la vez pasada");
+    const summaryOnB = screen.getByText("Detalles del ejercicio");
     expect(summaryOnB.closest("details")).not.toHaveAttribute("open");
   });
 
@@ -752,8 +870,16 @@ describe("SessionRunner", () => {
         loadFlaggedPrescriptionIds: [exercise.id],
       });
 
+      // The chip never collapses: it is a fatigue/pain/technique/load signal
+      // and this card is the only place it appears. The REASON does collapse —
+      // it argues the case for someone who wants to disagree with the app
+      // later, which is not what anyone needs at the machine.
       expect(screen.getByText("Carga semanal")).toBeVisible();
-      expect(screen.getByText(/volumen semanal de ese grupo muscular/)).toBeVisible();
+      const reason = screen.getByText(/volumen semanal de ese grupo muscular/);
+      expect(reason).not.toBeVisible();
+
+      fireEvent.click(screen.getByText("Sugerencia"));
+      expect(reason).toBeVisible();
     });
 
     it("only vetoes the flagged exercise, not every exercise in the session", () => {
@@ -813,7 +939,15 @@ describe("SessionRunner", () => {
     expect(screen.getByText(/82kg/)).toBeVisible();
   });
 
-  it("keeps the previous-performance reference visible after logging a set, matched to the set you're about to log", () => {
+  /**
+   * The per-set "Última vez · Set 2" row is gone, and with it the machinery
+   * that matched a previous set to the one you are about to log. It rendered
+   * a number the form was already prefilled with and the history already
+   * listed — the same fact three times, which is what made this card hard to
+   * read. Every previous set is still one tap away, which is where you go to
+   * see how it actually went rather than just what to lift.
+   */
+  it("keeps last session's sets reachable without repeating one of them on the card", () => {
     const exercise = buildExercise({
       targetSets: 3,
       loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
@@ -832,38 +966,235 @@ describe("SessionRunner", () => {
 
     renderRunner({ exercises: [exercise] });
 
-    // One set already logged today, so the next set to log is set 2 — the
-    // reference should show set 2's previous value (82.5kg), not set 1's.
-    expect(screen.getByText(/Última vez · Set 2/)).toBeVisible();
-    expect(screen.getAllByText(/82.5kg/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Última vez/)).toBeNull();
+    // The full logged-row shape, not a bare "82.5kg" — the suggestion says
+    // "Mantén la carga → 82.5kg", which is the same number doing a genuinely
+    // different job and must not be counted as a repetition of the history.
+    expect(screen.getAllByText(byNormalizedText(/82\.5kg × 10 · RIR 2/))).toHaveLength(1);
+    const previous = screen.getByText("La vez pasada").closest("details")!;
+    expect(previous).toContainElement(screen.getByText(byNormalizedText(/82\.5kg × 10 · RIR 2/)));
+    expect(previous).not.toHaveAttribute("open");
   });
 
-  it("shows a fallback message once you're past what was recorded last time", () => {
-    const exercise = buildExercise({
-      targetSets: 3,
-      loggedSets: [buildSet({ id: "today-1", setNumber: 1 })],
+  /**
+   * The athlete asked to hide the card on "Mantén la carga". Narrowed to holds
+   * carrying NO risk flag, because five of the six branches that produce a
+   * hold carry one — pain over 2, a sharp rep drop, a flagged note, too few
+   * sets, and the weekly-load guardrail holding back an increase that was
+   * earned. Hiding those would leave the rule computing correctly with nobody
+   * seeing it, which is the defect this repo shipped on 2026-08-31 and found
+   * six days later.
+   */
+  it("hides a hold that has nothing to report, and keeps one that does", () => {
+    // Reps short of the top of the range: a plain "keep training" hold.
+    const quiet = buildExercise({
+      targetSets: 2,
+      targetRepMax: 12,
+      loggedSets: [],
       previousPerformance: {
         sessionId: "session-previous",
         prescriptionType: "strength",
         targetRepMax: 12,
-        targetSets: 1,
+        targetSets: 2,
         isUnilateral: false,
-        sets: [buildSet({ id: "prev-1", setNumber: 1 })],
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+        ],
+      },
+    });
+    const { unmount } = renderRunner({ exercises: [quiet] });
+
+    expect(screen.queryByText("Sugerencia")).toBeNull();
+    // Nothing replaces it: the weight box already carries the same load, so a
+    // sentence saying "keep the same weight" would restate a number that is
+    // on screen twice already.
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(80);
+    unmount();
+
+    // Same hold, but joint pain was reported — the card must stay.
+    const flagged = buildExercise({
+      targetSets: 2,
+      targetRepMax: 12,
+      loggedSets: [],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 2,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "80.00", actualReps: 8, rir: 2, painScore: 0 }),
+          buildSet({
+            id: "p2",
+            setNumber: 2,
+            actualWeightKg: "80.00",
+            actualReps: 8,
+            rir: 2,
+            painScore: 3,
+            painLocation: "hombro",
+          }),
+        ],
+      },
+    });
+    renderRunner({ exercises: [flagged] });
+
+    expect(screen.getByText("Sugerencia")).toBeVisible();
+    expect(screen.getByText("Dolor")).toBeVisible();
+  });
+
+  /**
+   * Two answers to one question, on screen together since the feature
+   * shipped: the badge shows suggestNextWeightKg (a flat percentage of the
+   * last load, rounded to the nearest half kilo) while the line beneath shows
+   * the nearest total the gym's discs can actually build. On the real hip
+   * thrust that read "Sube carga → 66kg" above "Añade 1 × 5 lb por lado →
+   * 67.5kg". The buildable number is the one you can act on.
+   */
+  it("shows one target weight, not two that disagree", () => {
+    const GYM_INVENTORY = [
+      { value: 45, unit: "lb" as const },
+      { value: 5, unit: "lb" as const },
+      { value: 2.5, unit: "lb" as const },
+    ];
+    const exercise = buildExercise({
+      targetSets: 3,
+      targetRepMax: 12,
+      loadMechanism: "machine",
+      isCompound: true,
+      loggedSets: [],
+      loadingModel: "plate_loaded",
+      hasPlateInventory: true,
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122.47,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM_INVENTORY,
+      }),
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p3", setNumber: 3, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
       },
     });
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.getByText(/Última vez/)).toBeVisible();
-    expect(screen.getByText("La vez pasada no llegaste a este set.")).toBeVisible();
+    // The verdict keeps its words and drops its number; the instruction below
+    // carries the only weight on the card.
+    const badge = screen.getByText("Sube carga");
+    expect(badge).toBeVisible();
+    expect(badge).not.toHaveTextContent("→");
+    expect(screen.getByText(/Añade/)).toBeVisible();
+
+    // And the box agrees with it. Dropping the badge's arrow was only half the
+    // fix: the prefill still fell through to suggestNextWeightKg, so the card
+    // read "Añade ... → 129.27kg" above a box holding 128.5 — the same two
+    // disagreeing answers, one field lower. No recorded build here, which is
+    // the ordinary case rather than the edge one.
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(129.27);
   });
 
-  it("does not show a previous-performance card when there is none", () => {
+  /**
+   * The reason the athletes gave, and it is better than the one the layout
+   * had: they want to reach the form without scrolling. Today's sets used to
+   * render ABOVE the inputs, so every set logged pushed the weight box further
+   * down — the form drifted away from the thumb exactly as the session went on
+   * and precision got harder.
+   */
+  it("keeps the form above every support panel, however many sets are logged", () => {
+    const exercise = buildExercise({
+      targetSets: 5,
+      loggedSets: [
+        buildSet({ id: "s1", setNumber: 1 }),
+        buildSet({ id: "s2", setNumber: 2 }),
+        buildSet({ id: "s3", setNumber: 3 }),
+      ],
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [buildSet({ id: "p1", setNumber: 1 })],
+      },
+    });
+
+    renderRunner({ exercises: [exercise] });
+
+    const order = (node: Element) =>
+      Array.prototype.indexOf.call(document.querySelectorAll("*"), node);
+
+    const weightBox = screen.getByLabelText("Peso (kg)");
+    const save = screen.getByRole("button", { name: /^Guardar set/ });
+    const next = screen.getByRole("button", { name: "Siguiente ejercicio" });
+
+    // Everything the athlete acts on comes before everything they might
+    // consult — including the sets they have already logged.
+    for (const panel of ["Series de hoy · 3 de 5", "La vez pasada", "Detalles del ejercicio"]) {
+      expect(order(screen.getByText(panel))).toBeGreaterThan(order(next));
+    }
+    expect(order(weightBox)).toBeLessThan(order(save));
+    expect(order(save)).toBeLessThan(order(next));
+
+    // And they are genuinely out of the way until asked for.
+    expect(screen.getByText("Series de hoy · 3 de 5").closest("details")).not.toHaveAttribute("open");
+  });
+
+  /**
+   * The rest countdown used to render ABOVE the inputs, so saving a set pushed
+   * the whole form and its button down ~92px at the exact moment the thumb was
+   * still on the button. This screen has a documented history of controls
+   * moving under a thumb and it was doing it to itself once per set.
+   *
+   * It now stands in the button's own slot, so the swap is a repaint rather
+   * than a reflow. The cost, taken deliberately: there is no submit control
+   * while resting, so the countdown IS the skip.
+   */
+  it("puts the rest countdown in the save button's slot, and lets a tap end it", () => {
+    const exercise = buildExercise({ targetSets: 3, loggedSets: [] });
+    renderRunner({
+      exercises: [exercise],
+      saveSetAction: async () => ({
+        status: "saved" as const,
+        exercisePrescriptionId: exercise.id,
+        setNumber: 1,
+      }),
+    });
+
+    const save = screen.getByRole("button", { name: "Guardar set 1" });
+    const slot = save.parentElement!;
+    // submit, not click: React 19 form actions do not run from a bare click on
+    // the submit button in jsdom.
+    fireEvent.submit(save.closest("form")!);
+
+    return waitFor(() => {
+      const rest = screen.getByRole("button", { name: /^Descanso, / });
+      // Same parent, so nothing above it moved.
+      expect(rest.parentElement).toBe(slot);
+      expect(screen.queryByRole("button", { name: /^Guardar set/ })).toBeNull();
+
+      // The countdown is the skip: one tap returns the primary action.
+      fireEvent.click(rest);
+      expect(screen.getByRole("button", { name: /^Guardar set/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Descanso, / })).toBeNull();
+    });
+  });
+
+  it("does not show a suggestion card when there is no previous performance", () => {
     const exercise = buildExercise({ previousPerformance: null });
 
     renderRunner({ exercises: [exercise] });
 
-    expect(screen.queryByText("Última vez")).toBeNull();
+    expect(screen.queryByText("Sugerencia")).toBeNull();
   });
 
   it("anchors the suggested next weight on the previous session's last *planned* set, not a bonus set logged after it", () => {
@@ -1170,6 +1501,10 @@ describe("SessionRunner", () => {
       const exercise = buildExercise({ loggedSets: [buildSet()] });
 
       renderRunner({ exercises: [exercise] });
+
+    // Today's sets live at the foot now, so the form does not drift down the
+    // screen as they accumulate.
+    openPanel(/^Series de hoy/);
       fireEvent.click(screen.getByRole("button", { name: "Editar" }));
 
       expect(screen.queryByRole("button", { name: "Sí, borrar" })).toBeNull();
@@ -1576,6 +1911,28 @@ describe("SessionRunner — the once-per-exercise pain question", () => {
     // The accessible name of this label swallows its own option list and
     // helper copy, so match the question rather than the whole string.
     expect(screen.getByLabelText(/^¿Dónde\?/)).toBeInTheDocument();
+
+    // The thresholds appear here and only here. They spent months as an
+    // always-open block under "Siguiente ejercicio" and then inside a
+    // reference disclosure — ambient on every exercise of every session,
+    // identical text each time. The number about to be typed is the one these
+    // rules act on, so this is the moment they mean anything.
+    expect(screen.getByText(/Dolor articular >2 bloquea/)).toBeVisible();
+  });
+
+  it("keeps the pain rules out of the way until pain is actually being recorded", () => {
+    renderRunner({
+      exercises: [
+        buildExercise({
+          targetSets: 2,
+          loggedSets: [buildSet({ setNumber: 1 }), buildSet({ id: "set-2", setNumber: 2 })],
+        }),
+      ],
+    });
+
+    // Asked, not yet escalated: nothing to explain.
+    expect(screen.getByRole("button", { name: "Sí, algo me molestó" })).toBeInTheDocument();
+    expect(screen.queryByText(/Dolor articular >2 bloquea/)).toBeNull();
   });
 
   it("reports an already-answered exercise instead of asking again", () => {
@@ -1609,5 +1966,526 @@ describe("SessionRunner — the once-per-exercise pain question", () => {
     });
 
     expect(screen.getByText(/consulta a un profesional/)).toBeInTheDocument();
+  });
+});
+
+describe("SessionRunner — what to put on the bar", () => {
+  const GYM = [
+    { value: 45, unit: "lb" as const },
+    { value: 35, unit: "lb" as const },
+    { value: 25, unit: "lb" as const },
+    { value: 10, unit: "lb" as const },
+    { value: 5, unit: "lb" as const },
+    { value: 2.5, unit: "lb" as const },
+    { value: 25, unit: "kg" as const },
+    { value: 20, unit: "kg" as const },
+    { value: 15, unit: "kg" as const },
+    { value: 10, unit: "kg" as const },
+    { value: 5, unit: "kg" as const },
+  ];
+
+  /** Their real hip thrust: 3 x 45 lb per side, logged as 122.47 kg, earning
+   *  an increase (target reps hit at RIR 2, no pain). */
+  function hipThrust(overrides: Partial<ExerciseWithLoggedSets> = {}) {
+    return buildExercise({
+      exerciseNameEs: "Hip thrust",
+      targetSets: 3,
+      targetRepMax: 12,
+      loadMechanism: "machine",
+      isCompound: true,
+      loggedSets: [],
+      loadingModel: "plate_loaded",
+      hasPlateInventory: true,
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122.47,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+      previousPerformance: {
+        sessionId: "session-previous",
+        prescriptionType: "strength",
+        targetRepMax: 12,
+        targetSets: 3,
+        isUnilateral: false,
+        sets: [
+          buildSet({ id: "p1", setNumber: 1, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p2", setNumber: 2, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+          buildSet({ id: "p3", setNumber: 3, actualWeightKg: "122.47", actualReps: 12, rir: 2, painScore: 0 }),
+        ],
+      },
+      ...overrides,
+    });
+  }
+
+  it("tells the athlete what to ADD, not a weight to reverse-engineer", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText(/1 × 5 lb \+ 1 × 2.5 lb/)).toBeInTheDocument();
+    // "por lado" appears in both the instruction and the recipe disclosure.
+    expect(screen.getAllByText(/por lado/).length).toBeGreaterThan(0);
+  });
+
+  it("states the convention, which nothing else in the app does", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText("discos en total, sin contar la barra")).toBeInTheDocument();
+  });
+
+  it("answers the reverse-engineering question in a secondary disclosure", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // Collapsed by default — the instruction is the primary line; the full
+    // recipe is only needed for an empty bar.
+    expect(screen.getByText("Armar desde cero")).toBeInTheDocument();
+    expect(screen.getByText(/3 × 45 lb/)).toBeInTheDocument();
+  });
+
+  /**
+   * The preview bug, pinned in the rendered words rather than in the data.
+   *
+   * The first version printed the enumerator's recipe under "La vez pasada"
+   * with its mass marked "reales" — two claims about history from arithmetic
+   * that had never seen the bar. On this athlete's real numbers it produced
+   * `1 × 20 kg + 1 × 25 lb` for a lift loaded entirely with 45 lb discs,
+   * because the 25 kg plates are at the far end of the gym.
+   */
+  it("offers a computed build in the conditional, and claims no true mass for it", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    expect(screen.getByText(/podrías armarlo así/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^La vez pasada:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reales/)).not.toBeInTheDocument();
+  });
+
+  it("states a recorded build flatly, and only then claims a true mass", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    expect(screen.getByText(/Así lo armas:/)).toBeInTheDocument();
+    expect(screen.getByText(/122.5kg reales · 6 discos/)).toBeInTheDocument();
+    // The guess is withdrawn once there is an answer.
+    expect(screen.queryByText(/podrías armarlo así/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The plate build is durable configuration the athlete maintains across
+   * months and checks against the bar in front of them. It gets its own row,
+   * labelled with its own state, rather than riding on a summary about
+   * coaching cues.
+   */
+  it("puts the recorded build on its own summary line, so no tap is needed to read it", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    const summary = screen.getByText("Discos").closest("summary")!;
+    expect(summary).toHaveTextContent("3 × 45 lb por lado");
+    expect(summary).toHaveTextContent("122.5kg");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    // Its own disclosure, not the one holding cues and substitutions.
+    expect(summary.closest("details")).not.toContainElement(screen.getByText("Detalles del ejercicio"));
+  });
+
+  /**
+   * Invariant 14 enforced by layout rather than convention: only a build the
+   * athlete recorded may state a mass, so the unrecorded summary carries none.
+   */
+  it("names no weight on the summary until a build has been recorded", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const summary = screen.getByText("Registrar los discos").closest("summary")!;
+    expect(summary).not.toHaveTextContent(/kg/);
+    expect(summary).not.toHaveTextContent(/lb/);
+  });
+
+  it("offers a way to disagree with the computed build", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const disagree = screen.getByRole("button", { name: "Yo lo armo distinto" });
+    fireEvent.click(disagree);
+
+    // One tap target per denomination the gym stocks — and only those, so the
+    // editor cannot express a disc that does not exist.
+    expect(screen.getByRole("button", { name: "Añadir un disco de 45 lb" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Añadir un disco de 55 lb" })).not.toBeInTheDocument();
+  });
+
+  it("shows the mass and the disc count live as the athlete taps", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    // Re-queried each time on purpose: the first tap replaces the chip with a
+    // stepper row, so the element genuinely changes identity. The accessible
+    // name does not, which is the point of giving both the same label.
+    const add45 = () => screen.getByRole("button", { name: "Añadir un disco de 45 lb" });
+    fireEvent.click(add45());
+    fireEvent.click(add45());
+    fireEvent.click(add45());
+
+    // Both numbers, deliberately: the disc count is what you can verify by
+    // looking down at the bar, and 6 across both sides is the convention this
+    // app records weights under.
+    const summary = screen.getByRole("status");
+    expect(summary).toHaveTextContent("3 × 45 lb");
+    expect(summary).toHaveTextContent("122.5kg");
+    expect(summary).toHaveTextContent("6 discos");
+  });
+
+  /**
+   * Promoting a chip unmounts a button in one container and mounts a different
+   * one in another, so React cannot reconcile it as a move. Without this,
+   * focus falls to <body> and a keyboard or VoiceOver user loses their place
+   * mid-edit — a regression on a screen that has no focus-loss issue today.
+   */
+  it("keeps focus on the disc it just promoted, so the next tap is the second plate", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  /**
+   * The height complaint, pinned as a count. Eleven full steppers cost 572px —
+   * most of the viewport — to ask about eight discs nobody touched.
+   */
+  it("starts as chips only, and grows a stepper for the disc you actually used", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    // Nothing on the bar yet, so nothing to decrement.
+    expect(screen.queryAllByRole("button", { name: /^Quitar un disco/ })).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /^Añadir un disco/ })).toHaveLength(GYM.length);
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+
+    // Exactly one denomination is in play, so exactly one stepper exists.
+    expect(screen.queryAllByRole("button", { name: /^Quitar un disco/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Quitar un disco de 45 lb" })).toBeInTheDocument();
+  });
+
+  /**
+   * A row that returns to zero must not collapse back into a chip under the
+   * thumb that just tapped it — this screen has a documented history of
+   * controls shifting mid-interaction. It is still dropped on save.
+   */
+  it("keeps a stepper on screen after its count returns to zero", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 45 lb" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar un disco de 45 lb" }));
+
+    expect(screen.getByRole("button", { name: "Quitar un disco de 45 lb" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Sin discos");
+  });
+
+  /**
+   * The ordering bug, and the reason the athlete had to scroll. The inventory
+   * arrives kg-family-first, value-descending within each family, so 45 lb
+   * (20.41 kg — the second-heaviest disc in this gym) rendered SIXTH, below
+   * 5 kg. Comparing printed numbers across unit families is the trap.
+   */
+  it("orders the discs by real mass, not by the number printed on them", () => {
+    renderRunner({ exercises: [hipThrust()] });
+    fireEvent.click(screen.getByRole("button", { name: "Yo lo armo distinto" }));
+
+    const order = screen
+      .getAllByRole("button", { name: /^Añadir un disco/ })
+      .map((node) => node.getAttribute("aria-label")!.replace("Añadir un disco de ", ""));
+
+    expect(order.slice(0, 4)).toEqual(["25 kg", "45 lb", "20 kg", "35 lb"]);
+    expect(order.at(-1)).toBe("2.5 lb");
+  });
+
+  it("seeds the editor from the build already recorded, so a correction is one tap", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar los discos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir un disco de 2.5 lb" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("3 × 45 lb + 1 × 2.5 lb");
+  });
+
+  /**
+   * Invariant 13 at the UI edge. The bar held 122.47 and the athlete typed
+   * 122; the box for the NEXT set gets the true number, and nothing rewrites
+   * the row that already exists.
+   */
+  it("prefills the weight box from a recorded build, without touching history", () => {
+    const recorded = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+        recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+      }),
+    });
+    renderRunner({ exercises: [recorded] });
+
+    // Earned an increase, so the box carries where the step lands — computed
+    // off 122.47, not off the hand-rounded 122.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  /**
+   * Reported from a real session: the athlete saved a build and the weight box
+   * kept the old number. `StrengthSetFields` seeds `useState` from its props,
+   * so it reads them once; the enclosing form is keyed on the set number,
+   * which does not change when a build is recorded.
+   */
+  it("moves the weight box when the recorded build changes the true weight", () => {
+    const withoutBuild = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+    });
+    const { rerender } = renderRunner({ exercises: [withoutBuild] });
+    // Where this gym's discs land stepping up from the 122 the athlete typed.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.8);
+
+    // What revalidatePath does after "Guardar discos": same session, same set
+    // number, new loadAssist.
+    rerender(
+      runnerElement({
+        exercises: [
+          hipThrust({
+            loadAssist: buildLoadAssist({
+              lastWeightKg: 122,
+              loadMechanism: "machine",
+              isCompound: true,
+              loadingModel: "plate_loaded",
+              inventory: GYM,
+              recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+            }),
+          }),
+        ],
+      }),
+    );
+
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  /**
+   * The other half of that fix. Refreshing the weight by remounting the whole
+   * field group also reset `reps` (state) and the RIR radios (defaultChecked),
+   * so the athlete who typed their reps, picked a RIR and THEN recorded the
+   * discs lost both without being told.
+   */
+  it("keeps typed reps and the chosen RIR when a recorded build moves the weight", () => {
+    const withoutBuild = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+    });
+    const { rerender } = renderRunner({ exercises: [withoutBuild] });
+
+    fireEvent.change(screen.getByLabelText(/reps/i), { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("radio", { name: /^1$/ }));
+
+    // What revalidatePath does after "Guardar discos".
+    rerender(
+      runnerElement({
+        exercises: [
+          hipThrust({
+            loadAssist: buildLoadAssist({
+              lastWeightKg: 122,
+              loadMechanism: "machine",
+              isCompound: true,
+              loadingModel: "plate_loaded",
+              inventory: GYM,
+              recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+            }),
+          }),
+        ],
+      }),
+    );
+
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+    expect(screen.getByLabelText(/reps/i)).toHaveValue(9);
+    expect(screen.getByRole("radio", { name: /^1$/ })).toBeChecked();
+  });
+
+  /**
+   * The field used one `step` for both the ± buttons and HTML validation, so
+   * the browser refused anything off the half-kilo grid — "20.2" was bounced
+   * with "the two nearest valid values are 20 and 20.5". Once a recorded build
+   * began prefilling the true mass of the bar it also refused the app's own
+   * prefill, since 3 × 45 lb is 122.47.
+   */
+  it("accepts a weight the server would store, not just multiples of the button step", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    const weight = screen.getByLabelText(/peso/i) as HTMLInputElement;
+
+    // numeric(6,2) and set-log-schema's toFixed(2) — the browser now accepts
+    // exactly what the server stores.
+    expect(weight.step).toBe("0.01");
+
+    fireEvent.change(weight, { target: { value: "20.2" } });
+    expect(weight.checkValidity()).toBe(true);
+    expect(weight).toHaveValue(20.2);
+  });
+
+  it("still moves in half kilos when the buttons are used", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // The typed value is unconstrained; the buttons stay a half-kilo
+    // convenience, which is what anyone loading a bar actually wants.
+    expect(screen.getByRole("button", { name: "Sumar 0.5" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restar 0.5" })).toBeInTheDocument();
+  });
+
+  /**
+   * A *suggested build* is a guess and never reaches the box — but the step is
+   * not a guess about history, it is the instruction printed directly above
+   * the box ("Añade 1 x 5 lb + 1 x 2.5 lb por lado -> 129.27kg"). Leaving the
+   * box on suggestNextWeightKg's percentage put 128.5 under an instruction
+   * that lands on 129.27, which is the same two-disagreeing-answers defect
+   * this screen removed from the badge one commit earlier. The athlete cannot
+   * load 128.5 with these discs.
+   */
+  it("takes the step's own total, since that is the instruction on screen", () => {
+    renderRunner({ exercises: [hipThrust()] });
+
+    // The line rounds for display, the box carries what the server stores —
+    // the same number, and no longer two different ones.
+    expect(screen.getByText(/Añade/)).toHaveTextContent("129.3kg");
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+  });
+
+  it("says there is no appropriate jump rather than inventing one", () => {
+    // A gym stocking only 25 lb discs: the smallest pair on a 40 kg load is
+    // +57%, so there is no load change to make.
+    const coarse = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 40,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: [{ value: 25, unit: "lb" }],
+      }),
+    });
+    renderRunner({ exercises: [coarse] });
+
+    expect(screen.getByText(/no hay un salto de carga apropiado/i)).toBeInTheDocument();
+    // And with no step to follow, the box keeps suggestNextWeightKg's answer
+    // for this exercise's own history: the override is scoped to an
+    // instruction actually being on screen.
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(128.5);
+  });
+
+  /**
+   * Reported by the athlete on the first exercise they ever logged with this
+   * feature on: no way to record a build at all. The panel lived inside the
+   * "última vez" card and buildLoadAssist refused to return anything without a
+   * previous weight — so the one session where the app knows least and the
+   * athlete knows most was the one session it asked nothing.
+   */
+  describe("a first session on an exercise", () => {
+    function firstTime(overrides: Partial<ExerciseWithLoggedSets> = {}) {
+      return hipThrust({
+        previousPerformance: null,
+        loadAssist: buildLoadAssist({
+          lastWeightKg: null,
+          loadMechanism: "machine",
+          isCompound: true,
+          loadingModel: "plate_loaded",
+          inventory: GYM,
+        }),
+        ...overrides,
+      });
+    }
+
+    it("still offers to record which discs went on the bar", () => {
+      renderRunner({ exercises: [firstTime()] });
+
+      expect(screen.getByRole("button", { name: "Yo lo armo distinto" })).toBeInTheDocument();
+      expect(screen.getByText("discos en total, sin contar la barra")).toBeInTheDocument();
+    });
+
+    it("says it does not know yet rather than guessing from nothing", () => {
+      renderRunner({ exercises: [firstTime()] });
+
+      expect(screen.getByText(/Todavía no sé con qué discos armas/)).toBeInTheDocument();
+      // No history means no "add this much" — that question is about history.
+      expect(screen.queryByText(/^Añade /)).not.toBeInTheDocument();
+    });
+
+    it("fills the weight box from the recorded build, which is the whole point", () => {
+      const recorded = firstTime({
+        loadAssist: buildLoadAssist({
+          lastWeightKg: null,
+          loadMechanism: "machine",
+          isCompound: true,
+          loadingModel: "plate_loaded",
+          inventory: GYM,
+          recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+        }),
+      });
+      renderRunner({ exercises: [recorded] });
+
+      // They loaded the bar and tapped three 45s. No pound-to-kilo arithmetic
+      // in anyone's head, on the one screen that previously offered nothing.
+      expect(screen.getByLabelText(/peso/i)).toHaveValue(122.47);
+    });
+
+    it("can still be told whether the machine takes discs", () => {
+      renderRunner({
+        exercises: [firstTime({ loadingModel: null, loadAssist: null, hasPlateInventory: true })],
+      });
+
+      expect(screen.getByRole("button", { name: "Sí, con discos" })).toBeInTheDocument();
+    });
+  });
+
+  it("renders nothing at all when the exercise is not plate-loaded", () => {
+    // loadMechanism "machine" covers both a pin stack and a plate-loaded
+    // machine, so this must stay silent rather than guess.
+    renderRunner({ exercises: [hipThrust({ loadingModel: null, loadAssist: null })] });
+
+    expect(screen.queryByText("Armar desde cero")).not.toBeInTheDocument();
+    expect(screen.queryByText("discos en total, sin contar la barra")).not.toBeInTheDocument();
   });
 });

@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 
 import { formatKg, roundKgValue } from "@/lib/format";
+
+import type { SetLoadingModelAction, SetPlateBuildAction } from "./plate-actions";
+import { PlateBuildSection, PlateStepLine } from "./plate-panel";
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
 import { convertDurationValue, durationInputToSeconds, secondsToDurationInput } from "@/training/duration";
 import type { DurationUnit } from "@/training/duration";
 import { painLocationLabelsEs, painLocations } from "@/training/muscle-taxonomy";
+import { formatPlateCounts } from "@/training/plate-math";
 import { rirValues, toDisplayRir } from "@/training/rir";
 import { rpeLabelsEs } from "@/training/rpe";
 import type { Rpe } from "@/training/rpe";
@@ -42,6 +46,21 @@ import type {
   UpdateTargetSetsActionState,
 } from "../actions";
 
+
+/**
+ * One visual language for the six support rows at the foot of the runner, so
+ * they read as a single stack to scroll past rather than six unrelated
+ * widgets. min-h-11 on every summary: this card has already shipped and fixed
+ * a 20px tap target once.
+ */
+/* `open:pb-4` rather than a constant `pb-4`: closed, the summary's own
+ * min-h-12 is the whole row and bottom padding would make every collapsed row
+ * taller for nothing. Open, the content ran flush into the rounded edge —
+ * which is what "looks strange" was. */
+const SUPPORT_PANEL = "rounded-2xl bg-zinc-900 px-4 ring-1 ring-zinc-800 open:pb-4";
+const SUPPORT_SUMMARY =
+  "flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300";
+
 const initialSaveSetState: SaveSetActionState = { status: "idle" };
 const initialReopenState: ReopenSessionActionState = { status: "idle" };
 const initialUpdateTargetSetsState: UpdateTargetSetsActionState = { status: "idle" };
@@ -66,6 +85,8 @@ export function SessionRunner({
   reassignExerciseAction,
   addSetToCompletedSessionAction,
   recordExercisePainAction,
+  setLoadingModelAction,
+  setPlateBuildAction,
   loadFlaggedPrescriptionIds = [],
 }: {
   session: WorkoutSession;
@@ -105,6 +126,8 @@ export function SessionRunner({
     prevState: RecordExercisePainActionState,
     formData: FormData,
   ) => Promise<RecordExercisePainActionState>;
+  setLoadingModelAction: SetLoadingModelAction;
+  setPlateBuildAction: SetPlateBuildAction;
   /**
    * Prescriptions whose muscle group is already running well above its
    * trailing weekly average. Resolved server-side so this component never
@@ -354,105 +377,198 @@ export function SessionRunner({
         )
       : null;
 
-  const rawDefaultWeightKg = lastSet?.actualWeightKg ?? suggestedWeightKg ?? "";
-  const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
-  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
-  const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
+  // What the bar will actually weigh, when the athlete has told us what is on
+  // it. 3 x 45 lb is 122.47 kg; someone who typed 122 last week was rounding a
+  // conversion by hand, and this is the whole reason the recorded build earns
+  // its column.
+  //
+  // Prefill only, and only for the set about to be logged — never a rewrite.
+  // Invariant 13: shifting a stored weight moves every /progreso number, every
+  // PR and the 5% improvement threshold, and hands buildWeeklyLoadGuardrail a
+  // ratio it would read as escalation. Skipped entirely when the suggestion is
+  // to back off, where the true mass of the OLD build is the wrong number to
+  // put in front of someone.
+  const plateAssist = currentExercise.loadAssist;
+  const truePrefillKg = !plateAssist
+    ? null
+    : !previousSuggestion
+      ? // First session on this exercise: no verdict to apply, so the recorded
+        // build IS the answer. This is the case the whole feature was asked
+        // for — load the bar, tap the discs, and the box reads 122.47 instead
+        // of the athlete converting pounds in their head.
+        plateAssist.trueHoldKg
+      : previousSuggestion.action === "reduce_or_modify"
+        ? null
+        : previousSuggestion.action === "increase" && !repsFirstIncrease
+          ? (plateAssist.trueStepKg ?? plateAssist.trueHoldKg)
+          : plateAssist.trueHoldKg;
 
-  // The set you're about to log next, matched against the same position (and
-  // side, for unilateral exercises) from the previous session — so the
-  // reference tracks whichever set you're on, not just the first.
-  const upcomingSide = isUnilateral ? defaultSide : "bilateral";
-  const upcomingPositionOnSide = isUnilateral ? (defaultSide === "left" ? leftCount : rightCount) + 1 : nextSetNumber;
-  const matchingPreviousSet =
-    previousPerformance && isLoggingAllowed
-      ? (previousPerformance.sets.filter((set) => set.side === upcomingSide)[upcomingPositionOnSide - 1] ?? null)
-      : null;
+  // Two conditions, not one, and collapsing them cost the honest refusal.
+  // `showPlateStepArea` is whether this is a load increase at all — when it is
+  // and no disc pair fits the band, PlateStepLine says so ("no hay un salto de
+  // carga apropiado"), which is a real answer and must still render.
+  // `plateStepShown` is the narrower question the badge cares about: is a
+  // better number about to appear directly below me?
+  const showPlateStepArea = Boolean(previousSuggestion?.action === "increase" && !repsFirstIncrease);
+  const plateStepShown = showPlateStepArea && Boolean(plateAssist?.step);
 
-  return (
-    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
-      <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Día {template.dayIndex}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{template.nameEs}</h1>
-        <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
-        <p className="text-xs leading-5 text-zinc-400">{template.mobilityNotesEs}</p>
-      </header>
+  // When the plate instruction is on screen, the box takes ITS number. The two
+  // are computed differently — `suggestedWeightKg` rounds a percentage to the
+  // half kilo, `step.totalKg` is what the discs in this gym actually come to —
+  // so leaving the box on the percentage put "Añade 1 x 5 lb + 1 x 2.5 lb por
+  // lado -> 129.3kg" directly above a box reading 128.5. Suppressing the
+  // badge's arrow was only half the fix: without a recorded build
+  // `truePrefillKg` is null, which is the common case, not the edge one.
+  const plateStepWeightKg = plateStepShown ? (plateAssist?.step?.totalKg ?? null) : null;
+  const rawDefaultWeightKg =
+    lastSet?.actualWeightKg ?? truePrefillKg ?? plateStepWeightKg ?? suggestedWeightKg ?? "";
 
-      <ExerciseProgressBar
-        exercises={exercises}
-        exerciseIndex={exerciseIndex}
-        exerciseName={currentExercise.exerciseNameEs}
-      />
+  // Built once and placed by whichever branch renders. Both need identical
+  // props, and the panel carries editor state — two call sites would be two
+  // components that reset each other as the previous-performance branch flips.
+  //
+  // `null` only when the exercise is not plate-loaded AND there is nothing to
+  // ask, so the empty case collapses the whole card rather than leaving a
+  // bordered box with nothing in it.
+  const askLoadingModel = currentExercise.hasPlateInventory && currentExercise.loadingModel === null;
+  const hasCues = Boolean(currentExercise.notesEs) || currentExercise.painSensitive;
+  const canSubstitute = isLoggingAllowed && !showSubstitutePanel;
+  const hasPreviousSets = Boolean(previousPerformance && previousPerformance.sets.length > 0);
 
-      {/* scroll-mt clears the sticky bar above, which would otherwise cover
-          the top of the card the effect just scrolled to. */}
-      <section
-        ref={exerciseCardRef}
-        className="mt-4 scroll-mt-16 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800"
-      >
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-          Ejercicio {exerciseIndex + 1} de {exercises.length}
-        </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          {/* tabIndex -1: focused programmatically on exercise change so the
-              swap is announced, never a tab stop in normal keyboard order. */}
-          <h2 ref={exerciseHeadingRef} tabIndex={-1} className="text-xl font-semibold text-zinc-100 focus:outline-none">
-            {currentExercise.exerciseNameEs}
-          </h2>
-          <YoutubeTechniqueLink
-            nameEs={currentExercise.exerciseNameEs}
-            nameEn={currentExercise.exerciseNameEn}
-            isUnilateral={currentExercise.isUnilateral}
-          />
-        </div>
-        <p className="mt-1 text-sm leading-6 text-zinc-400">
-          {isDuration ? (
-            <>
-              {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
-              {isUnilateral ? " por lado" : ""} · descanso {currentExercise.restSeconds}s
-            </>
-          ) : (
-            <>
-              {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
-              {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso{" "}
-              {currentExercise.restSeconds}s
-            </>
-          )}
-        </p>
-        <p className="mt-2 text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
-        {currentExercise.painSensitive ? (
-          <p className="mt-2 text-xs leading-5 text-amber-200">
-            Vigilar dolor. Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
-          </p>
-        ) : null}
+  /**
+   * Two disclosures, each with one subject, replacing one that had five.
+   *
+   * The previous pass merged four collapsibles into a single "Detalles del
+   * ejercicio" and counted that a win. It was not: opening it dumped the
+   * coaching cue, the substitution list, the whole plate editor, a second copy
+   * of every set from last session and a static rules paragraph into one
+   * 300-400px block. Fewer summary rows, same pile underneath — which is what
+   * "we cleaned the view but it is hard to read" meant.
+   *
+   * Tabs were considered and rejected. A tab bar is chrome paid on every
+   * glance at this card for material read maybe twice per exercise, while a
+   * disclosure costs a row only when it exists and its contents cost nothing
+   * until tapped. Tabs also imply peers, and a coaching cue that is dead
+   * weight after session two is not the peer of a plate build maintained for
+   * months. Icons per section were rejected for the same reason the YouTube
+   * glyph works and these would not: "cue" and "history" have no legible
+   * symbol, so an icon-only control is a disclosure with a picture instead of
+   * a label — worse to read fast, worse to hit with a chalked thumb.
+   */
 
-        {isLoggingAllowed && !showSubstitutePanel ? (
-          <button
-            type="button"
-            onClick={() => setShowSubstitutePanel(true)}
-            className="mt-3 min-h-11 rounded-xl px-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-          >
-            Cambiar ejercicio
-          </button>
-        ) : null}
+  /**
+   * Everything that is not the set you are logging, gathered at the foot of
+   * the page behind its own summary row.
+   *
+   * Asked for after the athletes were interviewed, and their reason is better
+   * than the one the layout had: they want to reach the form without
+   * scrolling. The old order put the logged sets ABOVE the inputs, so every
+   * set pushed the weight box further down the screen — the form moved away
+   * from the thumb precisely as the session went on and fatigue made
+   * precision harder. Nothing here is deleted; it is one tap away, below the
+   * work.
+   */
+  const suggestionPanel =
+        /* Hidden entirely on a hold that carries no risk flag — the "you are
+            fine, just not there yet" case, which the branch structure of
+            suggestProgression makes the modal one for a healthy athlete
+            mid-block. Nothing replaces it: the weight box is already
+            prefilled with the same load, so a sentence saying "keep the same
+            weight" would be one more restatement of a number already on
+            screen.
 
-        {showSubstitutePanel ? (
-          <SubstituteExercisePanel
-            sessionId={session.id}
-            exercise={currentExercise}
-            existingSubstitutes={substitutesByExerciseId[currentExercise.id] ?? []}
-            planChoices={planSubstituteChoices}
-            state={substituteState}
-            formAction={substituteFormAction}
-            onClose={() => setShowSubstitutePanel(false)}
-          />
-        ) : null}
+            NOT hidden on every hold, which is what was asked for. Five of the
+            six branches that produce a hold carry a riskFlag — pain over 2,
+            a sharp rep drop, a flagged note, too few sets, and the weekly-load
+            guardrail holding back an increase the athlete EARNED. Hiding
+            those would leave the rule computing correctly with nobody seeing
+            it, which is exactly the defect this repo shipped on 2026-08-31 and
+            found six days later. Doing it deliberately would be worse than
+            doing it by accident. */
+        previousPerformance &&
+        previousSuggestion &&
+        !(previousSuggestion.action === "hold" && previousSuggestion.riskFlag === "none") ? (
+          <div className={`${SUPPORT_PANEL} py-3`}>
+            {/* "Sugerencia", not "Última vez", because it no longer reports a
+                fact. It used to lead with the matching set from last session —
+                the SAME set the form below is already prefilled from, and the
+                same set the history inside "Detalles" lists. Three renderings
+                of one number, which a test had pinned at `toHaveLength(3)`
+                with a comment explaining why each was justified. None of them
+                were.
 
+                What survives is the split the card should always have had —
+                the form carries the fact, this carries the recommendation. */}
+            <details>
+              {/* The verdict and the risk chip never collapse. The chip is a
+                  pain / fatigue / technique / weekly-load signal, and this
+                  card is the only place on the screen it appears — putting it
+                  behind a tap is the same failure as hiding "Vigilar dolor".
+                  What collapses is the justification: the reason paragraph
+                  and the "why" link argue the case for someone who wants to
+                  disagree with the app later, which is not what anyone needs
+                  while standing at the machine. */}
+              <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Sugerencia</span>
+                <span
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}
+                >
+                  {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
+                  {/* No number when the discs can express the move. The badge
+                      shows suggestNextWeightKg — a flat percentage of the last
+                      load, rounded to the nearest half kilo — while the line
+                      below shows the nearest total this gym can actually
+                      build. They disagree by design: on the real hip thrust
+                      the badge said "→ 66kg" while the instruction under it
+                      said "→ 67.5kg", two answers to one question, on screen
+                      together since the feature shipped. The buildable one is
+                      the one you can act on, so it is the only one kept. */}
+                  {suggestedWeightKg && !repsFirstIncrease && !plateStepShown
+                    ? ` → ${formatKg(suggestedWeightKg, 2)}`
+                    : ""}
+                </span>
+                {previousSuggestion.riskFlag !== "none" ? (
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${riskFlagClass(previousSuggestion.riskFlag)}`}
+                  >
+                    {riskFlagLabelEs(previousSuggestion.riskFlag)}
+                  </span>
+                ) : null}
+              </summary>
+
+              <p className="mt-2 text-xs leading-5 text-zinc-400">
+                {repsFirstIncrease
+                  ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
+                  : previousSuggestion.reasonEs}
+              </p>
+              <Link
+                href="/guia?open=matematica"
+                className="mt-2 inline-block text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              >
+                ¿Por qué esta sugerencia?
+              </Link>
+            </details>
+
+            {/* Outside the <details> on purpose: it hides every child that is
+                not the <summary>, so "always visible" here means "not a child
+                of it". What to ADD is the instruction the athlete acts on in
+                the next thirty seconds and must never cost a tap. */}
+            <PlateStepLine assist={plateAssist} showStep={showPlateStepArea} />
+          </div>
+        ) : null;
+
+  const todaysSetsPanel =
+    currentExercise.loggedSets.length > 0 ? (
+      <details key={`today:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        <summary className={SUPPORT_SUMMARY}>
+          Series de hoy · {currentExercise.loggedSets.length} de {currentExercise.targetSets}
+        </summary>
+        <div className="mt-2">
         <LoggedSetsList
           sets={currentExercise.loggedSets}
           isUnilateral={isUnilateral}
           targetSets={currentExercise.targetSets}
-          className="mt-4 grid gap-2"
+          className="grid gap-2"
           renderRow={(set, displayNumber) => (
             // Keyed on updatedAt so a saved correction remounts the row
             // closed with fresh values, while a rejected one stays open
@@ -472,88 +588,196 @@ export function SessionRunner({
             />
           )}
         />
+        </div>
+      </details>
+    ) : null;
 
-        {previousPerformance && previousSuggestion ? (
-          <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-              Última vez
-              {matchingPreviousSet
-                ? ` · Set ${upcomingPositionOnSide}${isUnilateral ? (upcomingSide === "left" ? " · Izq" : " · Der") : ""}`
-                : ""}
-            </p>
-            <div className="mt-2 grid gap-1 text-sm text-zinc-300">
-              {matchingPreviousSet ? (
-                <LoggedSetRow set={matchingPreviousSet} />
-              ) : (
-                <p className="text-xs leading-5 text-zinc-400">
-                  {exerciseTargetReached ? "Series objetivo completadas." : "La vez pasada no llegaste a este set."}
-                </p>
-              )}
+  const previousSessionPanel = hasPreviousSets ? (
+    <details key={`history:${currentExercise.id}`} className={SUPPORT_PANEL}>
+      <summary className={SUPPORT_SUMMARY}>La vez pasada</summary>
+      <div className="mt-2">
+{hasPreviousSets && previousPerformance ? (
+            <div className="grid gap-1">
+              {/* No heading. The panel's own summary already says "La vez
+                  pasada"; a second label under it said the same thing twice. */}
+              <LoggedSetsList
+                sets={previousPerformance.sets}
+                isUnilateral={previousPerformance.isUnilateral}
+                targetSets={previousPerformance.targetSets}
+                className="grid gap-2"
+                renderRow={(set, displayNumber) => (
+                  <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
+                )}
+              />
             </div>
+          ) : null}
+      </div>
+    </details>
+  ) : null;
 
-            {previousPerformance.sets.length > 0 ? (
-              // Keyed on the exercise so moving to "Siguiente ejercicio"
-              // always remounts this closed, instead of carrying an earlier
-              // exercise's expanded state onto one nobody asked to see yet.
-              <details key={currentExercise.id} className="mt-3 rounded-xl bg-zinc-900/60 ring-1 ring-sky-300/20">
-                <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
-                  {previousPerformance.sets.length === 1
-                    ? "Ver la serie de la vez pasada"
-                    : `Ver las ${previousPerformance.sets.length} series de la vez pasada`}
-                </summary>
-                <LoggedSetsList
-                  sets={previousPerformance.sets}
-                  isUnilateral={previousPerformance.isUnilateral}
-                  targetSets={previousPerformance.targetSets}
-                  className="grid gap-2 px-3 pb-3 pt-2"
-                  renderRow={(set, displayNumber) => (
-                    <LoggedSetRow key={set.id} set={set} displayNumber={displayNumber} />
-                  )}
-                />
-              </details>
-            ) : null}
+  const sessionInfoPanel = (
+    <details className={SUPPORT_PANEL}>
+      <summary className={SUPPORT_SUMMARY}>Día {template.dayIndex} · {template.nameEs}</summary>
+      <div className="mt-2 grid gap-1">
+        <p className="text-sm leading-6 text-zinc-400">{template.focus}</p>
+        <p className="text-xs leading-5 text-zinc-400">{template.mobilityNotesEs}</p>
+      </div>
+    </details>
+  );
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className={`rounded-xl px-3 py-2 text-sm font-semibold ${suggestionClass(previousSuggestion.action)}`}>
-                {repsFirstIncrease ? "Añade una repetición" : suggestionLabelEs(previousSuggestion.action)}
-                {suggestedWeightKg && !repsFirstIncrease ? ` → ${formatKg(suggestedWeightKg, 2)}` : ""}
-              </div>
-              {previousSuggestion.riskFlag !== "none" ? (
-                <span
-                  className={`rounded-full px-2 py-1 text-xs font-semibold ${riskFlagClass(previousSuggestion.riskFlag)}`}
-                >
-                  {riskFlagLabelEs(previousSuggestion.riskFlag)}
-                </span>
+  const plateSection =
+    plateAssist || askLoadingModel ? (
+      <details key={`plates:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        {/* The summary IS the state. A recorded build is one short phrase and
+            the single most useful thing this section knows, so it rides the
+            line the athlete is already reading — amber once it no longer
+            matches what they logged, so a stale one is visible without
+            opening anything.
+
+            With nothing recorded it reads "Registrar los discos" and carries
+            NO mass. That is invariant 14 enforced by layout rather than by
+            convention: only a build the athlete gave us may state a weight. */}
+        <summary className={SUPPORT_SUMMARY}>
+          {plateAssist?.savedBuild ? (
+            <>
+              Discos
+              <span
+                className={`font-semibold ${plateAssist.savedBuildIsStale ? "text-amber-200" : "text-zinc-200"}`}
+              >
+                {formatPlateCounts(plateAssist.savedBuild.perSide)} por lado ·{" "}
+                {formatKg(String(plateAssist.savedBuild.totalKg), 1)}
+              </span>
+            </>
+          ) : askLoadingModel ? (
+            "¿Esta máquina usa discos?"
+          ) : (
+            "Registrar los discos"
+          )}
+        </summary>
+
+        <div className="mt-2">
+          <PlateBuildSection
+            assist={plateAssist}
+            askLoadingModel={askLoadingModel}
+            exerciseNameEs={currentExercise.exerciseNameEs}
+            sessionId={session.id}
+            setLoadingModelAction={setLoadingModelAction}
+            setPlateBuildAction={setPlateBuildAction}
+          />
+        </div>
+      </details>
+    ) : null;
+
+  const detailsSection =
+    hasCues || hasPreviousSets || canSubstitute ? (
+      <details key={`details:${currentExercise.id}`} className={SUPPORT_PANEL}>
+        <summary className={SUPPORT_SUMMARY}>Detalles del ejercicio</summary>
+
+        <div className="mt-2 grid gap-3">
+          {hasCues ? (
+            <div className="grid gap-1">
+              {currentExercise.notesEs ? (
+                <p className="text-xs leading-5 text-zinc-400">{currentExercise.notesEs}</p>
+              ) : null}
+              {currentExercise.painSensitive ? (
+                <p className="text-xs leading-5 text-amber-200">
+                  Sustituciones: {currentExercise.substitutionOptionsEs.join(", ")}.
+                </p>
               ) : null}
             </div>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">
-              {repsFirstIncrease
-                ? "Ejercicio de aislamiento: manten el peso y suma una repetición antes de subir carga."
-                : previousSuggestion.reasonEs}
-            </p>
-            <Link
-              href="/guia?open=matematica"
-              className="mt-2 inline-block text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-            >
-              ¿Por qué esta sugerencia?
-            </Link>
-          </div>
-        ) : null}
+          ) : null}
 
-        {restRemaining !== null && restRemaining > 0 ? (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 px-4 py-3 ring-1 ring-emerald-300/30">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Descanso</p>
-              <p className="text-lg font-semibold text-emerald-300">{formatRestTime(restRemaining)}</p>
-            </div>
+          {canSubstitute ? (
             <button
               type="button"
-              onClick={skipRest}
-              className="min-h-11 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              onClick={() => setShowSubstitutePanel(true)}
+              className="min-h-11 rounded-xl px-2 text-left text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
             >
-              Saltar descanso
+              Cambiar ejercicio
             </button>
-          </div>
+          ) : null}
+        </div>
+      </details>
+    ) : null;
+  const defaultWeightKg = rawDefaultWeightKg === "" ? "" : roundKgValue(rawDefaultWeightKg, 2);
+  const defaultReps = lastSet?.actualReps ?? previousLastSet?.actualReps ?? currentExercise.targetRepMax ?? "";
+  const defaultDurationSeconds = lastSet?.actualDurationSeconds ?? currentExercise.durationSeconds ?? "";
+
+  return (
+    <AppShell activeHref="/entrenar" backTo={{ href: "/entrenar", label: "Entrenar" }} showBrandBar={false}>
+      <ExerciseProgressBar
+        exercises={exercises}
+        exerciseIndex={exerciseIndex}
+        exerciseName={currentExercise.exerciseNameEs}
+      />
+
+      {/* scroll-mt clears the sticky bar above, which would otherwise cover
+          the top of the card the effect just scrolled to. */}
+      <section
+        ref={exerciseCardRef}
+        className="mt-4 scroll-mt-16 rounded-3xl bg-zinc-900 p-4 ring-1 ring-zinc-800"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+          Ejercicio {exerciseIndex + 1} de {exercises.length}
+        </p>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          {/* tabIndex -1: focused programmatically on exercise change so the
+              swap is announced, never a tab stop in normal keyboard order. */}
+          {/* h1, not h2. The session name used to hold it, at the top of the
+              page; that block is now at the foot, and leaving the h1 there
+              would put the exercise heading before the page heading in the
+              document outline. Promoting it is also just true — this screen is
+              about the exercise in front of you, not the day it belongs to. */}
+          <h1 ref={exerciseHeadingRef} tabIndex={-1} className="text-xl font-semibold text-zinc-100 focus:outline-none">
+            {currentExercise.exerciseNameEs}
+          </h1>
+          <YoutubeTechniqueLink
+            nameEs={currentExercise.exerciseNameEs}
+            nameEn={currentExercise.exerciseNameEn}
+            isUnilateral={currentExercise.isUnilateral}
+          />
+        </div>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm leading-6 text-zinc-400">
+          {isDuration ? (
+            <>
+              {currentExercise.targetSets}× {formatDurationSeconds(currentExercise.durationSeconds ?? 0)}
+              {isUnilateral ? " por lado" : ""} · descanso {currentExercise.restSeconds}s
+            </>
+          ) : (
+            <>
+              {currentExercise.targetSets}×{currentExercise.targetRepMin}-{currentExercise.targetRepMax}
+              {isUnilateral ? " por lado" : ""} · RIR {currentExercise.targetRir} · descanso{" "}
+              {currentExercise.restSeconds}s
+            </>
+          )}
+          {/* The one thing on this card that never collapses. Everything else
+              the athlete reads once and scrolls past; a pain flag hidden
+              behind a tap is the failure mode this product exists to avoid,
+              so the WARNING stays out here and only its substitution list
+              goes into the disclosure below. */}
+          {currentExercise.painSensitive ? (
+            <span className="rounded-full bg-amber-300/10 px-2 py-1 text-xs font-semibold text-amber-200">
+              Vigilar dolor
+            </span>
+          ) : null}
+        </p>
+        {/* Plate build first, details second, and the order is the point.
+            The build is durable configuration the athlete maintains across
+            months and checks against the bar in front of them; the cue and
+            the substitution list are read once and remembered. Both keyed on
+            the exercise so "Siguiente ejercicio" reopens them closed, and
+            both prefixed because a bare exercise id is already a sibling's
+            key — colliding keys silently rendered two panels twice before. */}
+        {showSubstitutePanel ? (
+          <SubstituteExercisePanel
+            sessionId={session.id}
+            exercise={currentExercise}
+            existingSubstitutes={substitutesByExerciseId[currentExercise.id] ?? []}
+            planChoices={planSubstituteChoices}
+            state={substituteState}
+            formAction={substituteFormAction}
+            onClose={() => setShowSubstitutePanel(false)}
+          />
         ) : null}
 
         {isLoggingAllowed ? (
@@ -607,6 +831,12 @@ export function SessionRunner({
               <DurationSetInput defaultSeconds={defaultDurationSeconds} />
             ) : (
               <StrengthSetFields
+                /* Deliberately NOT keyed on the weight. That remounted the
+                   whole component to refresh one field, taking the athlete's
+                   typed reps and chosen RIR with it; StrengthSetFields adopts
+                   a new prefill during render instead. The enclosing <form>
+                   is still keyed on the set number, which is what clears
+                   everything between sets. */
                 defaultWeightKg={defaultWeightKg}
                 defaultReps={defaultReps}
                 targetRir={currentExercise.targetRir}
@@ -635,12 +865,56 @@ export function SessionRunner({
               </p>
             ) : null}
 
-            <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
-              Guardar set {nextSetNumber}
-            </SubmitButton>
+            {/* The timer takes the button's own slot rather than appearing
+                above the form, which is what made the screen jump: it used to
+                render before the inputs, so saving a set pushed the whole form
+                and this button down ~92px at the exact moment the thumb was
+                still there. This screen has a documented history of controls
+                moving under a thumb, and it was doing it to itself once per
+                set.
+
+                Identical padding to the button so the swap back is a repaint
+                and not a reflow — that is the entire point, so keep this to
+                one line if the copy ever changes.
+
+                It costs something and the trade is deliberate: while resting
+                there is no submit control. So the timer IS the skip — tapping
+                it ends the rest and returns the button, which also collapses
+                two controls into one. Someone ready early pays one tap; the
+                alternative was leaving a save button and a countdown side by
+                side, which is how the layout got crowded in the first place. */}
+            {restRemaining !== null && restRemaining > 0 ? (
+              <button
+                type="button"
+                onClick={skipRest}
+                aria-label={`Descanso, ${formatRestTime(restRemaining)} restantes. Tocar para saltar y registrar el siguiente set.`}
+                className="rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Descanso {formatRestTime(restRemaining)} · Saltar
+              </button>
+            ) : (
+              <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
+                Guardar set {nextSetNumber}
+              </SubmitButton>
+            )}
           </form>
         ) : (
           <div className="mt-4 grid gap-3">
+            {/* The target-reached branch renders no form, so the timer has no
+                button to stand in for — it gets its own row here. This is the
+                last set of the exercise, where nothing below it is about to
+                move anyway. */}
+            {restRemaining !== null && restRemaining > 0 ? (
+              <button
+                type="button"
+                onClick={skipRest}
+                aria-label={`Descanso, ${formatRestTime(restRemaining)} restantes. Tocar para saltar.`}
+                className="rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Descanso {formatRestTime(restRemaining)} · Saltar
+              </button>
+            ) : null}
+
             <p className="text-sm leading-6 text-emerald-300">Series objetivo completadas para este ejercicio.</p>
 
             {/* The one pain question. Here rather than on every set, and here
@@ -715,20 +989,31 @@ export function SessionRunner({
         </button>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-zinc-900 p-4 text-sm leading-6 text-zinc-300 ring-1 ring-amber-300/30">
-        {/* Kept honest against suggestProgression: agujetas stopped blocking
-            on 2026-08-31, and a rule stated here that the app no longer
-            applies is worse than no rule at all. */}
-        Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el movimiento.
-        Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar orientación
-        profesional si persiste.
-      </div>
-
       <FinishSessionLink
         sessionId={session.id}
         currentExerciseId={currentExercise.id}
         remainingCount={remainingExerciseCount}
       />
+
+      {/* Below "Terminar entrenamiento" deliberately. Everything above this
+          line is the set in front of you — name, technique link, weight, reps,
+          RIR, save, next — and everything below is available if you want it.
+          The order is the order they were asked for: what you have logged
+          today, what the app suggests, what you did last time, the discs, the
+          exercise, the day.
+
+          The one that matters most is the first. Today's sets used to sit
+          ABOVE the inputs, so each set you logged pushed the weight box
+          further down — the form drifted away from your thumb exactly as
+          fatigue set in. */}
+      <div className="mt-6 grid gap-2">
+        {todaysSetsPanel}
+        {suggestionPanel}
+        {previousSessionPanel}
+        {plateSection}
+        {detailsSection}
+        {sessionInfoPanel}
+      </div>
     </AppShell>
   );
 }
@@ -835,6 +1120,27 @@ function ExercisePainQuestion({
 
       {escalated ? (
         <>
+          {/* The thresholds, stated at the one moment they are actionable.
+              They used to sit in an always-open block under "Siguiente
+              ejercicio", then in a reference disclosure — ambient on every
+              exercise of every session, read by nobody, and identical text
+              each time. What the athlete is about to type is the number these
+              rules act on, so this is where the rules mean something.
+
+              This is the RULES text, not the pain flag. The amber "Vigilar
+              dolor" chip stays on the prescription line, outside every
+              disclosure — hiding a pain signal behind a tap is the failure
+              this product exists to avoid, and it is not what moved here.
+
+              Kept honest against suggestProgression: agujetas stopped
+              blocking on 2026-08-31, and a rule stated here that the app no
+              longer applies is worse than no rule at all. */}
+          <p className="text-xs leading-5 text-zinc-400">
+            Dolor articular &gt;2 bloquea aumentos agresivos y &gt;3 exige reducir, modificar o cambiar el
+            movimiento. Las agujetas no bloquean tu progresión. Cualquier dolor ≥7 significa detener y buscar
+            orientación profesional si persiste.
+          </p>
+
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>¿Cuánto? (0-10)</span>
             <input
@@ -1091,7 +1397,10 @@ function AddSetToCompletedPanel({
           <div className="grid grid-cols-3 gap-2">
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Peso (kg)</span>
-              <input name="actualWeightKg" type="number" inputMode="decimal" min={0} step="0.5" className="input" required />
+              {/* step 0.01, not 0.5: matches numeric(6,2) and the server's
+                  toFixed(2), so a real bar weight like 122.47 is accepted
+                  rather than bounced to "the two nearest valid values". */}
+              <input name="actualWeightKg" type="number" inputMode="decimal" min={0} step="0.01" className="input" required />
             </label>
             <label className="grid gap-1 text-sm font-medium text-zinc-300">
               <span>Reps</span>
@@ -2103,6 +2412,20 @@ function StrengthSetFields({
   const [weight, setWeight] = useState<number | "">(defaultWeightKg);
   const [reps, setReps] = useState<number | "">(defaultReps);
 
+  // Adopt a new prefill WITHOUT remounting. Recording a plate build
+  // revalidates the page with a truer weight, and this component seeds
+  // `useState` once, so the box used to keep the old number — which was fixed
+  // by keying the whole component on the weight. That reset three fields to
+  // move one: `reps` is state here and the RIR radios are `defaultChecked`, so
+  // an athlete who had typed their reps and picked a RIR before opening the
+  // plate panel silently lost both. Adjusting state during render is React's
+  // own answer for a prop-derived value, and it touches only the weight.
+  const [prefilledWeight, setPrefilledWeight] = useState<number | "">(defaultWeightKg);
+  if (defaultWeightKg !== prefilledWeight) {
+    setPrefilledWeight(defaultWeightKg);
+    setWeight(defaultWeightKg);
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -2111,6 +2434,10 @@ function StrengthSetFields({
           name="actualWeightKg"
           inputMode="decimal"
           step={0.5}
+          // The ± buttons still move in half kilos; typing is not restricted
+          // to them. A plate-loaded bar lands on 122.47, and an athlete
+          // reading a machine's scale may well want 20.2.
+          inputStep={0.01}
           min={0.5}
           max={999}
           value={weight}
@@ -2160,6 +2487,7 @@ function NumericStepperField({
   name,
   inputMode,
   step,
+  inputStep,
   min,
   max,
   value,
@@ -2168,7 +2496,26 @@ function NumericStepperField({
   label: string;
   name: string;
   inputMode: "decimal" | "numeric";
+  /** How far the ± buttons move. A convenience, not a constraint. */
   step: number;
+  /**
+   * The HTML `step` attribute, i.e. what the browser will actually ACCEPT.
+   *
+   * Separate from the button increment because conflating them silently made
+   * the field refuse real weights. With one `step={0.5}` the browser rejected
+   * anything off the half-kilo grid — "20.2" got "the two nearest valid values
+   * are 20 and 20.5" — and once a recorded plate build began prefilling the
+   * true mass of the bar, it rejected the app's OWN prefill: 3 × 45 lb is
+   * 122.47, which is not a multiple of 0.5, so the set could not be submitted
+   * at all.
+   *
+   * Defaults to `step`. The weight field passes 0.01 to match
+   * `numeric(6, 2)` and the `toFixed(2)` in set-log-schema, so the browser
+   * accepts exactly what the server stores — no more, no less. There is no
+   * spinner cost: `.input-stepper` sets `appearance: textfield`, and iOS
+   * Safari never draws one anyway.
+   */
+  inputStep?: number;
   min: number;
   max: number;
   value: number | "";
@@ -2202,7 +2549,7 @@ function NumericStepperField({
           name={name}
           type="number"
           inputMode={inputMode}
-          step={step}
+          step={inputStep ?? step}
           min={min}
           max={max}
           value={value}

@@ -1,7 +1,8 @@
 import type { MuscleGroup } from "@/training/muscle-taxonomy";
 
 import { average, bestEstimated1Rm, totalVolumeLoadKg } from "./improvement";
-import { toStrengthSetLog, type ExerciseInstance, type StrengthSetLog } from "./workout-repository";
+import { toStrengthSetLog, type StrengthSetLog } from "./set-log-view";
+import { type ExerciseInstance } from "./workout-repository";
 
 export type ExerciseSeriesPoint = {
   completedAt: Date;

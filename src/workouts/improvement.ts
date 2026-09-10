@@ -1,4 +1,5 @@
-import { toStrengthSetLog, type ExerciseInstance, type SetLog, type StrengthSetLog } from "./workout-repository";
+import { toStrengthSetLog, type SetLog, type StrengthSetLog } from "./set-log-view";
+import { type ExerciseInstance } from "./workout-repository";
 
 export type ImprovementSignal =
   | "volume_load"

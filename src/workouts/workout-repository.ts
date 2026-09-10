@@ -4,6 +4,12 @@ import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { getDefaultGym, getExerciseSetupsForNames, resolvePlateInventory } from "@/training/gym-repository";
+import type { ExerciseSetup } from "@/db/schema";
+import { buildLoadAssist, type LoadAssist } from "./load-assistant";
+import { splitPlannedAndBonusSets } from "./set-split";
+import type { LoadingModel } from "@/training/plate-math";
+import { normalizeExerciseName } from "@/training/muscle-taxonomy";
 import { exercise, exerciseLog, exercisePrescription, planSessionTemplate, setLog, workoutSession } from "@/db/schema";
 import {
   findCatalogEntryByName,
@@ -16,6 +22,7 @@ import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-rep
 import { canReassignTo } from "./exercise-reassignment";
 import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
 import { renumberSets } from "./set-editing";
+import { isStrengthSetLog, toStrengthSetLog, type SetLog, type StrengthSetLog } from "./set-log-view";
 
 // Self-join so a substitute can show the exercise it stands in for. A
 // substitute keeps its own entry and its own muscle group on /progreso — the
@@ -25,28 +32,11 @@ const originalPrescription = alias(exercisePrescription, "original_prescription"
 
 export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
-export type SetLog = typeof setLog.$inferSelect;
-
-export type StrengthSetLog = SetLog & { actualWeightKg: string; actualReps: number; rir: number };
-
-/**
- * Narrows a SetLog to its strength-type shape (non-null weight/reps/RIR).
- * Callers must only pass sets already known to be strength-type — e.g. from
- * a query filtered to prescriptionType='strength', or a
- * PreviousExercisePerformance already narrowed to the "strength" branch —
- * this throws rather than silently defaulting nulls to 0, which would
- * quietly corrupt volume-load/progression math instead of surfacing a bug.
- */
-export function isStrengthSetLog(set: SetLog): set is StrengthSetLog {
-  return set.actualWeightKg !== null && set.actualReps !== null && set.rir !== null;
-}
-
-export function toStrengthSetLog(set: SetLog): StrengthSetLog {
-  if (!isStrengthSetLog(set)) {
-    throw new Error("Expected a strength-type set (weight/reps/RIR), got a set with missing values.");
-  }
-  return set;
-}
+// Moved to ./set-log-view, which has no runtime dependency on `@/db`, so a
+// client component can narrow a set without pulling a database client into its
+// import graph. Re-exported: every existing call site is unchanged.
+export { isStrengthSetLog, toStrengthSetLog };
+export type { SetLog, StrengthSetLog };
 
 export type PreviousExercisePerformance =
   | {
@@ -68,6 +58,15 @@ export type PreviousExercisePerformance =
 export type ExerciseWithLoggedSets = ExercisePrescription & {
   loggedSets: SetLog[];
   previousPerformance: PreviousExercisePerformance | null;
+  /** This athlete's setup card for this exercise at this gym. Durable — it
+   *  does not decay out of the history window the way a set note does. */
+  setupNotesEs: string | null;
+  loadingModel: LoadingModel | null;
+  /** Null unless the exercise is plate-loaded AND the gym has discs recorded.
+   *  Computed on the server: the enumeration behind it does not belong on a
+   *  phone between sets. */
+  loadAssist: LoadAssist | null;
+  hasPlateInventory: boolean;
 };
 
 export type SubstituteChoice = { exerciseNameEs: string };
@@ -140,11 +139,59 @@ export async function startOrResumeWorkoutSession(
   return created;
 }
 
+/** One exercise of a session, as the plan records it. */
+export type SessionExerciseRef = { exerciseNameEs: string; exerciseId: string | null };
+
+/**
+ * Resolve the exercise a setup answer is about, against the session it claims
+ * to be about — and against the caller's own profile.
+ *
+ * The setup actions post an exercise NAME, because `exerciseSetup` is keyed on
+ * one. Taken at face value that is a free-text primary key supplied by the
+ * client: any string, any length, for a machine in no plan of theirs, one row
+ * per distinct value and nothing to stop the next one. Matching it against the
+ * session's own prescriptions turns it back into a choice from a fixed list,
+ * and the name that gets stored is the PLAN's, not the posted one.
+ *
+ * `exerciseId` comes back from the same row for the same reason: it is a
+ * denormalized convenience column, so a posted one could disagree with the
+ * name it is filed beside and nothing downstream would notice.
+ *
+ * Returns null for a session that is not this athlete's, which also makes this
+ * the ownership check those actions were missing.
+ */
+export async function findSessionExerciseByName(
+  athleteProfileId: string,
+  workoutSessionId: string,
+  exerciseNameEs: string,
+): Promise<SessionExerciseRef | null> {
+  const session = await getWorkoutSessionForProfile(workoutSessionId, athleteProfileId);
+  if (!session) {
+    return null;
+  }
+
+  const rows = await db
+    .select({ exerciseNameEs: exercisePrescription.exerciseNameEs, exerciseId: exercisePrescription.exerciseId })
+    .from(exercisePrescription)
+    .where(eq(exercisePrescription.planSessionTemplateId, session.planSessionTemplateId));
+
+  // The same normalizer `exerciseSetup.exerciseKey` is built with, so a name
+  // that matches here is a name that will find its own row back.
+  const wanted = normalizeExerciseName(exerciseNameEs);
+  const match = rows.find((row) => normalizeExerciseName(row.exerciseNameEs) === wanted);
+
+  return match ? { exerciseNameEs: match.exerciseNameEs, exerciseId: match.exerciseId } : null;
+}
+
 export async function getSessionRunDetails(session: WorkoutSession): Promise<SessionRunDetails> {
-  const [template] = await db
-    .select()
-    .from(planSessionTemplate)
-    .where(eq(planSessionTemplate.id, session.planSessionTemplateId));
+  // The gym read depends on nothing here, so it rides along with the template
+  // rather than adding a round trip of its own between the queries below and
+  // the per-exercise fan-out.
+  const [templateRows, gym] = await Promise.all([
+    db.select().from(planSessionTemplate).where(eq(planSessionTemplate.id, session.planSessionTemplateId)),
+    getDefaultGym(session.athleteProfileId),
+  ]);
+  const [template] = templateRows;
 
   if (!template) {
     throw new Error("No se encontró la sesión planificada.");
@@ -183,6 +230,23 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     logIdByPrescriptionId.has(exercise.id),
   );
 
+  // One query for the whole session, not one per exercise. The map below is
+  // already an N+1 over getPreviousExercisePerformance on the hottest server
+  // render in the app; adding N more round trips to it would be the wrong
+  // direction. The plate inventory is a property of the ROOM, so one row
+  // serves every exercise.
+  //
+  // Skipped entirely for an athlete with no gym: there can be no setups
+  // without one, so the query would be asking a question whose answer is
+  // already known.
+  const setupsByKey = gym
+    ? await getExerciseSetupsForNames(
+        session.athleteProfileId,
+        gym.id,
+        visibleExercises.map((exercise) => exercise.exerciseNameEs),
+      )
+    : new Map<string, ExerciseSetup>();
+
   const exercisesWithLoggedSets = await Promise.all(
     visibleExercises.map(async (exercise) => {
       const logId = logIdByPrescriptionId.get(exercise.id);
@@ -191,10 +255,60 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         exercise.exerciseNameEs,
         session.id,
       );
+      const setup = setupsByKey.get(normalizeExerciseName(exercise.exerciseNameEs));
+      // The last PLANNED set of the previous session, not simply the last one
+      // logged. session-runner.tsx anchors the suggested weight the same way
+      // and for the same reason: a bonus backoff set at the end must not
+      // become the baseline. Reading `sets.at(-1)` here let the plate step
+      // bypass that guard, so on two planned sets at 80 kg plus a bonus third
+      // at 40 kg the weight box read 84 while the plate line was computed off
+      // 40 — the two numbers this panel exists to make agree.
+      const previousLastWeightKg =
+        previousPerformance?.prescriptionType === "strength"
+          ? Number(
+              splitPlannedAndBonusSets(
+                previousPerformance.sets,
+                previousPerformance.targetSets,
+                previousPerformance.isUnilateral,
+              ).planned.at(-1)?.actualWeightKg ?? 0,
+            ) || null
+          : null;
+      // What is on the bar RIGHT NOW, if anything has been logged for this
+      // exercise today. Separate from previousLastWeightKg because they answer
+      // different questions: the previous session decides what to progress TO,
+      // while today's set is the freshest evidence of what the discs currently
+      // add up to — and therefore the only honest thing to judge a recorded
+      // build against.
+      const loggedWeightKg =
+        exercise.prescriptionType === "strength"
+          ? Number((logId ? setsByLogId.get(logId) : undefined)?.at(-1)?.actualWeightKg ?? 0) || null
+          : null;
       return {
         ...exercise,
         loggedSets: logId ? (setsByLogId.get(logId) ?? []) : [],
         previousPerformance,
+        setupNotesEs: setup?.setupNotesEs ?? null,
+        loadingModel: setup?.loadingModel ?? null,
+        // Computed here and serialised as plain data. The enumeration behind
+        // it is 125,970 multisets at plate-math's caps; session-runner.tsx is a
+        // client component, so running it there would put that on a phone
+        // between sets. The achievable set is a property of the gym, so the
+        // table is memoised (bounded, LRU) across every exercise in this
+        // session.
+        loadAssist: buildLoadAssist({
+          lastWeightKg: previousLastWeightKg,
+          loggedWeightKg,
+          loadMechanism: exercise.loadMechanism,
+          isCompound: exercise.isCompound,
+          loadingModel: setup?.loadingModel ?? null,
+          inventory: resolvePlateInventory(gym, setup),
+          // The one input here that is a record rather than a computation.
+          recordedBuild: setup?.plateBuild ?? null,
+          recordedBuildAt: setup?.plateBuildRecordedAt ?? null,
+        }),
+        /** Whether the gym has any discs recorded at all — the runner asks
+         *  "¿lleva discos?" only when answering it could actually help. */
+        hasPlateInventory: resolvePlateInventory(gym, setup).length > 0,
       };
     }),
   );

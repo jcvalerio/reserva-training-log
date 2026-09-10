@@ -1,0 +1,230 @@
+name: Preview alias
+
+# Points preview.gym.jcvalerio.com at the newest preview build.
+#
+# Why this exists: BETTER_AUTH_URL is pinned to that hostname so Google OAuth
+# has a fixed redirect URI, but every push creates a NEW preview URL and the
+# alias keeps pointing at whichever deployment was aliased last. Signing in
+# there then shows a build several commits old while the deploy for HEAD
+# succeeded — which already cost a review cycle, with a fix reported as "not
+# working" when it had simply never been served.
+#
+# MEASURED, after this file claimed the opposite: `deployment_status` DOES run
+# the copy of the workflow on the deployment's own branch, not only the one on
+# the default branch. Runs 34300196111 and 34300871990 both executed from
+# `feat/plate-load-assistant` before any of this reached `main`. The general
+# "only the default branch" rule applies to events with no branch context;
+# a deployment carries a ref, so this one has context to use.
+#
+# `workflow_dispatch` therefore is not a stopgap — it is for re-pointing the
+# alias at an older branch without pushing to it.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch whose newest successful preview should get the alias"
+        required: true
+        type: string
+
+concurrency:
+  # Never cancel: a half-applied alias is worse than a slow one, and these
+  # finish in seconds. Serialised so two deploys landing together cannot
+  # interleave and leave the alias pointing somewhere neither of them chose.
+  group: preview-alias
+  cancel-in-progress: false
+
+env:
+  ALIAS_DOMAIN: preview.gym.jcvalerio.com
+  # The team slug, confirmed against `vercel teams ls` rather than read off a
+  # deployment URL. Both happen to be the same string here, which is exactly
+  # why it was worth confirming.
+  VERCEL_SCOPE: juan-carlos-valerios-projects
+  # Keeps the CLI's telemetry notice out of the logs, so the last line of
+  # `whoami` is the username and a failure reads as a failure.
+  VERCEL_TELEMETRY_DISABLED: "1"
+
+jobs:
+  alias:
+    # On the event path, only successful PREVIEW deployments. Production has
+    # its own domain and must never be re-pointed here.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Preview')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      pull-requests: read
+    steps:
+      - name: Resolve the deployment to alias
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_URL: ${{ github.event.deployment_status.environment_url }}
+          EVENT_SHA: ${{ github.event.deployment.sha }}
+          EVENT_REF: ${{ github.event.deployment.ref }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Newest successful Preview deployment for the requested branch.
+            # Asking GitHub rather than Vercel keeps this to one credential.
+            # Fields, not string concatenation. Spliced into the query
+            # directly, a ref of `main&environment=Production` selected a
+            # PRODUCTION deployment — walking straight past this job's
+            # Preview-only guard, which covers the event path alone.
+            deployment=$(gh api -X GET "repos/$REPO/deployments" \
+              -f ref="$INPUT_REF" -f environment=Preview -f per_page=1 \
+              --jq '.[0] // empty')
+            if [ -z "$deployment" ]; then
+              echo "No preview deployment found for ref '$INPUT_REF'." >&2
+              exit 1
+            fi
+            id=$(echo "$deployment" | jq -r '.id')
+            sha=$(echo "$deployment" | jq -r '.sha')
+            ref="$INPUT_REF"
+            url=$(gh api "repos/$REPO/deployments/$id/statuses" \
+              --jq '[.[] | select(.state == "success")][0].environment_url // empty')
+          else
+            url="$EVENT_URL"
+            sha="$EVENT_SHA"
+            ref="$EVENT_REF"
+          fi
+
+          if [ -z "$url" ]; then
+            echo "Deployment has no environment_url; nothing to alias." >&2
+            exit 1
+          fi
+
+          {
+            echo "url=$url"
+            echo "sha=$sha"
+            echo "short_sha=${sha:0:7}"
+            echo "ref=$ref"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Refuse anything that is not this repository's own branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REF: ${{ steps.target.outputs.ref }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          # This alias is not cosmetic: BETTER_AUTH_URL is pinned to
+          # ALIAS_DOMAIN, so whatever is aliased there receives Google-OAuth
+          # sessions for that origin. `deployment_status` fires for any
+          # deployment GitHub reports, this repository is public, and a fork
+          # PR's preview would otherwise be handed the trusted hostname —
+          # along with the sessions of anyone who signs in to test.
+          #
+          # `compare` answers the only question that matters: is this commit
+          # part of that branch IN THIS REPOSITORY? `identical` is the normal
+          # case; `behind` is the benign race where a newer push landed while
+          # this job queued. A fork's commit is neither, and a branch that
+          # does not exist here 404s.
+          encoded_ref=$(jq -rn --arg r "$REF" '$r|@uri')
+          status=$(gh api "repos/$REPO/compare/$encoded_ref...$SHA" --jq '.status' 2>/dev/null || echo "")
+
+          case "$status" in
+            identical|behind) ;;
+            *)
+              echo "::error::Refusing to alias $ALIAS_DOMAIN. Commit '$SHA' is not part of branch '$REF' in $REPO (compare says '${status:-unavailable}'), so it is not a build of this repository's own code."
+              exit 1
+              ;;
+          esac
+
+      - name: Point the alias at it
+        env:
+          RAW_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_URL: ${{ steps.target.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RAW_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          # Strip whitespace. A token pasted into the secret box with a
+          # trailing newline is indistinguishable from a revoked one in the
+          # CLI's error message, and costs a whole debugging round.
+          token=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
+          echo "::add-mask::$token"
+
+          # Deliberately NOT preflighted with `vercel whoami --token` on its
+          # own. That check was added here to separate a bad token from a bad
+          # scope, and it was wrong: a TEAM-scoped token has no bare user to
+          # resolve, so `whoami` without --scope rejects a perfectly valid
+          # token and the step then blamed the token. It failed a token that
+          # had aliased a deployment successfully ten minutes earlier.
+          #
+          # There is no cheap way to tell the two apart, so the error says so
+          # instead of picking one. `alias set` reports the CLI's own message,
+          # which is the accurate thing on screen either way.
+          # Kept in a local variable rather than a step output: a step output is
+          # persisted for the run, and there is no reason for a credential to
+          # outlive the command that needs it.
+          if ! npx --yes vercel@latest alias set \
+            "$TARGET_URL" "$ALIAS_DOMAIN" \
+            --token="$token" --scope="$VERCEL_SCOPE"; then
+            echo "::error::Aliasing failed. Check, in order: VERCEL_TOKEN is a current token with access to '$VERCEL_SCOPE' (re-create at https://vercel.com/account/tokens), and the deployment above belongs to that scope. The CLI's own message is directly above this line and is more specific than anything this workflow can infer."
+            exit 1
+          fi
+
+      - name: Prove the alias serves that commit
+        id: verify
+        env:
+          EXPECTED: ${{ steps.target.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+          expected="$EXPECTED"
+
+          # The step that makes this workflow worth having. "vercel alias set"
+          # reporting success only means the API accepted it; the thing that
+          # actually matters is what the hostname serves, so ask it. /version
+          # is public and static per deployment, so it cannot answer with
+          # another build's commit.
+          for attempt in 1 2 3 4 5; do
+            served=$(curl -fsS --max-time 15 "https://$ALIAS_DOMAIN/version" | jq -r '.commit' || echo "")
+            if [ "$served" = "$expected" ]; then
+              echo "served=$served" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt $attempt: serving '${served:-<no answer>}', expected '$expected'."
+            sleep 5
+          done
+
+          echo "Alias did not serve $expected after 5 attempts." >&2
+          exit 1
+
+      - name: Summarise
+        if: always()
+        # Through env, never spliced into the script. A branch name is
+        # attacker-supplied text — `$`, backticks and `${IFS}` are all legal in
+        # a git ref — so `${{ ... }}` here was a command-execution hole on a
+        # runner that handles a deployment token. `served` is worse: it comes
+        # off the network. Same reason SHORT_SHA is passed this way even though
+        # it is hex.
+        env:
+          SHORT_SHA: ${{ steps.target.outputs.short_sha }}
+          REF: ${{ steps.target.outputs.ref }}
+          SERVED: ${{ steps.verify.outputs.served }}
+        run: |
+          {
+            echo "### Preview alias"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Domain | \`$ALIAS_DOMAIN\` |"
+            echo "| Commit | \`$SHORT_SHA\` |"
+            echo "| Branch | \`$REF\` |"
+            echo "| Serving | \`${SERVED:-not confirmed}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

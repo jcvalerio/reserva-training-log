@@ -27,6 +27,8 @@ import {
   substituteExerciseAction,
   updateSetAction,
   updateTargetSetsAction,
+  setExerciseLoadingModelAction,
+  setExercisePlateBuildAction,
 } from "../actions";
 import { SessionRunner } from "./session-runner";
 
@@ -117,6 +119,8 @@ export default async function SessionRunPage({
       loadFlaggedPrescriptionIds={loadFlaggedPrescriptionIds}
       initialExerciseId={ejercicio ?? null}
       updateTargetSetsAction={updateTargetSetsAction}
+      setLoadingModelAction={setExerciseLoadingModelAction}
+      setPlateBuildAction={setExercisePlateBuildAction}
       updateSetAction={updateSetAction}
       deleteSetAction={deleteSetAction}
       substituteExerciseAction={substituteExerciseAction}
