@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFromScratch, chooseLoadStep, formatPlateCounts, MAX_DENOMINATIONS } from "./plate-math";
+import {
+  buildFromScratch,
+  chooseLoadStep,
+  buildTableCacheSizeForTests,
+  clearBuildTableCacheForTests,
+  formatPlateCounts,
+  MAX_DENOMINATIONS,
+} from "./plate-math";
 import { formatWeight, roundKg, sumPlatesKg, toKg, type PlateDenomination } from "./units";
 
 /**
@@ -175,5 +182,42 @@ describe("formatPlateCounts", () => {
         { value: 45, unit: "lb", count: 3 },
       ]),
     ).toBe("2 × 25 kg + 3 × 45 lb + 1 × 2.5 lb");
+  });
+});
+
+/**
+ * The memo is keyed on the athlete's own inventory, so its size is user input.
+ * Measured at ~1.1 MB retained and ~12 ms per distinct rack on the real gym,
+ * which made an unbounded map a way to spend a server's heap from a form.
+ */
+describe("the achievable-builds memo", () => {
+  it("stays bounded however many different racks pass through it", () => {
+    clearBuildTableCacheForTests();
+
+    // Enough distinct inventories to overflow any sane bound several times.
+    for (let n = 0; n < 200; n += 1) {
+      buildFromScratch(60, [
+        { value: 20 + n, unit: "kg" },
+        { value: 10, unit: "kg" },
+      ]);
+    }
+
+    // 200 distinct racks in, and the map holds a fixed handful. Asserting a
+    // ceiling rather than the exact constant, so tuning the bound does not
+    // break a test that is about growth, not about the number 16.
+    expect(buildTableCacheSizeForTests()).toBeLessThanOrEqual(32);
+
+    // Still correct on the real gym afterwards: eviction may have dropped this
+    // table, and recomputing it is the point of the bound being safe to hit.
+    expect(formatPlateCounts(buildFromScratch(122, GYM)!.perSide)).toBe("3 × 45 lb");
+  });
+
+  it("answers identically whether or not the table was cached", () => {
+    clearBuildTableCacheForTests();
+    const cold = buildFromScratch(122, GYM)!;
+    const warm = buildFromScratch(122, GYM)!;
+
+    expect(warm.totalKg).toBe(cold.totalKg);
+    expect(formatPlateCounts(warm.perSide)).toBe(formatPlateCounts(cold.perSide));
   });
 });

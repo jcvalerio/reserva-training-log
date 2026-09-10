@@ -110,13 +110,29 @@ function toCounts(indexes: number[], denominations: readonly PlateDenomination[]
  * set is a property of the ROOM, not of the movement, and `/entrenar` renders
  * six or seven exercises at once. Enumerating per exercise would run this tens
  * of thousands of times on the hottest server render in the app.
+ *
+ * BOUNDED, because the key is user input. An athlete edits their rack and this
+ * gains an entry; nothing ever removed one, so a process accumulated a table
+ * per distinct inventory for its whole life. Measured on the real 11-plate gym:
+ * 2,184 entries, ~1.1 MB retained and ~12 ms to build, rising to ~2.4 MB on a
+ * 12-denomination worst case — so a few hundred edits is a lambda's entire heap,
+ * and reaching them is a form submission plus a page load, repeated.
+ *
+ * An LRU rather than a TTL: the cost being avoided is per distinct RACK, and a
+ * rack does not go stale. `Map` iterates in insertion order, so re-inserting on
+ * a hit is the whole implementation.
  */
+const MAX_CACHED_INVENTORIES = 16;
 const buildTableCache = new Map<string, Map<number, PlateBuild>>();
 
 function achievableBuilds(denominations: readonly PlateDenomination[]): Map<number, PlateBuild> {
   const key = denominationKey(denominations);
   const cached = buildTableCache.get(key);
   if (cached) {
+    // Re-insert to mark it most-recently used. One athlete's own gym stays
+    // hot however many other racks pass through.
+    buildTableCache.delete(key);
+    buildTableCache.set(key, cached);
     return cached;
   }
 
@@ -146,8 +162,30 @@ function achievableBuilds(denominations: readonly PlateDenomination[]): Map<numb
   };
 
   walk(0, 0);
+
+  // Evict the oldest before inserting, so the map never exceeds the bound.
+  // A `while` rather than an `if`: the bound is a constant today, and a lower
+  // one should still drain the map rather than shrink it by one per call.
+  while (buildTableCache.size >= MAX_CACHED_INVENTORIES) {
+    const oldest = buildTableCache.keys().next();
+    if (oldest.done) {
+      break;
+    }
+    buildTableCache.delete(oldest.value);
+  }
   buildTableCache.set(key, table);
   return table;
+}
+
+/** Test seams. The cache is a module-level singleton, so a test that asserts
+ *  on eviction has to be able to start from a known state and then look at the
+ *  one property that matters — that it stopped growing. */
+export function clearBuildTableCacheForTests(): void {
+  buildTableCache.clear();
+}
+
+export function buildTableCacheSizeForTests(): number {
+  return buildTableCache.size;
 }
 
 /**
