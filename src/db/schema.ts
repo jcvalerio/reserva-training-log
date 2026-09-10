@@ -454,7 +454,6 @@ export const exerciseSetup = pgTable(
   },
   (table) => [
     uniqueIndex("exercise_setup_scope_unique").on(table.athleteProfileId, table.gymId, table.exerciseKey),
-    index("exercise_setup_profile_gym_idx").on(table.athleteProfileId, table.gymId),
   ],
 );
 
@@ -465,6 +464,9 @@ export type { PlateCount };
 // The exercise catalog: the single normalized source of truth for what muscle
 // an exercise trains. Revived from the removed "Pesos base" intake flow, which
 // left 12 rows behind that baseline_lift still references with
+    // Also the lookup index for (athleteProfileId, gymId): a b-tree serves any
+    // leftmost prefix of its columns, so a separate two-column index would be
+    // dead weight on every write.
 // onDelete:"restrict" — they cannot be deleted, so they are simply inactive.
 //
 // exercisePrescription.exerciseNameEs stays free text and stays the display

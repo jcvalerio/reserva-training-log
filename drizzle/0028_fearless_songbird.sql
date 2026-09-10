@@ -1,0 +1,1 @@
+DROP INDEX "exercise_setup_profile_gym_idx";
