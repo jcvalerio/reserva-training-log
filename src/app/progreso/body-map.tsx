@@ -62,7 +62,7 @@ function BodyView({
     <figure className="m-0 flex-1">
       <svg
         viewBox={BODY_MAP_VIEWBOX}
-        className="h-auto w-full touch-none"
+        className="h-auto w-full touch-pan-y"
         role="img"
         aria-label={`Vista ${titleEs.toLowerCase()} del cuerpo, coloreada por series entrenadas`}
       >
@@ -78,7 +78,8 @@ function BodyView({
               <polygon
                 key={key}
                 points={points}
-                onPointerDown={() => onSelect(isSelected ? null : region.muscleGroup)}
+                data-muscle-group={region.muscleGroup}
+                onClick={() => onSelect(isSelected ? null : region.muscleGroup)}
                 className={`${SHADE_CLASS[shadeForVolume(region.muscleGroup, sets)]} ${
                   isSelected ? "stroke-emerald-200" : "stroke-zinc-950"
                 } cursor-pointer`}
@@ -93,8 +94,14 @@ function BodyView({
   );
 }
 
-export function BodyMap({ view }: { view: VolumeView }) {
-  const [selected, setSelected] = useState<MuscleGroup | null>(null);
+export function BodyMap({ view, selectedMuscle, onSelectMuscle }: {
+  view: VolumeView;
+  selectedMuscle?: MuscleGroup | null;
+  onSelectMuscle?: (muscle: MuscleGroup | null) => void;
+}) {
+  const [localSelected, setLocalSelected] = useState<MuscleGroup | null>(null);
+  const selected = selectedMuscle === undefined ? localSelected : selectedMuscle;
+  const setSelected = onSelectMuscle ?? setLocalSelected;
 
   const setsByGroup = new Map<MuscleGroup, number>();
   for (const row of view.byMuscleGroup) {
@@ -107,7 +114,7 @@ export function BodyMap({ view }: { view: VolumeView }) {
 
   return (
     <div>
-      <div className="flex items-start gap-2">
+      <div className="mx-auto flex max-w-[280px] items-start gap-2">
         <BodyView
           regions={anteriorRegions}
           setsByGroup={setsByGroup}
@@ -131,9 +138,9 @@ export function BodyMap({ view }: { view: VolumeView }) {
             {selectedSets === 0
               ? view.isAverage
                 ? "sin series en el periodo"
-                : "sin series esta semana"
+                : view.key === "previous_week" ? "sin series la semana pasada" : "sin series esta semana"
               : `${selectedSets === 1 ? "1 serie" : `${selectedSets} series`} ${
-                  view.isAverage ? "por semana" : "esta semana"
+                  view.isAverage ? "por semana" : view.key === "previous_week" ? "la semana pasada" : "esta semana"
                 } · rango de referencia ${weeklySetReferenceRange[selected].min}–${
                   weeklySetReferenceRange[selected].max
                 }`}
