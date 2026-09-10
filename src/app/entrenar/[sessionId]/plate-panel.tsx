@@ -432,7 +432,12 @@ function LoadingModelQuestion({
   sessionId: string;
   action: SetLoadingModelAction;
 }) {
-  const [, formAction] = useActionState(action, { status: "idle" } as SetLoadingModelActionState);
+  // The state is read, not discarded. A refused write — the session resolving
+  // to nothing of this athlete's, a rejected loadingModel — used to leave the
+  // question sitting there with the tap having visibly done nothing, which
+  // reads as a dead button rather than a failure. PlateBuildEditor already
+  // says so; this is the same panel.
+  const [state, formAction] = useActionState(action, { status: "idle" } as SetLoadingModelActionState);
 
   return (
     <form action={formAction} className="mt-3 border-t border-zinc-800 pt-3">
@@ -459,6 +464,11 @@ function LoadingModelQuestion({
           No
         </button>
       </div>
+      {state.status === "error" ? (
+        <p role="alert" className="mt-2 text-xs leading-5 text-amber-200">
+          {state.message}
+        </p>
+      ) : null}
     </form>
   );
 }
