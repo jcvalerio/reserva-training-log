@@ -22,6 +22,7 @@ import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from
 import { renumberSets } from "./set-editing";
 
 // Self-join so a substitute can show the exercise it stands in for. A
+import { isStrengthSetLog, toStrengthSetLog, type SetLog, type StrengthSetLog } from "./set-log-view";
 // substitute keeps its own entry and its own muscle group on /progreso — the
 // real data has a calf raise replacing an incline press, so rolling it up
 // under the original would file calf work under pecho.
@@ -29,28 +30,11 @@ const originalPrescription = alias(exercisePrescription, "original_prescription"
 
 export type WorkoutSession = typeof workoutSession.$inferSelect;
 export type ExerciseLog = typeof exerciseLog.$inferSelect;
-export type SetLog = typeof setLog.$inferSelect;
-
-export type StrengthSetLog = SetLog & { actualWeightKg: string; actualReps: number; rir: number };
-
-/**
- * Narrows a SetLog to its strength-type shape (non-null weight/reps/RIR).
- * Callers must only pass sets already known to be strength-type — e.g. from
- * a query filtered to prescriptionType='strength', or a
- * PreviousExercisePerformance already narrowed to the "strength" branch —
- * this throws rather than silently defaulting nulls to 0, which would
- * quietly corrupt volume-load/progression math instead of surfacing a bug.
- */
-export function isStrengthSetLog(set: SetLog): set is StrengthSetLog {
-  return set.actualWeightKg !== null && set.actualReps !== null && set.rir !== null;
-}
-
-export function toStrengthSetLog(set: SetLog): StrengthSetLog {
-  if (!isStrengthSetLog(set)) {
-    throw new Error("Expected a strength-type set (weight/reps/RIR), got a set with missing values.");
-  }
-  return set;
-}
+// Moved to ./set-log-view, which has no runtime dependency on `@/db`, so a
+// client component can narrow a set without pulling a database client into its
+// import graph. Re-exported: every existing call site is unchanged.
+export { isStrengthSetLog, toStrengthSetLog };
+export type { SetLog, StrengthSetLog };
 
 export type PreviousExercisePerformance =
   | {

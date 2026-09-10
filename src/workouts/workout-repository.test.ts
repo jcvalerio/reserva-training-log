@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isStrengthSetLog, toStrengthSetLog, type SetLog } from "./workout-repository";
+import { isStrengthSetLog, toStrengthSetLog, type SetLog } from "./set-log-view";
 
 /**
  * DB repository functions are untested by convention in this project — there

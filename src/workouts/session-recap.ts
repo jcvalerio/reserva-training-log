@@ -1,5 +1,5 @@
 import { bestEstimated1Rm, totalVolumeLoadKg, type ExerciseImprovementRow } from "./improvement";
-import { isStrengthSetLog, toStrengthSetLog, type SetLog } from "./workout-repository";
+import { isStrengthSetLog, toStrengthSetLog, type SetLog } from "./set-log-view";
 
 export type SessionRecapExercise = {
   exerciseNameEs: string;

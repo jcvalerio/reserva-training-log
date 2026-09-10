@@ -1,7 +1,7 @@
 import { suggestProgression, type ProgressionAction, type ProgressionSuggestion } from "@/training/progression";
 import type { Rir } from "@/training/rir";
 
-import { toStrengthSetLog, type SetLog } from "./workout-repository";
+import { toStrengthSetLog, type SetLog } from "./set-log-view";
 
 export type LoadMechanism = "bodyweight" | "dumbbell" | "machine" | "barbell";
 
