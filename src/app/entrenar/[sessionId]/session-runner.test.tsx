@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlanSessionTemplate } from "@/plans/plan-repository";
@@ -349,7 +349,7 @@ describe("SessionRunner", () => {
     }
     // Last session is its own panel now, not a third subject inside this one.
     const history = screen.getByText("La vez pasada").closest("details")!;
-    expect(history).toContainElement(screen.getByText("La serie de la vez pasada"));
+    expect(history).toContainElement(screen.getByText(byNormalizedText(/80kg × 10 · RIR 2/)));
     expect(history).not.toBe(details);
 
     // The pain rules are no longer ambient reference on every exercise; they
@@ -765,7 +765,7 @@ describe("SessionRunner", () => {
     fireEvent.click(summary);
 
     expect(summary.closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("Las series de la vez pasada")).toBeVisible();
+    expect(screen.getByText(byNormalizedText(/82\.5kg × 10/))).toBeVisible();
   });
 
   it("resets the reference disclosure to closed when moving to another exercise", () => {
@@ -971,7 +971,7 @@ describe("SessionRunner", () => {
     // "Mantén la carga → 82.5kg", which is the same number doing a genuinely
     // different job and must not be counted as a repetition of the history.
     expect(screen.getAllByText(byNormalizedText(/82\.5kg × 10 · RIR 2/))).toHaveLength(1);
-    const previous = screen.getByText("Las series de la vez pasada").closest("details")!;
+    const previous = screen.getByText("La vez pasada").closest("details")!;
     expect(previous).toContainElement(screen.getByText(byNormalizedText(/82\.5kg × 10 · RIR 2/)));
     expect(previous).not.toHaveAttribute("open");
   });
@@ -1140,6 +1140,46 @@ describe("SessionRunner", () => {
 
     // And they are genuinely out of the way until asked for.
     expect(screen.getByText("Series de hoy · 3 de 5").closest("details")).not.toHaveAttribute("open");
+  });
+
+  /**
+   * The rest countdown used to render ABOVE the inputs, so saving a set pushed
+   * the whole form and its button down ~92px at the exact moment the thumb was
+   * still on the button. This screen has a documented history of controls
+   * moving under a thumb and it was doing it to itself once per set.
+   *
+   * It now stands in the button's own slot, so the swap is a repaint rather
+   * than a reflow. The cost, taken deliberately: there is no submit control
+   * while resting, so the countdown IS the skip.
+   */
+  it("puts the rest countdown in the save button's slot, and lets a tap end it", () => {
+    const exercise = buildExercise({ targetSets: 3, loggedSets: [] });
+    renderRunner({
+      exercises: [exercise],
+      saveSetAction: async () => ({
+        status: "saved" as const,
+        exercisePrescriptionId: exercise.id,
+        setNumber: 1,
+      }),
+    });
+
+    const save = screen.getByRole("button", { name: "Guardar set 1" });
+    const slot = save.parentElement!;
+    // submit, not click: React 19 form actions do not run from a bare click on
+    // the submit button in jsdom.
+    fireEvent.submit(save.closest("form")!);
+
+    return waitFor(() => {
+      const rest = screen.getByRole("button", { name: /^Descanso, / });
+      // Same parent, so nothing above it moved.
+      expect(rest.parentElement).toBe(slot);
+      expect(screen.queryByRole("button", { name: /^Guardar set/ })).toBeNull();
+
+      // The countdown is the skip: one tap returns the primary action.
+      fireEvent.click(rest);
+      expect(screen.getByRole("button", { name: /^Guardar set/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Descanso, / })).toBeNull();
+    });
   });
 
   it("does not show a suggestion card when there is no previous performance", () => {

@@ -2,6 +2,24 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-09 (later) — The rest timer was making the screen jump once per set
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (794 passing, +1)/`build` green. No schema change. Not yet checked on a device.
+
+**Four spacing defects, from one screenshot of the new panels.** `SUPPORT_PANEL` carried `px-4` and no vertical padding, so an opened panel's content ran flush into its own rounded bottom edge — `open:pb-4` rather than a constant, since closed rows get their height from the summary's `min-h-12` and bottom padding would make all six taller for nothing. The Sugerencia block had kept its old standalone styling (`bg-zinc-950`, a sky ring, `p-3`, and an `mt-4` that broke the stack's `gap-2` rhythm) — it is one of six rows now, so it takes the same treatment and lets the emerald badge carry the emphasis. Today's sets kept a `mt-4` from when the list sat in the card. And "La vez pasada" contained a heading reading "Las series de la vez pasada" — the panel summary already said it, so the label said the same thing twice, one line apart.
+
+**The rest countdown rendered ABOVE the inputs.** Saving a set pushed the whole form and its button down about 92px, at the exact moment the thumb was still on the button it had just tapped. This screen has a documented history of controls moving under a thumb — it is the reason "Siguiente ejercicio" renders inert rather than disabled-but-emerald — and it was doing it to itself once per set, every set, for the whole life of the feature.
+
+**The countdown now occupies the save button's own slot**, with identical padding so the swap back is a repaint rather than a reflow. Nothing above it moves.
+
+**The trade is real and worth stating rather than glossing.** While resting there is no submit control, so an athlete ready early cannot log immediately. Resolved by making the countdown *be* the skip — one tap ends the rest and returns the button, which also collapses two controls into one, since "Saltar descanso" used to be a second button beside the timer. The alternative, leaving a save button and a countdown side by side, is how this layout got crowded in the first place. Copy stays one line (`Descanso 1:20 · Saltar`) precisely because two lines would reintroduce the height change the whole change exists to remove.
+
+**One branch has no button to stand in for.** When the target sets are reached the form is replaced by the pain question, so the timer gets its own row there — acceptable, because that is the last set of the exercise and nothing below it is about to move.
+
+**Testing note worth keeping**: `fireEvent.click` on a submit button does not run a React 19 form action under jsdom (the form's action is a throwing `javascript:` guard). `fireEvent.submit(button.closest("form"))` does. The one existing test in this file that exercises a save already knew this; it took a failure to find it.
+
+**Not yet verified on a device.** Check that the countdown does not look like a disabled save button — it is emerald-on-dark where the button is dark-on-emerald, which should read as a state change rather than a dead control — and that the six panels now have even spacing when several are open at once.
+
 ## 2026-09-09 — The form comes first now; everything else lives under the finish link
 
 Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (793 passing, +1)/`build` green. No schema change. Not yet checked on a device.

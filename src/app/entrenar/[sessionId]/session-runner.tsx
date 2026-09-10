@@ -63,7 +63,11 @@ type SetPlateBuildAction = (
  * widgets. min-h-11 on every summary: this card has already shipped and fixed
  * a 20px tap target once.
  */
-const SUPPORT_PANEL = "rounded-2xl bg-zinc-900 px-4 ring-1 ring-zinc-800";
+/* `open:pb-4` rather than a constant `pb-4`: closed, the summary's own
+ * min-h-12 is the whole row and bottom padding would make every collapsed row
+ * taller for nothing. Open, the content ran flush into the rounded edge —
+ * which is what "looks strange" was. */
+const SUPPORT_PANEL = "rounded-2xl bg-zinc-900 px-4 ring-1 ring-zinc-800 open:pb-4";
 const SUPPORT_SUMMARY =
   "flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-2 text-xs font-semibold text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300";
 
@@ -485,7 +489,7 @@ export function SessionRunner({
         previousPerformance &&
         previousSuggestion &&
         !(previousSuggestion.action === "hold" && previousSuggestion.riskFlag === "none") ? (
-          <div className="mt-4 rounded-2xl bg-zinc-950 p-3 ring-1 ring-sky-300/20">
+          <div className={`${SUPPORT_PANEL} py-3`}>
             {/* "Sugerencia", not "Última vez", because it no longer reports a
                 fact. It used to lead with the matching set from last session —
                 the SAME set the form below is already prefilled from, and the
@@ -565,7 +569,7 @@ export function SessionRunner({
           sets={currentExercise.loggedSets}
           isUnilateral={isUnilateral}
           targetSets={currentExercise.targetSets}
-          className="mt-4 grid gap-2"
+          className="grid gap-2"
           renderRow={(set, displayNumber) => (
             // Keyed on updatedAt so a saved correction remounts the row
             // closed with fresh values, while a rejected one stays open
@@ -595,9 +599,8 @@ export function SessionRunner({
       <div className="mt-2">
 {hasPreviousSets && previousPerformance ? (
             <div className="grid gap-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                {previousPerformance.sets.length === 1 ? "La serie de la vez pasada" : "Las series de la vez pasada"}
-              </p>
+              {/* No heading. The panel's own summary already says "La vez
+                  pasada"; a second label under it said the same thing twice. */}
               <LoggedSetsList
                 sets={previousPerformance.sets}
                 isUnilateral={previousPerformance.isUnilateral}
@@ -779,22 +782,6 @@ export function SessionRunner({
           />
         ) : null}
 
-        {restRemaining !== null && restRemaining > 0 ? (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 px-4 py-3 ring-1 ring-emerald-300/30">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Descanso</p>
-              <p className="text-lg font-semibold text-emerald-300">{formatRestTime(restRemaining)}</p>
-            </div>
-            <button
-              type="button"
-              onClick={skipRest}
-              className="min-h-11 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-            >
-              Saltar descanso
-            </button>
-          </div>
-        ) : null}
-
         {isLoggingAllowed ? (
           <form key={`${currentExercise.id}:${nextSetNumber}`} action={formAction} className="mt-4 grid gap-3">
             <input type="hidden" name="workoutSessionId" value={session.id} />
@@ -885,12 +872,56 @@ export function SessionRunner({
               </p>
             ) : null}
 
-            <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
-              Guardar set {nextSetNumber}
-            </SubmitButton>
+            {/* The timer takes the button's own slot rather than appearing
+                above the form, which is what made the screen jump: it used to
+                render before the inputs, so saving a set pushed the whole form
+                and this button down ~92px at the exact moment the thumb was
+                still there. This screen has a documented history of controls
+                moving under a thumb, and it was doing it to itself once per
+                set.
+
+                Identical padding to the button so the swap back is a repaint
+                and not a reflow — that is the entire point, so keep this to
+                one line if the copy ever changes.
+
+                It costs something and the trade is deliberate: while resting
+                there is no submit control. So the timer IS the skip — tapping
+                it ends the rest and returns the button, which also collapses
+                two controls into one. Someone ready early pays one tap; the
+                alternative was leaving a save button and a countdown side by
+                side, which is how the layout got crowded in the first place. */}
+            {restRemaining !== null && restRemaining > 0 ? (
+              <button
+                type="button"
+                onClick={skipRest}
+                aria-label={`Descanso, ${formatRestTime(restRemaining)} restantes. Tocar para saltar y registrar el siguiente set.`}
+                className="rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Descanso {formatRestTime(restRemaining)} · Saltar
+              </button>
+            ) : (
+              <SubmitButton className="rounded-2xl bg-emerald-300 px-5 py-4 text-center font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100">
+                Guardar set {nextSetNumber}
+              </SubmitButton>
+            )}
           </form>
         ) : (
           <div className="mt-4 grid gap-3">
+            {/* The target-reached branch renders no form, so the timer has no
+                button to stand in for — it gets its own row here. This is the
+                last set of the exercise, where nothing below it is about to
+                move anyway. */}
+            {restRemaining !== null && restRemaining > 0 ? (
+              <button
+                type="button"
+                onClick={skipRest}
+                aria-label={`Descanso, ${formatRestTime(restRemaining)} restantes. Tocar para saltar.`}
+                className="rounded-2xl bg-zinc-950 px-5 py-4 text-center font-semibold text-emerald-300 ring-1 ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Descanso {formatRestTime(restRemaining)} · Saltar
+              </button>
+            ) : null}
+
             <p className="text-sm leading-6 text-emerald-300">Series objetivo completadas para este ejercicio.</p>
 
             {/* The one pain question. Here rather than on every set, and here
