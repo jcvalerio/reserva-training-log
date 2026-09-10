@@ -841,17 +841,12 @@ export function SessionRunner({
               <DurationSetInput defaultSeconds={defaultDurationSeconds} />
             ) : (
               <StrengthSetFields
-                /* StrengthSetFields seeds useState from these props, so it
-                   reads them once and never again. Recording a plate build
-                   revalidates the page with a new true weight — 122.47 for
-                   3 × 45 lb — and without a key change the box kept showing
-                   the old number, which is what the athlete reported.
-                   Keying on the value is the React idiom for "reset this
-                   state": the field remounts only when the default it is
-                   derived from actually moves, which in a session means
-                   after a build is saved. The enclosing <form> is keyed on
-                   the set number instead, so it must not be used here. */
-                key={`weight:${defaultWeightKg}`}
+                /* Deliberately NOT keyed on the weight. That remounted the
+                   whole component to refresh one field, taking the athlete's
+                   typed reps and chosen RIR with it; StrengthSetFields adopts
+                   a new prefill during render instead. The enclosing <form>
+                   is still keyed on the set number, which is what clears
+                   everything between sets. */
                 defaultWeightKg={defaultWeightKg}
                 defaultReps={defaultReps}
                 targetRir={currentExercise.targetRir}
@@ -2426,6 +2421,20 @@ function StrengthSetFields({
   const checkedRir = selectedRir ?? targetRir;
   const [weight, setWeight] = useState<number | "">(defaultWeightKg);
   const [reps, setReps] = useState<number | "">(defaultReps);
+
+  // Adopt a new prefill WITHOUT remounting. Recording a plate build
+  // revalidates the page with a truer weight, and this component seeds
+  // `useState` once, so the box used to keep the old number — which was fixed
+  // by keying the whole component on the weight. That reset three fields to
+  // move one: `reps` is state here and the RIR radios are `defaultChecked`, so
+  // an athlete who had typed their reps and picked a RIR before opening the
+  // plate panel silently lost both. Adjusting state during render is React's
+  // own answer for a prop-derived value, and it touches only the weight.
+  const [prefilledWeight, setPrefilledWeight] = useState<number | "">(defaultWeightKg);
+  if (defaultWeightKg !== prefilledWeight) {
+    setPrefilledWeight(defaultWeightKg);
+    setWeight(defaultWeightKg);
+  }
 
   return (
     <>

@@ -2304,6 +2304,50 @@ describe("SessionRunner — what to put on the bar", () => {
   });
 
   /**
+   * The other half of that fix. Refreshing the weight by remounting the whole
+   * field group also reset `reps` (state) and the RIR radios (defaultChecked),
+   * so the athlete who typed their reps, picked a RIR and THEN recorded the
+   * discs lost both without being told.
+   */
+  it("keeps typed reps and the chosen RIR when a recorded build moves the weight", () => {
+    const withoutBuild = hipThrust({
+      loadAssist: buildLoadAssist({
+        lastWeightKg: 122,
+        loadMechanism: "machine",
+        isCompound: true,
+        loadingModel: "plate_loaded",
+        inventory: GYM,
+      }),
+    });
+    const { rerender } = renderRunner({ exercises: [withoutBuild] });
+
+    fireEvent.change(screen.getByLabelText(/reps/i), { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("radio", { name: /^1$/ }));
+
+    // What revalidatePath does after "Guardar discos".
+    rerender(
+      runnerElement({
+        exercises: [
+          hipThrust({
+            loadAssist: buildLoadAssist({
+              lastWeightKg: 122,
+              loadMechanism: "machine",
+              isCompound: true,
+              loadingModel: "plate_loaded",
+              inventory: GYM,
+              recordedBuild: [{ value: 45, unit: "lb", count: 3 }],
+            }),
+          }),
+        ],
+      }),
+    );
+
+    expect(screen.getByLabelText(/peso/i)).toHaveValue(129.27);
+    expect(screen.getByLabelText(/reps/i)).toHaveValue(9);
+    expect(screen.getByRole("radio", { name: /^1$/ })).toBeChecked();
+  });
+
+  /**
    * The field used one `step` for both the ± buttons and HTML validation, so
    * the browser refused anything off the half-kilo grid — "20.2" was bounced
    * with "the two nearest valid values are 20 and 20.5". Once a recorded build
