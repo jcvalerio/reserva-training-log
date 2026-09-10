@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { athleteGym, exerciseSetup, type AthleteGym, type ExerciseSetup } from "@/db/schema";
@@ -9,6 +9,31 @@ import { normalizeExerciseName } from "@/training/muscle-taxonomy";
 import { plateBuildFromCounts } from "@/training/plate-build";
 import type { LoadingModel, PlateCount } from "@/training/plate-math";
 import type { PlateDenomination } from "@/training/units";
+
+/**
+ * The athlete's default gym, or null.
+ *
+ * Read-only, and separate from `getOrCreateDefaultGym` for that reason alone:
+ * a page render must not write. `getSessionRunDetails` and the gym settings
+ * page both used the creating variant, so opening a session INSERTed a row —
+ * a GET with a side effect, on the hottest render in the app, for every
+ * athlete who had never touched the feature. Next also renders routes during
+ * a build and on prefetch, which is the same write from somewhere less
+ * expected.
+ *
+ * Nothing is lost by waiting: with no gym row there are no setups and no
+ * inventory either, so every reader's answer is the same as it would be for
+ * an empty one. The row gets created when the athlete first SAVES something.
+ */
+export async function getDefaultGym(athleteProfileId: string): Promise<AthleteGym | null> {
+  const [existing] = await db
+    .select()
+    .from(athleteGym)
+    .where(and(eq(athleteGym.athleteProfileId, athleteProfileId), eq(athleteGym.isDefault, true)))
+    .limit(1);
+
+  return existing ?? null;
+}
 
 /**
  * The athlete's default gym, created on first read.
@@ -23,11 +48,7 @@ import type { PlateDenomination } from "@/training/units";
  * re-displayed since M0 and read by nothing. This is its first reader.
  */
 export async function getOrCreateDefaultGym(athleteProfileId: string): Promise<AthleteGym> {
-  const [existing] = await db
-    .select()
-    .from(athleteGym)
-    .where(and(eq(athleteGym.athleteProfileId, athleteProfileId), eq(athleteGym.isDefault, true)))
-    .limit(1);
+  const existing = await getDefaultGym(athleteProfileId);
 
   if (existing) {
     return existing;
@@ -109,17 +130,24 @@ export async function getExerciseSetupsForNames(
     return new Map();
   }
 
+  // Filtered in SQL, not in JS. Selecting every setup this athlete has at this
+  // gym and discarding most of them costs more the longer they use the app,
+  // and the keys are already exactly what the column stores.
+  const wanted = [...new Set(exerciseNamesEs.map(normalizeExerciseName))];
   const rows = await db
     .select()
     .from(exerciseSetup)
-    .where(and(eq(exerciseSetup.athleteProfileId, athleteProfileId), eq(exerciseSetup.gymId, gymId)));
+    .where(
+      and(
+        eq(exerciseSetup.athleteProfileId, athleteProfileId),
+        eq(exerciseSetup.gymId, gymId),
+        inArray(exerciseSetup.exerciseKey, wanted),
+      ),
+    );
 
-  const wanted = new Set(exerciseNamesEs.map(normalizeExerciseName));
   const byKey = new Map<string, ExerciseSetup>();
   for (const row of rows) {
-    if (wanted.has(row.exerciseKey)) {
-      byKey.set(row.exerciseKey, row);
-    }
+    byKey.set(row.exerciseKey, row);
   }
   return byKey;
 }
@@ -179,11 +207,16 @@ export async function saveExerciseSetup(
     });
 }
 
-/** The rack this exercise draws on: its own override, else the room's. */
+/** The rack this exercise draws on: its own override, else the room's — and
+ *  nothing at all for an athlete with no gym recorded yet, which reads the
+ *  same as a gym with an empty rack. */
 export function resolvePlateInventory(
-  gym: Pick<AthleteGym, "plateInventory">,
+  gym: Pick<AthleteGym, "plateInventory"> | null,
   setup: Pick<ExerciseSetup, "plateInventory"> | undefined,
 ): PlateDenomination[] {
   const override = setup?.plateInventory;
-  return override && override.length > 0 ? override : gym.plateInventory;
+  if (override && override.length > 0) {
+    return override;
+  }
+  return gym?.plateInventory ?? [];
 }

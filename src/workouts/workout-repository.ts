@@ -4,7 +4,8 @@ import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { getExerciseSetupsForNames, getOrCreateDefaultGym, resolvePlateInventory } from "@/training/gym-repository";
+import { getDefaultGym, getExerciseSetupsForNames, resolvePlateInventory } from "@/training/gym-repository";
+import type { ExerciseSetup } from "@/db/schema";
 import { buildLoadAssist, type LoadAssist } from "./load-assistant";
 import { splitPlannedAndBonusSets } from "./set-split";
 import type { LoadingModel } from "@/training/plate-math";
@@ -21,9 +22,9 @@ import type { ExercisePrescription, PlanSessionTemplate } from "@/plans/plan-rep
 import { canReassignTo } from "./exercise-reassignment";
 import { buildSubstituteChoices, groupSubstitutes, selectVisibleExercises } from "./exercise-substitution";
 import { renumberSets } from "./set-editing";
+import { isStrengthSetLog, toStrengthSetLog, type SetLog, type StrengthSetLog } from "./set-log-view";
 
 // Self-join so a substitute can show the exercise it stands in for. A
-import { isStrengthSetLog, toStrengthSetLog, type SetLog, type StrengthSetLog } from "./set-log-view";
 // substitute keeps its own entry and its own muscle group on /progreso — the
 // real data has a calf raise replacing an incline press, so rolling it up
 // under the original would file calf work under pecho.
@@ -183,10 +184,14 @@ export async function findSessionExerciseByName(
 }
 
 export async function getSessionRunDetails(session: WorkoutSession): Promise<SessionRunDetails> {
-  const [template] = await db
-    .select()
-    .from(planSessionTemplate)
-    .where(eq(planSessionTemplate.id, session.planSessionTemplateId));
+  // The gym read depends on nothing here, so it rides along with the template
+  // rather than adding a round trip of its own between the queries below and
+  // the per-exercise fan-out.
+  const [templateRows, gym] = await Promise.all([
+    db.select().from(planSessionTemplate).where(eq(planSessionTemplate.id, session.planSessionTemplateId)),
+    getDefaultGym(session.athleteProfileId),
+  ]);
+  const [template] = templateRows;
 
   if (!template) {
     throw new Error("No se encontró la sesión planificada.");
@@ -225,17 +230,22 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     logIdByPrescriptionId.has(exercise.id),
   );
 
-  // Two queries for the whole session, not two per exercise. The map below is
+  // One query for the whole session, not one per exercise. The map below is
   // already an N+1 over getPreviousExercisePerformance on the hottest server
   // render in the app; adding N more round trips to it would be the wrong
   // direction. The plate inventory is a property of the ROOM, so one row
   // serves every exercise.
-  const gym = await getOrCreateDefaultGym(session.athleteProfileId);
-  const setupsByKey = await getExerciseSetupsForNames(
-    session.athleteProfileId,
-    gym.id,
-    visibleExercises.map((exercise) => exercise.exerciseNameEs),
-  );
+  //
+  // Skipped entirely for an athlete with no gym: there can be no setups
+  // without one, so the query would be asking a question whose answer is
+  // already known.
+  const setupsByKey = gym
+    ? await getExerciseSetupsForNames(
+        session.athleteProfileId,
+        gym.id,
+        visibleExercises.map((exercise) => exercise.exerciseNameEs),
+      )
+    : new Map<string, ExerciseSetup>();
 
   const exercisesWithLoggedSets = await Promise.all(
     visibleExercises.map(async (exercise) => {
@@ -246,6 +256,13 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         session.id,
       );
       const setup = setupsByKey.get(normalizeExerciseName(exercise.exerciseNameEs));
+      // The last PLANNED set of the previous session, not simply the last one
+      // logged. session-runner.tsx anchors the suggested weight the same way
+      // and for the same reason: a bonus backoff set at the end must not
+      // become the baseline. Reading `sets.at(-1)` here let the plate step
+      // bypass that guard, so on two planned sets at 80 kg plus a bonus third
+      // at 40 kg the weight box read 84 while the plate line was computed off
+      // 40 — the two numbers this panel exists to make agree.
       const previousLastWeightKg =
         previousPerformance?.prescriptionType === "strength"
           ? Number(
@@ -306,13 +323,6 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
     .from(exercisePrescription)
     .innerJoin(planSessionTemplate, eq(planSessionTemplate.id, exercisePrescription.planSessionTemplateId))
     .where(eq(planSessionTemplate.workoutPlanId, session.workoutPlanId));
-      // The last PLANNED set of the previous session, not simply the last one
-      // logged. session-runner.tsx anchors the suggested weight the same way
-      // and for the same reason: a bonus backoff set at the end must not
-      // become the baseline. Reading `sets.at(-1)` here let the plate step
-      // bypass that guard, so on two planned sets at 80 kg plus a bonus third
-      // at 40 kg the weight box read 84 while the plate line was computed off
-      // 40 — the two numbers this panel exists to make agree.
 
   return {
     template,

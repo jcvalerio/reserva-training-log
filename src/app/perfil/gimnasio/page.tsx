@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { requireCurrentUser } from "@/lib/auth-server";
 import { getAthleteProfileForUser } from "@/profile/profile-repository";
-import { getOrCreateDefaultGym } from "@/training/gym-repository";
+import { getDefaultGym } from "@/training/gym-repository";
 import { formatDenominationList } from "@/training/gym-schema";
 import { buildFromScratch, formatPlateCounts } from "@/training/plate-math";
 
@@ -38,8 +38,13 @@ export default async function GymPage({ searchParams }: GymPageProps) {
     );
   }
 
-  const gym = await getOrCreateDefaultGym(profile.id);
-  const preview = buildFromScratch(PREVIEW_KG, gym.plateInventory);
+  // Read-only: opening a settings page must not write a row. The gym is
+  // created by the save action, which is the first moment the athlete has
+  // actually told us anything. Until then the form renders the same defaults
+  // an empty gym would produce.
+  const gym = await getDefaultGym(profile.id);
+  const plateInventory = gym?.plateInventory ?? [];
+  const preview = buildFromScratch(PREVIEW_KG, plateInventory);
 
   return (
     <AppShell activeHref="/perfil" backTo={{ href: "/perfil", label: "Perfil" }}>
@@ -63,14 +68,14 @@ export default async function GymPage({ searchParams }: GymPageProps) {
         <form action={saveGymInventoryAction} className="grid gap-4 rounded-2xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Nombre</span>
-            <input name="nameEs" defaultValue={gym.nameEs} maxLength={200} className="input" />
+            <input name="nameEs" defaultValue={gym?.nameEs ?? "Mi gimnasio"} maxLength={200} className="input" />
           </label>
 
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Discos en libras (lb)</span>
             <input
               name="platesLb"
-              defaultValue={formatDenominationList(gym.plateInventory, "lb")}
+              defaultValue={formatDenominationList(plateInventory, "lb")}
               placeholder="45, 35, 25, 10, 5, 2.5"
               inputMode="text"
               maxLength={200}
@@ -82,7 +87,7 @@ export default async function GymPage({ searchParams }: GymPageProps) {
             <span>Discos en kilos (kg)</span>
             <input
               name="platesKg"
-              defaultValue={formatDenominationList(gym.plateInventory, "kg")}
+              defaultValue={formatDenominationList(plateInventory, "kg")}
               placeholder="25, 20, 15, 10, 5"
               inputMode="text"
               maxLength={200}
@@ -101,7 +106,7 @@ export default async function GymPage({ searchParams }: GymPageProps) {
 
           <label className="grid gap-1 text-sm font-medium text-zinc-300">
             <span>Mostrar pesos en</span>
-            <select name="displayUnit" defaultValue={gym.displayUnit} className="input">
+            <select name="displayUnit" defaultValue={gym?.displayUnit ?? "kg"} className="input">
               <option value="kg">Kilos (kg)</option>
               <option value="lb">Libras (lb)</option>
             </select>
@@ -118,7 +123,7 @@ export default async function GymPage({ searchParams }: GymPageProps) {
 
         {/* Proof the list was read correctly, in the app's own words. A
             "Guardado" banner only says the write happened. */}
-        {gym.plateInventory.length > 0 && preview ? (
+        {plateInventory.length > 0 && preview ? (
           <section className="rounded-2xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
             <h2 className="text-sm font-semibold text-zinc-100">Comprobación</h2>
             <p className="mt-1 text-sm leading-6 text-zinc-300">
