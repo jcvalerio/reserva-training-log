@@ -982,6 +982,7 @@ export type ExerciseInstance = {
   isUnilateral: boolean;
   /** Resolved via the catalog link, falling back to the free-text name. */
   primaryMuscleGroup: MuscleGroup | null;
+  secondaryMuscleGroups?: MuscleGroup[];
   isClassified: boolean;
   /** Non-null only when this exercise was logged as a substitute. */
   substitutedForNameEs: string | null;
@@ -1144,6 +1145,7 @@ export async function getRecentExerciseInstancesByName(
       isUnilateral: exercisePrescription.isUnilateral,
       exerciseId: exercisePrescription.exerciseId,
       primaryMuscleGroup: exercise.primaryMuscleGroup,
+      secondaryMuscleGroups: exercise.secondaryMuscleGroups,
       substitutedForNameEs: originalPrescription.exerciseNameEs,
     })
     .from(exerciseLog)
@@ -1221,6 +1223,7 @@ export async function getRecentExerciseInstancesByName(
           completedAt: row.completedAt,
           isUnilateral: row.isUnilateral,
           primaryMuscleGroup: row.primaryMuscleGroup ?? fallback?.primaryMuscleGroup ?? null,
+          secondaryMuscleGroups: row.secondaryMuscleGroups ?? fallback?.secondaryMuscleGroups ?? [],
           isClassified: Boolean(row.exerciseId) || fallback !== null,
           substitutedForNameEs: row.substitutedForNameEs,
           sets: setsByLogId.get(row.exerciseLogId) ?? [],
