@@ -53,6 +53,28 @@ describe("gymInventorySchema", () => {
     expect(plateInventory.map((p) => p.value)).not.toContain(1);
   });
 
+  it("drops the lightest discs at the cap, not whichever family came second", () => {
+    // Twelve kg denominations plus the two heaviest lb plates in the building.
+    // Sorting each family on its own and concatenating them meant the cap fell
+    // on the list's tail: 45 lb is 20.41 kg, the second-heaviest disc here, and
+    // it was dropped in favour of 1 kg.
+    const { plateInventory } = parse("45 35", "25 20 15 12 10 8 6 5 4 3 2 1");
+
+    expect(plateInventory).toHaveLength(12);
+    expect(plateInventory).toContainEqual({ value: 45, unit: "lb" });
+    expect(plateInventory).toContainEqual({ value: 35, unit: "lb" });
+    expect(plateInventory.map((p) => `${p.value}${p.unit}`)).not.toContain("1kg");
+  });
+
+  it("keeps each family value-descending in the form, whatever the storage order", () => {
+    // The round-trip is per family, so a mass-ordered store still renders back
+    // as the athlete typed it.
+    const { plateInventory } = parse("45 25 35", "20 5 25");
+
+    expect(formatDenominationList(plateInventory, "lb")).toBe("45, 35, 25");
+    expect(formatDenominationList(plateInventory, "kg")).toBe("25, 20, 5");
+  });
+
   it("falls back to a usable name rather than an empty heading", () => {
     expect(gymInventorySchema.parse({ nameEs: "   ", displayUnit: "kg", platesLb: "", platesKg: "" }).nameEs).toBe(
       "Mi gimnasio",

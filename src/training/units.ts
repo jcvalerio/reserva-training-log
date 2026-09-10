@@ -65,13 +65,15 @@ export function roundKg(kg: number): number {
 /**
  * Heaviest first, by real mass rather than by printed number.
  *
- * Shared because it was NOT shared, and that shipped a bug. `plate-math`'s
+ * Shared because it was NOT shared, and that shipped two bugs. `plate-math`'s
  * enumerator and `plate-build`'s formatter each sorted this way inline, while
  * the editor rendered the inventory in stored order — which `gymInventorySchema`
- * produces as kg-family-then-lb-family, value-descending WITHIN each family. So
+ * produced as kg-family-then-lb-family, value-descending WITHIN each family. So
  * `45 lb` (20.41 kg, the second-heaviest disc in the gym) rendered sixth, below
  * `5 kg`, and the athlete scrolled past five plates they never touch to reach
- * the one they always use.
+ * the one they always use. The same missing comparison then decided which discs
+ * survived MAX_DENOMINATIONS, dropping 45 lb in favour of 1 kg. Both call sites
+ * use this now, and the schema stores in this order.
  *
  * Comparing printed numbers across unit families is the whole trap: 45 > 5 says
  * nothing until both are kilograms.

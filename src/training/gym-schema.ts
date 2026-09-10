@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { MAX_DENOMINATIONS } from "@/training/plate-math";
-import { weightUnits, type PlateDenomination } from "@/training/units";
+import { byHeaviestFirst, weightUnits, type PlateDenomination } from "@/training/units";
 
 /**
  * The gym inventory form.
@@ -51,15 +51,20 @@ export const gymInventorySchema = z
     platesKg: denominationList("kg"),
   })
   .transform((input) => {
-    // Deduplicated, heaviest-value-first within each family, and capped. The
-    // cap is what keeps the from-scratch enumeration bounded without tracking
-    // how many of each disc the gym owns — see plate-math.
+    // Deduplicated, heaviest-first by real mass, and capped. The cap is what
+    // keeps the from-scratch enumeration bounded without tracking how many of
+    // each disc the gym owns — see plate-math.
     const seen = new Set<string>();
     const plateInventory: PlateDenomination[] = [];
-    const byValueDesc = (a: PlateDenomination, b: PlateDenomination) => b.value - a.value;
     // Sorted BEFORE the cap, so an over-long list keeps the heaviest discs
-    // rather than whichever were typed first.
-    const ordered = [...[...input.platesKg].sort(byValueDesc), ...[...input.platesLb].sort(byValueDesc)];
+    // rather than whichever were typed first — and sorted by real MASS, across
+    // both families. Sorting each family separately and concatenating them
+    // meant values were never compared across units, so the cap fell on the
+    // list's tail rather than on its lightest discs: with twelve kg
+    // denominations typed, every lb plate was dropped, 45 lb (20.41 kg)
+    // included, in favour of 2.5 kg. `byHeaviestFirst` is the comparator that
+    // already exists for exactly this trap.
+    const ordered = [...input.platesKg, ...input.platesLb].sort(byHeaviestFirst);
     for (const plate of ordered) {
       const key = `${plate.value}${plate.unit}`;
       if (!seen.has(key) && plateInventory.length < MAX_DENOMINATIONS) {
