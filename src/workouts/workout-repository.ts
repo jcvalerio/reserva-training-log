@@ -138,6 +138,50 @@ export async function startOrResumeWorkoutSession(
   return created;
 }
 
+/** One exercise of a session, as the plan records it. */
+export type SessionExerciseRef = { exerciseNameEs: string; exerciseId: string | null };
+
+/**
+ * Resolve the exercise a setup answer is about, against the session it claims
+ * to be about — and against the caller's own profile.
+ *
+ * The setup actions post an exercise NAME, because `exerciseSetup` is keyed on
+ * one. Taken at face value that is a free-text primary key supplied by the
+ * client: any string, any length, for a machine in no plan of theirs, one row
+ * per distinct value and nothing to stop the next one. Matching it against the
+ * session's own prescriptions turns it back into a choice from a fixed list,
+ * and the name that gets stored is the PLAN's, not the posted one.
+ *
+ * `exerciseId` comes back from the same row for the same reason: it is a
+ * denormalized convenience column, so a posted one could disagree with the
+ * name it is filed beside and nothing downstream would notice.
+ *
+ * Returns null for a session that is not this athlete's, which also makes this
+ * the ownership check those actions were missing.
+ */
+export async function findSessionExerciseByName(
+  athleteProfileId: string,
+  workoutSessionId: string,
+  exerciseNameEs: string,
+): Promise<SessionExerciseRef | null> {
+  const session = await getWorkoutSessionForProfile(workoutSessionId, athleteProfileId);
+  if (!session) {
+    return null;
+  }
+
+  const rows = await db
+    .select({ exerciseNameEs: exercisePrescription.exerciseNameEs, exerciseId: exercisePrescription.exerciseId })
+    .from(exercisePrescription)
+    .where(eq(exercisePrescription.planSessionTemplateId, session.planSessionTemplateId));
+
+  // The same normalizer `exerciseSetup.exerciseKey` is built with, so a name
+  // that matches here is a name that will find its own row back.
+  const wanted = normalizeExerciseName(exerciseNameEs);
+  const match = rows.find((row) => normalizeExerciseName(row.exerciseNameEs) === wanted);
+
+  return match ? { exerciseNameEs: match.exerciseNameEs, exerciseId: match.exerciseId } : null;
+}
+
 export async function getSessionRunDetails(session: WorkoutSession): Promise<SessionRunDetails> {
   const [template] = await db
     .select()

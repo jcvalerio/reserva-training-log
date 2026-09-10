@@ -30,6 +30,7 @@ import {
   completeWorkoutSession,
   deleteSetForSession,
   getWorkoutSessionForProfile,
+  findSessionExerciseByName,
   hasOtherActiveSessionForTemplate,
   markExerciseChosenForSession,
   reassignExerciseLog,
@@ -617,7 +618,6 @@ export async function setExerciseLoadingModelAction(
   const exerciseNameEs = formData.get("exerciseNameEs");
   const workoutSessionId = formData.get("workoutSessionId");
   const rawModel = formData.get("loadingModel");
-  const exerciseId = formData.get("exerciseId");
 
   if (
     typeof exerciseNameEs !== "string" ||
@@ -628,8 +628,16 @@ export async function setExerciseLoadingModelAction(
     return { status: "error", message: "No se pudo guardar cómo carga este ejercicio." };
   }
 
+  // Resolved against the session's own exercises, which is also this action's
+  // ownership check — it had none, and wrote a row keyed on whatever name was
+  // posted. The plan's name and its exerciseId are what get stored.
+  const exercise = await findSessionExerciseByName(profile.id, workoutSessionId, exerciseNameEs);
+  if (!exercise) {
+    return { status: "error", message: "No se pudo guardar cómo carga este ejercicio." };
+  }
+
   const gym = await getOrCreateDefaultGym(profile.id);
-  await saveExerciseSetup(profile.id, gym.id, exerciseNameEs, typeof exerciseId === "string" && exerciseId ? exerciseId : null, {
+  await saveExerciseSetup(profile.id, gym.id, exercise.exerciseNameEs, exercise.exerciseId, {
     loadingModel: rawModel as LoadingModel,
   });
 
@@ -678,15 +686,22 @@ export async function setExercisePlateBuildAction(
   const exerciseNameEs = formData.get("exerciseNameEs");
   const workoutSessionId = formData.get("workoutSessionId");
   const rawBuild = formData.get("plateBuild");
-  const exerciseId = formData.get("exerciseId");
 
   if (typeof exerciseNameEs !== "string" || typeof workoutSessionId !== "string" || typeof rawBuild !== "string") {
     return { status: "error", message: "No se pudieron guardar los discos." };
   }
 
+  // Same resolution as setExerciseLoadingModelAction, and for the same reason:
+  // the name is the row's key, so it has to be a name from this athlete's own
+  // session rather than a string off the wire.
+  const exercise = await findSessionExerciseByName(profile.id, workoutSessionId, exerciseNameEs);
+  if (!exercise) {
+    return { status: "error", message: "No se pudieron guardar los discos." };
+  }
+
   const gym = await getOrCreateDefaultGym(profile.id);
-  const setups = await getExerciseSetupsForNames(profile.id, gym.id, [exerciseNameEs]);
-  const setup = setups.get(normalizeExerciseName(exerciseNameEs));
+  const setups = await getExerciseSetupsForNames(profile.id, gym.id, [exercise.exerciseNameEs]);
+  const setup = setups.get(normalizeExerciseName(exercise.exerciseNameEs));
   // Validated against THIS exercise's rack, not the raw string. A build is the
   // only input in this feature whose numbers do not come from the inventory,
   // so an unchecked one would let a disc that does not exist into every recipe
@@ -700,8 +715,8 @@ export async function setExercisePlateBuildAction(
   await saveExerciseSetup(
     profile.id,
     gym.id,
-    exerciseNameEs,
-    typeof exerciseId === "string" && exerciseId ? exerciseId : null,
+    exercise.exerciseNameEs,
+    exercise.exerciseId,
     {
       plateBuild,
       // Recording a build IS the answer to "¿lleva discos?" — nobody lists

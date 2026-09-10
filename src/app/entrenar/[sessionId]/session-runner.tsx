@@ -670,7 +670,6 @@ export function SessionRunner({
             assist={plateAssist}
             askLoadingModel={askLoadingModel}
             exerciseNameEs={currentExercise.exerciseNameEs}
-            exerciseId={currentExercise.exerciseId}
             sessionId={session.id}
             setLoadingModelAction={setLoadingModelAction}
             setPlateBuildAction={setPlateBuildAction}
@@ -2742,7 +2741,6 @@ function PlateBuildSection({
   assist,
   askLoadingModel,
   exerciseNameEs,
-  exerciseId,
   sessionId,
   setLoadingModelAction,
   setPlateBuildAction,
@@ -2753,7 +2751,6 @@ function PlateBuildSection({
    *  you notice is the moment you are stood in front of the machine. */
   askLoadingModel: boolean;
   exerciseNameEs: string;
-  exerciseId: string | null;
   sessionId: string;
   setLoadingModelAction: SetLoadingModelAction;
   setPlateBuildAction: SetPlateBuildAction;
@@ -2766,7 +2763,6 @@ function PlateBuildSection({
     return askLoadingModel ? (
       <LoadingModelQuestion
         exerciseNameEs={exerciseNameEs}
-        exerciseId={exerciseId}
         sessionId={sessionId}
         action={setLoadingModelAction}
       />
@@ -2817,8 +2813,7 @@ function PlateBuildSection({
           inventory={assist.inventory}
           initialPerSide={saved?.perSide ?? []}
           exerciseNameEs={exerciseNameEs}
-          exerciseId={exerciseId}
-          sessionId={sessionId}
+            sessionId={sessionId}
           action={setPlateBuildAction}
           onDone={() => setEditing(false)}
         />
@@ -2882,7 +2877,6 @@ function PlateBuildEditor({
   inventory,
   initialPerSide,
   exerciseNameEs,
-  exerciseId,
   sessionId,
   action,
   onDone,
@@ -2890,7 +2884,6 @@ function PlateBuildEditor({
   inventory: PlateDenomination[];
   initialPerSide: PlateCount[];
   exerciseNameEs: string;
-  exerciseId: string | null;
   sessionId: string;
   action: SetPlateBuildAction;
   onDone: () => void;
@@ -2955,7 +2948,6 @@ function PlateBuildEditor({
     <form action={formAction} className="mt-2 grid gap-2">
       <input type="hidden" name="workoutSessionId" value={sessionId} />
       <input type="hidden" name="exerciseNameEs" value={exerciseNameEs} />
-      <input type="hidden" name="exerciseId" value={exerciseId ?? ""} />
       <input type="hidden" name="plateBuild" value={serializePlateBuild(perSide)} />
 
       <p className="text-xs leading-5 text-zinc-400">
@@ -3082,12 +3074,10 @@ function plateKey(plate: PlateDenomination): string {
  */
 function LoadingModelQuestion({
   exerciseNameEs,
-  exerciseId,
   sessionId,
   action,
 }: {
   exerciseNameEs: string;
-  exerciseId: string | null;
   sessionId: string;
   action: SetLoadingModelAction;
 }) {
@@ -3097,7 +3087,6 @@ function LoadingModelQuestion({
     <form action={formAction} className="mt-3 border-t border-zinc-800 pt-3">
       <input type="hidden" name="workoutSessionId" value={sessionId} />
       <input type="hidden" name="exerciseNameEs" value={exerciseNameEs} />
-      <input type="hidden" name="exerciseId" value={exerciseId ?? ""} />
       <p className="text-xs leading-5 text-zinc-400">
         ¿Este ejercicio se carga con discos? Si me lo dices, te digo qué poner en la barra en vez de sólo un número.
       </p>
