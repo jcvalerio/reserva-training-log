@@ -75,18 +75,15 @@ export function PlateStepLine({
 /**
  * Which discs are on the bar, and the way to correct that.
  *
- * This half was WRONG in the first version and preview caught it. It printed
- * the enumerator's output under the heading "La vez pasada", with the build's
- * mass in parentheses marked "reales" — two assertions about history, from a
- * computation that had never seen the bar. On real data it claimed
- * `1 x 20 kg + 1 x 25 lb` for a lift loaded with 45 lb discs throughout,
- * because the 25 kg plates live at the far end of the room. Nothing computable
- * recovers that; the rack layout is not, and will not be, in the model.
+ * The language tracks provenance exactly, and that is load-bearing rather
+ * than stylistic: this half once printed the enumerator's output under "La vez
+ * pasada" with a mass marked "reales", two assertions about history from a
+ * computation that had never seen the bar. Invariant 14 in
+ * docs/architecture/data-model.md has the case and the rule.
  *
- * So the language tracks provenance exactly. A recorded build is stated flatly
- * and is the only thing allowed to claim a true mass. A computed one is offered
- * in the conditional ("podrías armarlo así") and carries no mass claim at all —
- * beside it, the way to disagree.
+ * So: a recorded build is stated flatly and is the only thing allowed to claim
+ * a true mass. A computed one is offered in the conditional ("podrías armarlo
+ * así") and carries no mass claim at all — beside it, the way to disagree.
  */
 export function PlateBuildSection({
   assist,

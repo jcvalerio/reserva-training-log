@@ -2,6 +2,52 @@
 
 Living checkpoint for small iterations. Update this after every task iteration so the project can be paused and resumed with context.
 
+## 2026-09-09 (latest) — Review fixes: the box disagreed with the instruction, CI could hand the OAuth hostname to a fork, a cache keyed on user input had no bound, and one story was told five times
+
+Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (822 passing, +28)/`build` green. One migration (`0028`, dropping a redundant index). Not yet checked on a device.
+
+**The two-disagreeing-numbers defect was only half fixed.** The 2026-09-08 entry removed the badge's `→ N`, but `rawDefaultWeightKg` still fell through to `suggestNextWeightKg`, so the card read `Añade 1 × 5 lb + 1 × 2.5 lb por lado → 129.3kg` above a weight box holding `128.5`. Worse, that is the ORDINARY path: the true-mass prefill requires a fresh recorded build, which most exercises will never have, so the fix only ever covered the rare case. The box now takes the step's own total whenever the step is the instruction on screen — and only then. Where no step is offered, `suggestNextWeightKg` keeps the box, unchanged.
+
+**The plate step was bypassing the bonus-set guard.** `getSessionRunDetails` passed `previousPerformance.sets.at(-1)`, while the runner deliberately anchors on the last *planned* set — a bonus backoff set must not become the baseline. On two planned sets at 80 kg plus a bonus third at 40 kg, the box said 84 while the plate line was computed off 40. Both now read the same set. `splitPlannedAndBonusSets` moved to `src/workouts/set-split.ts` so `workout-repository` can use it without importing `progression-view` at runtime (that module imports the repository back); only a type crosses the new boundary, and types are erased. `progression-view` re-exports it, so no call site changed.
+
+**The step compounded within a session.** Once the athlete loaded the increase, recorded that build and logged a set at it, the build was "fresh" against TODAY's weight — which rebased the step, so set 2 prescribed another pair of discs on top of the increase already made. A recorded build now corrects the precision of the weight it actually *describes* (judged against the previous session's number, the case the correction exists for: 3 × 45 lb is 122.47, not the 122 someone typed) and never rebases onto today's load.
+
+**CI could point the OAuth-trusted hostname at someone else's code.** `BETTER_AUTH_URL` is pinned to `preview.gym.jcvalerio.com`, so whatever is aliased there receives Google sessions for that origin — and `deployment_status` fires for any deployment GitHub reports, on a public repository. A new step refuses anything whose commit is not part of that branch *in this repository* (`compare` returning `identical` or `behind`; `behind` is the benign race where a newer push landed while the job queued).
+
+**And the workflow was executing branch names.** `${{ steps.target.outputs.ref }}` was spliced straight into a `run:` script. `$`, backticks and `${IFS}` are all legal in a git ref, so that was command execution on a runner that handles a deployment token; `served` was worse, since it comes off the network. Everything now arrives through `env:`. Separately, the dispatch ref was concatenated into a query string, where `main&environment=Production` selected a *production* deployment — walking past the job's own Preview-only guard. It goes through `gh api -f` fields now.
+
+**The achievable-builds memo is bounded now.** Its key is the athlete's own rack, so its size was user input: measured at 2,184 entries, ~1.1 MB retained and ~12 ms to build on the real 11-plate gym, rising to ~2.4 MB on a 12-denomination worst case, and nothing ever evicted. A few hundred inventory edits is a lambda's whole heap, and reaching them is a form submission plus a page load, repeated. Now a 16-entry LRU — an LRU rather than a TTL because the cost avoided is per distinct RACK and a rack does not go stale. The test asserts a ceiling rather than the constant, so tuning the bound does not break a test that is about growth.
+
+**The two setup actions were writing a row keyed on whatever name was posted.** `exerciseSetup.exerciseKey` is a normalized exercise name, so an unchecked one is a free-text primary key from the client: any string, any length, for a machine in no plan of theirs, one row per distinct value. Neither action checked the session belonged to the caller either. Both now resolve the name through `findSessionExerciseByName`, which matches it against that session's own prescriptions — and stores the PLAN's name and its `exerciseId`, so the denormalized column can no longer disagree with the name it is filed beside. The posted `exerciseId` is gone entirely, hidden inputs and prop chain included, rather than left in place looking load-bearing.
+
+**No test for either.** Both are database-backed and this repo has no DB test harness; the normalizer they match on is covered.
+
+**The inventory cap was dropping the wrong discs.** `gymInventorySchema` sorted each unit family on its own and concatenated them, so values were never compared across families and the cap fell on the list's tail: type twelve kg denominations and every lb plate went, 45 lb (20.41 kg, the second-heaviest disc in the building) included, in favour of 1 kg. `byHeaviestFirst` already existed for exactly this trap — the same missing comparison that once rendered 45 lb sixth in the editor. The form still round-trips per family, so what the athlete typed comes back as they typed it.
+
+**Refreshing the weight box was resetting two other fields.** Keying `StrengthSetFields` on `defaultWeightKg` remounted the whole group to move one number, and that group owns `reps` as state and renders the RIR radios with `defaultChecked` — so typing reps, picking a RIR and *then* recording the discs silently discarded both. It adopts the new prefill during render now, which touches only the weight. The form stays keyed on the set number, which is what clears everything between sets.
+
+**`LoadingModelQuestion` was discarding its own action state.** A refused write left the question sitting there with the tap having visibly done nothing, which reads as a dead button rather than a failure. It shows the message, like the editor beside it.
+
+**Comment pass, mostly deduplication.** The `1 × 20 kg + 1 × 25 lb` preview case was told in full in five files; it is now told once, in `schema.ts` beside the column it justifies, and the other four state the rule and point at invariant 14. `~75k multisets` was wrong in two files — the real figure at plate-math's caps is 125,970, measured at ~12 ms. The four increment columns nothing writes now say so plainly and are dated, rather than claiming to be waiting on work that may not arrive; **dropping them is still the better answer and needs a migration.** Two rot-prone phrasings fixed: an issue reference that said "right now", and a comment that described a field's absence rather than the rule that replaced it.
+
+**Density is roughly unchanged, deliberately.** The pass was about duplication and wrong facts, not volume: rationale, rejected alternatives and measured numbers are the comments that keep earning their keep here.
+
+**A client component was importing the database module.** `session-runner.tsx` reached `src/db/index.ts` — which builds a Neon client from `@/env` at module scope — through `progression-view → workout-repository`, for one narrowing helper, and again through `session-finish → improvement`. The build only survived on Next's tree-shaking, which is a property of the bundler and not of this codebase. `toStrengthSetLog`/`isStrengthSetLog` and the `SetLog` types moved to `set-log-view.ts`, which imports the schema type-only; `workout-repository` re-exports all four, so no call site changed.
+
+The usual guard is Next's `server-only` package. **Deliberately not added** — a dependency for a one-line assertion, on a repo whose own principles say to prefer what is already here. `src/app/client-import-boundary.test.ts` walks the value-import graph from every `"use client"` file instead and names the exact chain when one reaches `@/db`. It fails on the old imports, which is how it was checked.
+
+**Two GET requests were writing rows.** `getSessionRunDetails` and the gym settings page both called `getOrCreateDefaultGym`, so opening a session INSERTed a gym for every athlete who had never touched the feature — on the hottest render in the app, and again wherever Next renders a route during a build or a prefetch. Split into a read-only `getDefaultGym` returning null, with `resolvePlateInventory` treating "no gym" exactly as it already treated "empty rack". Nothing is lost by waiting: with no gym row there are no setups either. The row is created by the save actions, which is the first moment the athlete has said anything. The gym read also moved into the template query's `Promise.all` — it depended on neither — and the setup query is skipped outright when there is no gym.
+
+**`getExerciseSetupsForNames` selected every setup row and threw most away.** Filtered in SQL now (`inArray` on the same normalized keys), which matters more the longer an athlete uses the app.
+
+**`exercise_setup_profile_gym_idx` is dropped** (migration `0028`): a b-tree serves any leftmost prefix, so `(athleteProfileId, gymId)` was already covered by the three-column unique index — dead weight on every write.
+
+**The plate assistant has its own file.** `PlateStepLine`, `PlateBuildSection`, `PlateBuildEditor` and `LoadingModelQuestion` moved to `plate-panel.tsx` (471 lines), with their shared action types in `plate-actions.ts`; the runner drops from 3,129 lines to 2,679. They were the most self-contained thing in that file — two server actions of their own, their own editor state, nothing else reading it.
+
+**Left for a follow-up:** dropping the four dead increment columns (a migration, and the progression half may want them), and the silent invention of plates from `"2,5"` in the inventory parser — pinned by a test, so intentional, but the form reports success either way.
+
+**No regression test for the bonus-set fix.** `getSessionRunDetails` needs a database and this repo has no DB test harness; the helper it now shares with the runner is itself covered.
+
 ## 2026-09-09 (later) — The rest timer was making the screen jump once per set
 
 Status: built on `feat/plate-load-assistant`. `lint`/`typecheck`/`test` (794 passing, +1)/`build` green. No schema change. Not yet checked on a device.

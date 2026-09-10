@@ -117,8 +117,8 @@ export function formatWeight(value: number, unit: WeightUnit): string {
  *
  * There is deliberately no stored per-exercise override. A nullable column
  * nobody ever sets is the `limitation.requiresPainTracking` failure — captured
- * everywhere, read by nothing — and this repo has that one open as issue #14
- * right now. The convention is stated to the athlete in words instead, which
+ * everywhere, read by nothing — which this repo has open as issue #14. The
+ * convention is stated to the athlete in words instead, which
  * is the cheaper detection mechanism: someone whose habit differs reads the
  * line and says so. Adding the column later is one additive migration.
  */

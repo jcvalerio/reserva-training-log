@@ -415,8 +415,14 @@ export const exerciseSetup = pgTable(
     // scale is worse than one textarea. Structure what recurs, later.
     setupNotesEs: text("setup_notes_es"),
     loadingModel: loadingModelEnum("loading_model"),
-    // Stack increments, for the uniform-increment grid. Unused until the
-    // progression half ships; nullable so nothing reads a guess.
+    // Stack increments, for the uniform-increment grid.
+    //
+    // WRITTEN BY NOTHING AND READ BY NOTHING as of 2026-09-09. That is the
+    // `limitation.requiresPainTracking` shape this repo already has open as
+    // issue #14 — a column shipped ahead of its writer, which then either
+    // rots or gets filled in by guesswork. Kept only because dropping them is
+    // a migration and the progression half is next; if that slips, drop them
+    // and re-add when something actually writes one.
     incrementValue: numeric("increment_value", { precision: 6, scale: 2 }),
     incrementUnit: weightUnitEnum("increment_unit"),
     addOnValue: numeric("add_on_value", { precision: 6, scale: 2 }),
@@ -434,6 +440,11 @@ export const exerciseSetup = pgTable(
     // the athlete had loaded 45 lb discs throughout because the 25 kg plates
     // live at the other end of the room. No arithmetic recovers that; only
     // asking does.
+    //
+    // This is the one full telling in the code — plate-build.ts,
+    // load-assistant.ts, the runner and the setup action each state the rule
+    // and point at invariant 14 in data-model.md rather than repeat the story
+    // five times.
     //
     // Per side, matching every rendered recipe and `PlateBuild.perSide`.
     // Storing it doubled would put the convention in two places and this
@@ -453,6 +464,9 @@ export const exerciseSetup = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    // Also the lookup index for (athleteProfileId, gymId): a b-tree serves any
+    // leftmost prefix of its columns, so a separate two-column index would be
+    // dead weight on every write.
     uniqueIndex("exercise_setup_scope_unique").on(table.athleteProfileId, table.gymId, table.exerciseKey),
   ],
 );
@@ -464,9 +478,6 @@ export type { PlateCount };
 // The exercise catalog: the single normalized source of truth for what muscle
 // an exercise trains. Revived from the removed "Pesos base" intake flow, which
 // left 12 rows behind that baseline_lift still references with
-    // Also the lookup index for (athleteProfileId, gymId): a b-tree serves any
-    // leftmost prefix of its columns, so a separate two-column index would be
-    // dead weight on every write.
 // onDelete:"restrict" — they cannot be deleted, so they are simply inactive.
 //
 // exercisePrescription.exerciseNameEs stays free text and stays the display

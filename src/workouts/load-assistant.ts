@@ -15,7 +15,7 @@ import { increaseBandFor, type LoadMechanism } from "./progression-view";
  * Everything the runner needs to stop the athlete doing plate arithmetic on
  * their phone, computed on the server and serialised as plain data.
  *
- * THREE questions, and the first version conflated the first two:
+ * THREE questions, and the first two are easy to conflate:
  *
  * - `savedBuild` answers "what is on the bar" — a fact, only ever obtained by
  *   asking. Nothing derives it.
@@ -25,13 +25,9 @@ import { increaseBandFor, type LoadMechanism } from "./progression-view";
  *   like. Rebuilding a bar from a fresh minimum-plate recipe to add three
  *   kilos is not a thing anyone does.
  *
- * The first shipped version had no `savedBuild` and rendered `suggestedBuild`
- * under the label "La vez pasada", which made a computation impersonate a
- * record. Caught in preview on real data: 63 kg came back as
- * `1 x 20 kg + 1 x 25 lb`, and the athlete had used 45 lb discs because the
- * 25 kg plates were at the other end of the gym. The enumerator has no term
- * for how far you have to walk, and it never will — so the fix is not a
- * better objective function, it is asking.
+ * Keeping them apart is the rule a derived build claims no mass and only a
+ * recorded one may state one: invariant 14 in docs/architecture/data-model.md,
+ * with the preview case that produced it and the 2026-09-07 log entry.
  */
 export type LoadAssist = {
   /** What the weight box means here, stated in words. This is the only place
@@ -70,9 +66,10 @@ export type LoadAssist = {
    *
    * That split is deliberate rather than tidy: the progression action is
    * derived during CLIENT render in session-runner.tsx, while this enumeration
-   * has to stay on the server — up to ~75k multisets is not something to run
-   * on a phone between sets. Computing the step regardless lets both live
-   * where they belong.
+   * has to stay on the server — 125,970 multisets at the caps in plate-math
+   * (8 discs a side from 12 denominations), measured at ~12 ms, is not
+   * something to run on a phone between sets. Computing the step regardless
+   * lets both live where they belong.
    *
    * Null means no pair of discs in this gym lands inside the band. Not a
    * failure: it means the smallest available jump is too big for this load,

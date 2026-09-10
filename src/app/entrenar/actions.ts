@@ -70,9 +70,9 @@ export async function startOrResumeSessionAction(formData: FormData) {
 export type SaveSetActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  // No painScore any more: a set no longer carries one. The high-pain warning
-  // it used to drive now hangs off the once-per-exercise answer instead, in
-  // RecordExercisePainActionState.
+  // No painScore: pain is asked once per exercise, not once per set, so the
+  // answer and the high-pain warning it drives belong to
+  // RecordExercisePainActionState. See invariant 10 in data-model.md.
   | { status: "saved"; exercisePrescriptionId: string; setNumber: number };
 
 export type RecordExercisePainActionState =
@@ -658,13 +658,9 @@ export type SetPlateBuildActionState =
 /**
  * Record which discs are actually on the bar.
  *
- * The app used to answer "armar desde cero" by enumerating a build near the
- * logged weight and labelling it "La vez pasada" — presenting its own
- * arithmetic as the athlete's history. On real preview data that produced
- * `1 x 20 kg + 1 x 25 lb` for a lift loaded entirely with 45 lb discs,
- * because the 25 kg plates were at the far end of the room. Walking distance
- * is not in the model. Nothing computable would have got this right, so the
- * fix is to ask and to believe the answer.
+ * The one fact in this feature. Everything else is arithmetic, and arithmetic
+ * cannot recover which discs someone actually picked up — invariant 14 in
+ * docs/architecture/data-model.md. So: ask, and believe the answer.
  *
  * Written to exercise_setup rather than set_log: a build is configuration
  * (which discs this athlete reaches for on this machine at this gym), it must

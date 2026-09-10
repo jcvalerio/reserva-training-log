@@ -290,10 +290,11 @@ export async function getSessionRunDetails(session: WorkoutSession): Promise<Ses
         setupNotesEs: setup?.setupNotesEs ?? null,
         loadingModel: setup?.loadingModel ?? null,
         // Computed here and serialised as plain data. The enumeration behind
-        // it is up to ~75k multisets; session-runner.tsx is a client
-        // component, so running it there would put that on a phone between
-        // sets. The achievable set is a property of the gym, so the table is
-        // memoised across every exercise in this session.
+        // it is 125,970 multisets at plate-math's caps; session-runner.tsx is a
+        // client component, so running it there would put that on a phone
+        // between sets. The achievable set is a property of the gym, so the
+        // table is memoised (bounded, LRU) across every exercise in this
+        // session.
         loadAssist: buildLoadAssist({
           lastWeightKg: previousLastWeightKg,
           loggedWeightKg,

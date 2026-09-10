@@ -5,11 +5,11 @@ import { byHeaviestFirst, roundKg, toKg, weightUnits, type PlateDenomination, ty
  * The recorded build: what the athlete says is on the bar, as opposed to what
  * the enumerator thinks would be a sensible way to reach a number.
  *
- * These are not the same question and the app shipped as if they were. Asked
- * for 63 kg on a real rack, `buildFromScratch` answers `1 x 20 kg + 1 x 25 lb`
- * — arithmetically excellent, and not what was on the bar, because the 25 kg
- * discs were at the far end of the room and the athlete grabbed 45 lb plates
- * instead. Distance to the rack is not in the model and never will be.
+ * These are not the same question, and the app shipped as if they were. No
+ * objective function closes the gap — which discs an athlete reaches for
+ * depends on where they are in the room, and walking distance will never be in
+ * the model. Invariant 14 in docs/architecture/data-model.md has the case that
+ * settled it.
  *
  * So this module is the plumbing for an answer rather than a guess: a compact
  * wire format for a per-side build, and a parser that will not accept a disc
