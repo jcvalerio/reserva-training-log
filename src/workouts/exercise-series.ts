@@ -41,6 +41,7 @@ export type ExerciseSeriesGroup = {
    *  in principle carry different links. Most recent wins; the weekly volume
    *  report resolves per prescription and stays correct either way. */
   primaryMuscleGroup: MuscleGroup | null;
+  secondaryMuscleGroups?: MuscleGroup[];
   isClassified: boolean;
   substitutedForNameEs: string | null;
   points: ExerciseSeriesPoint[];
@@ -117,6 +118,7 @@ export function toExerciseSeriesGroups(instancesByName: Map<string, ExerciseInst
       isUnilateral: instances[0]?.isUnilateral ?? false,
       // instances are newest-first from the query, so [0] is the most recent.
       primaryMuscleGroup: instances[0]?.primaryMuscleGroup ?? null,
+      secondaryMuscleGroups: instances[0]?.secondaryMuscleGroups ?? [],
       isClassified: instances[0]?.isClassified ?? false,
       substitutedForNameEs: instances[0]?.substitutedForNameEs ?? null,
       points: buildExerciseSeries(instances),

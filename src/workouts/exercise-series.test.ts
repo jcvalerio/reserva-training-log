@@ -187,6 +187,15 @@ describe("buildEffortGapSeries", () => {
 });
 
 describe("toExerciseSeriesGroups", () => {
+  it("carries the latest exercise's own secondary muscles into the filter", () => {
+    const [group] = toExerciseSeriesGroups(new Map([["Sustituto", [
+      buildInstance({ primaryMuscleGroup: "pecho", secondaryMuscleGroups: ["triceps"], substitutedForNameEs: "Remo" }),
+      buildInstance({ primaryMuscleGroup: "dorsal", secondaryMuscleGroups: ["biceps"] }),
+    ]]]));
+    expect(group.primaryMuscleGroup).toBe("pecho");
+    expect(group.secondaryMuscleGroups).toEqual(["triceps"]);
+  });
+
   it("flattens the instances map into an alphabetically sorted (es) array", () => {
     const instancesByName = new Map([
       ["Sentadilla", [buildInstance()]],

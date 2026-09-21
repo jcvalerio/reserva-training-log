@@ -122,9 +122,9 @@ export function buildMuscleVolumeRows(view: { byMuscleGroup: WeeklyMuscleVolume[
 // HTML text, so a screen reader already reads the whole table. Duplicating it
 // into an sr-only sentence made assistive tech announce everything twice. Only
 // the bars are SVG, and they carry no information the text doesn't.
-export function MuscleVolumeChart({ view }: { view: VolumeView }) {
+export function MuscleVolumeChart({ view, selectedGroup }: { view: VolumeView; selectedGroup?: string | null }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const rows = buildMuscleVolumeRows(view);
+  const rows = buildMuscleVolumeRows(view).filter((row) => !selectedGroup || row.key === selectedGroup);
 
   // Groups with real volume this week get the full bar row; groups sitting at
   // 0 collapse into a compact, always-visible name list below (see the
@@ -146,7 +146,7 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
   return (
     <div>
       {trainedRows.length === 0 ? (
-        <p className="text-xs leading-5 text-zinc-400">{emptyMessageEs(view)}</p>
+        <p className="text-xs leading-5 text-zinc-400">{selectedGroup ? "Sin series para este grupo en el periodo." : emptyMessageEs(view)}</p>
       ) : (
         <ul className="grid grid-cols-1 gap-0.5">
           {trainedRows.map((row) => {
@@ -156,7 +156,7 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
               <li key={row.key}>
                 <button
                   type="button"
-                  onPointerDown={() => setActiveKey(isActive ? null : row.key)}
+                  onClick={() => setActiveKey(isActive ? null : row.key)}
                   aria-expanded={isActive}
                   className="flex min-h-11 w-full flex-col justify-center gap-1 rounded-lg px-1 py-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 active:bg-zinc-800/40"
                 >
@@ -255,11 +255,11 @@ export function MuscleVolumeChart({ view }: { view: VolumeView }) {
         </details>
       ) : null}
 
-      <p className="mt-2 text-xs leading-5 text-zinc-400">
+      {!selectedGroup ? <p className="mt-2 text-xs leading-5 text-zinc-400">
         {view.comparison ? `▲▼ compara con ${view.comparison.labelEs}. ` : ""}
         La banda gris es el rango de referencia semanal, no una meta. Un ejercicio cuenta 1 serie para su grupo
         principal y media para cada grupo secundario; en unilaterales, izquierda y derecha cuentan como una sola serie.
-      </p>
+      </p> : null}
     </div>
   );
 }

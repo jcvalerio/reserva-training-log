@@ -1,610 +1,114 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { MeasurementSeriesPoint } from "@/measurements/measurement-series";
-import type { BodyMeasurementTrend } from "@/measurements/measurement-trend";
-import { buildFunctionalCapacitySummary } from "@/workouts/functional-capacity";
-import { buildLimbSymmetrySummary } from "@/workouts/limb-symmetry";
-import type { ConsistencySummary } from "@/workouts/consistency";
-import type { ExerciseSeriesGroup } from "@/workouts/exercise-series";
-import type { ExerciseImprovement, ExerciseImprovementRow } from "@/workouts/improvement";
-import type { MuscleVolumeSummary } from "@/workouts/muscle-volume";
-import type { PlanSessionTemplate } from "@/plans/plan-repository";
-import type { WorkoutSession } from "@/workouts/workout-repository";
+import type { ExerciseImprovement } from "@/workouts/improvement";
+import { buildMuscleVolumeSummary } from "@/workouts/muscle-volume";
+import type { CompletedSessionSummary } from "@/workouts/workout-repository";
+import { SessionHistoryContent } from "./historial/session-history-content";
+import { ProgresoPageContent } from "./progreso-page-content";
 
-import { formatRatio, ProgresoPageContent } from "./progreso-page-content";
+const completed: CompletedSessionSummary = {
+  session: {
+    id: "session-1", athleteProfileId: "profile-1", workoutPlanId: "plan-1",
+    planSessionTemplateId: "template-1", status: "completed",
+    startedAt: new Date("2026-07-20T12:00:00Z"), completedAt: new Date("2026-07-20T13:00:00Z"),
+    notes: null, sessionRpe: 7,
+    createdAt: new Date("2026-07-20T12:00:00Z"), updatedAt: new Date("2026-07-20T13:00:00Z"),
+  },
+  template: {
+    id: "template-1", workoutPlanId: "plan-1", weekNumber: 1, dayIndex: 1,
+    nameEs: "Pierna y cuádriceps", nameEn: null, focus: "Cuádriceps",
+    estimatedDurationMinutes: 60, mobilityNotesEs: "Movilidad.",
+  },
+};
 
-function buildImprovement(overrides: Partial<ExerciseImprovement> = {}): ExerciseImprovement {
+function improvement(improved: boolean): ExerciseImprovement {
   return {
-    improved: false,
-    signals: [],
-    latestVolumeLoadKg: 800,
-    previousVolumeLoadKg: 800,
-    latestMaxPain: 0,
-    previousMaxPain: 0,
-    latestAvgWeightKg: 80,
-    previousAvgWeightKg: 80,
-    latestAvgReps: 10,
-    previousAvgReps: 10,
-    latestEstimated1RmKg: null,
-    previousEstimated1RmKg: null,
-    latestAsymmetryGapKg: null,
-    previousAsymmetryGapKg: null,
-    ...overrides,
+    improved, signals: [], latestVolumeLoadKg: 800, previousVolumeLoadKg: 800,
+    latestMaxPain: 0, previousMaxPain: 0, latestAvgWeightKg: 80, previousAvgWeightKg: 80,
+    latestAvgReps: 10, previousAvgReps: 10, latestEstimated1RmKg: null, previousEstimated1RmKg: null,
+    latestAsymmetryGapKg: null, previousAsymmetryGapKg: null,
   };
 }
 
-function buildTemplate(overrides: Partial<PlanSessionTemplate> = {}): PlanSessionTemplate {
-  return {
-    id: "template-1",
-    workoutPlanId: "plan-1",
-    weekNumber: 1,
-    dayIndex: 1,
-    nameEs: "Pierna — cuádriceps",
-    nameEn: null,
-    focus: "Cuádriceps y pantorrilla",
-    estimatedDurationMinutes: 60,
-    mobilityNotesEs: "Movilidad.",
-    ...overrides,
-  };
+function renderPage(overrides: Partial<React.ComponentProps<typeof ProgresoPageContent>> = {}) {
+  return render(<ProgresoPageContent
+    hasProfile completedSessions={[completed]} improvements={[]} exerciseSeriesGroups={[]}
+    consistencySummary={null} muscleVolumeSummary={null} {...overrides}
+  />);
 }
 
-function buildSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
-  return {
-    id: "session-1",
-    athleteProfileId: "profile-1",
-    workoutPlanId: "plan-1",
-    planSessionTemplateId: "template-1",
-    status: "completed",
-    startedAt: new Date("2026-07-20T12:00:00Z"),
-    completedAt: new Date("2026-07-20T13:00:00Z"),
-    notes: null,
-    sessionRpe: null,
-    createdAt: new Date("2026-07-20T12:00:00Z"),
-    updatedAt: new Date("2026-07-20T13:00:00Z"),
-    ...overrides,
-  };
-}
-
-type Props = React.ComponentProps<typeof ProgresoPageContent>;
-
-function renderPage(overrides: Partial<Props> = {}) {
-  const defaults: Props = {
-    hasProfile: true,
-    improvements: [],
-    completedSessions: [{ session: buildSession(), template: buildTemplate() }],
-    bodyMeasurementTrend: null,
-    measurementSeries: [],
-    exerciseSeriesGroups: [],
-    defaultExerciseName: null,
-    muscleVolumeSummary: null,
-    consistencySummary: null,
-    limbSymmetry: buildLimbSymmetrySummary([], { now: new Date("2026-09-01T12:00:00Z") }),
-    functionalCapacity: buildFunctionalCapacitySummary([], { now: new Date("2026-09-01T12:00:00Z") }),
-  };
-  return render(<ProgresoPageContent {...defaults} {...overrides} />);
-}
-
-describe("ProgresoPageContent", () => {
-  it("shows an empty state pointing to /entrenar when there is no history", () => {
-    renderPage({ completedSessions: [] });
-
+describe("Progreso overview", () => {
+  it.each([{ hasProfile: false }, { completedSessions: [] }])("provides an empty state: %o", (props) => {
+    renderPage(props);
     expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Ir a Entrenar" })).toHaveAttribute("href", "/entrenar");
   });
 
-  it("shows an empty state when there is no profile yet", () => {
-    renderPage({ hasProfile: false, completedSessions: [] });
-
-    expect(screen.getByRole("heading", { name: "Todavía no hay historial" })).toBeVisible();
-  });
-
-  it("lists completed sessions linking to their read-only session view", () => {
+  it("links to separate history and measurements without listing sessions", () => {
     renderPage();
-
-    expect(screen.getByRole("link", { name: /Pierna — cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
-    expect(screen.getByText(/Día 1/)).toBeVisible();
-    // startedAt 12:00, completedAt 13:00 in the fixture.
-    expect(screen.getByText(/60 min/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Historial de sesiones" })).toHaveAttribute("href", "/progreso/historial");
+    expect(screen.getByRole("link", { name: "Mediciones y pruebas" })).toHaveAttribute("href", "/mediciones");
+    expect(screen.queryByRole("link", { name: /Pierna y cuádriceps/ })).not.toBeInTheDocument();
   });
 
-  it("shows per-session training load and a Carga KPI tile when RPE was logged", () => {
-    renderPage({ completedSessions: [{ session: buildSession({ sessionRpe: 7 }), template: buildTemplate() }] }); // 60min * 7 = 420 UA
-
-    expect(screen.getAllByText(/420 UA/)[0]).toBeVisible();
-    expect(screen.getByText("420")).toBeVisible(); // Carga KPI tile value
-  });
-
-  it("shows a dash in the Carga KPI tile when no session has an RPE", () => {
-    renderPage({ completedSessions: [{ session: buildSession({ sessionRpe: null }), template: buildTemplate() }] });
-
-    expect(screen.queryByText(/\d+ UA/)).toBeNull(); // no per-session load line either
-    const kpiTiles = screen.getAllByText("—");
-    expect(kpiTiles.length).toBeGreaterThan(0); // Carga KPI tile falls back to a dash
-  });
-
-  it("shows the Mejorando KPI tile as a fraction of improved exercises", () => {
-    const improvements: ExerciseImprovementRow[] = [
-      { exerciseNameEs: "A", latestCompletedAt: null, improvement: buildImprovement({ improved: true }) },
-      { exerciseNameEs: "B", latestCompletedAt: null, improvement: buildImprovement({ improved: false }) },
-    ];
-
-    renderPage({ improvements });
-
-    expect(screen.getByText("1/2")).toBeVisible();
-  });
-
-  it("shows the Esta semana KPI tile from the consistency summary", () => {
-    const consistencySummary: ConsistencySummary = {
-      weeks: [{ weekStartDate: new Date("2026-07-20T00:00:00"), daysTrained: 3 }],
-      targetDaysPerWeek: 5,
-      currentWeekDaysTrained: 3,
-    };
-
-    renderPage({ consistencySummary });
-
-    expect(screen.getByText("3/5")).toBeVisible();
-  });
-
-  // "Mejoras recientes" rendered a full card per exercise restating the same
-  // deltas "Ejercicios que más mejoraron" ranks and "¿Está funcionando?" rolls
-  // up by muscle group. Deleted as the third rendering of one comparison; this
-  // guards against it being reintroduced alongside them.
-  it("no longer renders a second, full-detail copy of the improvement data", () => {
-    const improvements: ExerciseImprovementRow[] = [
-      {
-        exerciseNameEs: "Prensa de piernas",
-        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: buildImprovement({
-          improved: true,
-          signals: ["volume_load"],
-          latestVolumeLoadKg: 840,
-          previousVolumeLoadKg: 800,
-          latestAvgWeightKg: 84,
-          previousAvgWeightKg: 80,
-        }),
-      },
-    ];
-
-    renderPage({ improvements });
-
-    expect(screen.queryByText("Mejoras recientes")).toBeNull();
-    expect(screen.queryByText("Mejora ≥5%")).toBeNull();
-    expect(screen.queryByText(/Peso prom:/)).toBeNull();
-    // The conclusion itself survives, once, in the ranked list.
-    expect(screen.getByText("Prensa de piernas")).toBeVisible();
-  });
-
-  it("lists improved exercises in 'Ejercicios que más mejoraron', ranked by their headline signal", () => {
-    const improvements: ExerciseImprovementRow[] = [
-      {
-        exerciseNameEs: "Prensa de piernas",
-        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: buildImprovement({
-          improved: true,
-          signals: ["volume_load"],
-          latestVolumeLoadKg: 840,
-          previousVolumeLoadKg: 800, // +5%
-        }),
-      },
-      {
-        exerciseNameEs: "Sentadilla",
-        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: buildImprovement({
-          improved: true,
-          signals: ["estimated_1rm"],
-          latestEstimated1RmKg: 120,
-          previousEstimated1RmKg: 100, // +20%, should rank first
-        }),
-      },
-      {
-        exerciseNameEs: "Sin cambios",
-        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: buildImprovement({ improved: false, signals: [] }),
-      },
-    ];
-
-    renderPage({ improvements });
-
-    expect(screen.getByText("Ejercicios que más mejoraron")).toBeVisible();
-    const names = screen
-      .getAllByText(/^(Prensa de piernas|Sentadilla)$/)
-      .filter((el) => el.tagName === "SPAN")
-      .map((el) => el.textContent);
-    expect(names).toEqual(["Sentadilla", "Prensa de piernas"]);
-    expect(screen.getByText("+20.0%")).toBeVisible();
-    expect(screen.getByText("+5.0%")).toBeVisible();
-  });
-
-  it("hides 'Ejercicios que más mejoraron' when nothing improved", () => {
-    const improvements: ExerciseImprovementRow[] = [
-      {
-        exerciseNameEs: "Sin cambios",
-        latestCompletedAt: null,
-        improvement: buildImprovement({ improved: false, signals: [] }),
-      },
-    ];
-
-    renderPage({ improvements });
-
-    expect(screen.queryByText("Ejercicios que más mejoraron")).toBeNull();
-  });
-
-  it("says nothing at all about an exercise that did not change by 5%", () => {
-    const improvements: ExerciseImprovementRow[] = [
-      {
-        exerciseNameEs: "Prensa de piernas",
-        latestCompletedAt: new Date("2026-07-27T12:00:00Z"),
-        improvement: buildImprovement({ latestVolumeLoadKg: 805, previousVolumeLoadKg: 800 }),
-      },
-    ];
-
-    renderPage({ improvements });
-
-    // The ranked list only carries exercises that actually improved, so a flat
-    // one now leaves no row anywhere rather than a "Sin cambio de 5%" card.
-    expect(screen.queryByText("Prensa de piernas")).toBeNull();
-    expect(screen.queryByText("Volumen +5%")).toBeNull();
-  });
-
-  it("shows the body measurement trend and chart when there is more than one measurement", () => {
-    const bodyMeasurementTrend: BodyMeasurementTrend = {
-      measurementCount: 3,
-      firstMeasuredAt: new Date("2026-06-01T12:00:00Z"),
-      latestMeasuredAt: new Date("2026-07-20T12:00:00Z"),
-      bodyWeightKg: { firstValue: 82, latestValue: 78.5, deltaValue: -3.5 },
-      waistCm: { firstValue: 90, latestValue: 88, deltaValue: -2 },
-      chestCm: null,
-      hipsCm: null,
-      latestThighGapCm: 1.5,
-      latestCalfGapCm: null,
-      thighGapImproved: true,
-      calfGapImproved: null,
-    };
-    const measurementSeries: MeasurementSeriesPoint[] = [
-      { measuredAt: new Date("2026-06-01T12:00:00Z"), bodyWeightKg: 82, waistCm: 90 },
-      { measuredAt: new Date("2026-07-20T12:00:00Z"), bodyWeightKg: 78.5, waistCm: 88 },
-    ];
-
-    renderPage({ bodyMeasurementTrend, measurementSeries });
-
-    expect(screen.getByText("Tendencia corporal")).toBeVisible();
-    expect(screen.getByText(/Peso: 82\.0kg → 78\.5kg \(-3\.5kg\)/)).toBeVisible();
-    expect(screen.getByText(/Cintura: 90\.0cm → 88\.0cm \(-2\.0cm\)/)).toBeVisible();
-    expect(screen.getByText(/Muslo: \+1\.5cm \(mejoró vs\. la anterior\)/)).toBeVisible();
-    expect(screen.getByText(/Pantorrilla: —/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Ver mediciones" })).toHaveAttribute("href", "/mediciones");
-  });
-
-  it("shows a single-measurement message instead of a trend or chart when there's only one entry", () => {
-    const bodyMeasurementTrend: BodyMeasurementTrend = {
-      measurementCount: 1,
-      firstMeasuredAt: new Date("2026-07-20T12:00:00Z"),
-      latestMeasuredAt: new Date("2026-07-20T12:00:00Z"),
-      bodyWeightKg: { firstValue: 82, latestValue: 82, deltaValue: 0 },
-      waistCm: null,
-      chestCm: null,
-      hipsCm: null,
-      latestThighGapCm: null,
-      latestCalfGapCm: null,
-      thighGapImproved: null,
-      calfGapImproved: null,
-    };
-
+  it("keeps all three KPIs and weekly consistency", () => {
     renderPage({
-      bodyMeasurementTrend,
-      measurementSeries: [{ measuredAt: new Date("2026-07-20T12:00:00Z"), bodyWeightKg: 82, waistCm: null }],
-    });
-
-    expect(screen.getByText(/1 medición registrada/)).toBeVisible();
-    expect(screen.queryByText(/Peso: /)).toBeNull();
-  });
-
-  it("hides the body trend section entirely when there are no measurements", () => {
-    renderPage();
-
-    expect(screen.queryByText("Tendencia corporal")).toBeNull();
-  });
-
-  it("shows the exercise progression chart section when there is at least one exercise series", () => {
-    const exerciseSeriesGroups: ExerciseSeriesGroup[] = [
-      {
-        exerciseNameEs: "Prensa de piernas",
-        isUnilateral: false,
-        primaryMuscleGroup: null,
-        isClassified: false,
-        substitutedForNameEs: null,
-        points: [
-          {
-            completedAt: new Date("2026-07-20T12:00:00Z"),
-            avgWeightKg: 80,
-            volumeLoadKg: 800,
-            best1RmKg: 96,
-            leftAvgWeightKg: null,
-            rightAvgWeightKg: null,
-            leftVolumeLoadKg: null,
-            rightVolumeLoadKg: null,
-            leftBest1RmKg: null,
-            rightBest1RmKg: null,
-            leftAvgRir: null,
-            rightAvgRir: null,
-          },
-        ],
+      consistencySummary: {
+        weeks: [{ weekStartDate: new Date("2026-07-20T00:00:00"), daysTrained: 3 }],
+        targetDaysPerWeek: 5, currentWeekDaysTrained: 3,
       },
-    ];
-
-    renderPage({ exerciseSeriesGroups, defaultExerciseName: "Prensa de piernas" });
-
-    expect(screen.getByText("Ejercicios por grupo muscular")).toBeVisible();
-    // The dropdown is gone — that was the whole point of the change.
-    expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByRole("button", { name: /Prensa de piernas/ })).toBeVisible();
+      improvements: [
+        { exerciseNameEs: "A", latestCompletedAt: null, improvement: improvement(true) },
+        { exerciseNameEs: "B", latestCompletedAt: null, improvement: improvement(false) },
+      ],
+    });
+    const kpis = within(screen.getByRole("region", { name: "Resumen" }));
+    expect(kpis.getByText("3/5")).toBeVisible();
+    expect(kpis.getByText("1/2")).toBeVisible();
+    expect(kpis.getByText("420")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Consistencia semanal" })).toBeVisible();
   });
 
-  it("hides the exercise progression chart section when there is no exercise series", () => {
-    renderPage();
-
-    expect(screen.queryByText("Ejercicios por grupo muscular")).toBeNull();
+  it("does not invent a load when RPE is absent", () => {
+    renderPage({ completedSessions: [{ ...completed, session: { ...completed.session, sessionRpe: null } }] });
+    expect(screen.getByText("Carga").parentElement).toHaveTextContent("—");
   });
 
-  it("shows the consistency chart section when a consistency summary is provided", () => {
-    const consistencySummary: ConsistencySummary = {
-      weeks: [{ weekStartDate: new Date("2026-07-20T00:00:00"), daysTrained: 3 }],
-      targetDaysPerWeek: 5,
-      currentWeekDaysTrained: 3,
-    };
-
-    renderPage({ consistencySummary });
-
-    expect(screen.getByText("Consistencia semanal")).toBeVisible();
+  it("keeps muscle volume without restoring competing overview sections", () => {
+    renderPage({ muscleVolumeSummary: buildMuscleVolumeSummary([], { now: new Date("2026-09-09T12:00:00Z") }) });
+    expect(screen.getByRole("heading", { name: "Series por grupo muscular" })).toBeVisible();
+    for (const label of ["¿Está funcionando?", "Tendencia corporal", "Dónde te ha dolido", "Ejercicios por grupo muscular", "Ejercicios que más mejoraron"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 });
 
-describe("ProgresoPageContent — ¿Está funcionando?", () => {
-  function buildVolumeSummary(byMuscleGroup: MuscleVolumeSummary["views"][number]["byMuscleGroup"]): MuscleVolumeSummary {
-    const week: MuscleVolumeSummary["currentWeek"] = {
-      weekStartDate: new Date("2026-08-03T00:00:00"),
-      byMuscleGroup: [],
-      totalEffectiveSets: 0,
-    };
-    return {
-      weeks: [week],
-      currentWeek: week,
-      previousWeek: null,
-      unclassifiedExerciseNames: [],
-      pushPullRatio: null,
-      quadHamstringRatio: null,
-      painByLocation: [],
-      views: [
-        { key: "week", labelEs: "Esta semana", byMuscleGroup: [], weeksCounted: 0, isAverage: false, comparison: null },
-        { key: "four_weeks", labelEs: "4 semanas", byMuscleGroup, weeksCounted: 4, isAverage: true, comparison: null },
-      ],
-    };
-  }
-
-  function buildSeriesGroup(exerciseNameEs: string, primaryMuscleGroup: ExerciseSeriesGroup["primaryMuscleGroup"]): ExerciseSeriesGroup {
-    return { exerciseNameEs, isUnilateral: false, primaryMuscleGroup, isClassified: true, substitutedForNameEs: null, points: [] };
-  }
-
-  // Scoped to the section: "Series por grupo muscular" renders the same
-  // muscle-group labels just below, so an unscoped getByText("Pecho") matches
-  // both and passes for the wrong reason.
-  function progressSection() {
-    return within(screen.getByRole("region", { name: "¿Está funcionando?" }));
-  }
-
-  it("states the verdict and the lift in weight x reps, not in volume-load kg", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 13, avgRir: null, rirSetCount: 0 }]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
-      improvements: [
-        {
-          exerciseNameEs: "Press de banca",
-          improvement: buildImprovement({
-            improved: true,
-            signals: ["reps_at_load"],
-            previousAvgWeightKg: 60,
-            previousAvgReps: 8,
-            latestAvgWeightKg: 60,
-            latestAvgReps: 10,
-          }),
-          latestCompletedAt: new Date("2026-08-10T12:00:00"),
-        },
-      ],
-    });
-
-    expect(progressSection().getByText("Pecho")).toBeVisible();
-    expect(progressSection().getByText("Creciendo")).toBeVisible();
-    expect(progressSection().getByText("60kg × 8 → 60kg × 10")).toBeVisible();
+describe("Session history", () => {
+  it("preserves session detail links, dates, duration, load and return navigation", () => {
+    render(<SessionHistoryContent sessions={[completed]} />);
+    expect(screen.getByRole("link", { name: /Pierna y cuádriceps/ })).toHaveAttribute("href", "/entrenar/session-1");
+    expect(screen.getByText(/60 min · 420 UA/)).toBeVisible();
+    expect(screen.getByRole("link", { name: /Volver a Progreso/ })).toHaveAttribute("href", "/progreso");
   });
 
-  // The join's whole reason for existing: same set count, opposite verdict,
-  // because only one of the two is producing anything.
-  it("separates a stalled group from a growing one at an identical set count", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([
-        { muscleGroup: "pecho", effectiveSets: 13, avgRir: null, rirSetCount: 0 },
-        { muscleGroup: "dorsal", effectiveSets: 13, avgRir: null, rirSetCount: 0 },
-      ]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho"), buildSeriesGroup("Jalón", "dorsal")],
-      improvements: [
-        {
-          exerciseNameEs: "Press de banca",
-          improvement: buildImprovement({ improved: true, signals: ["volume_load"] }),
-          latestCompletedAt: new Date("2026-08-10T12:00:00"),
-        },
-        { exerciseNameEs: "Jalón", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
-      ],
-    });
-
-    expect(progressSection().getByText("Creciendo")).toBeVisible();
-    expect(progressSection().getByText("Estancado")).toBeVisible();
-    expect(progressSection().getByText(/El volumen ya alcanza/)).toBeVisible();
+  it("reveals older sessions without an unbounded initial list", () => {
+    const sessions = Array.from({ length: 13 }, (_, index) => ({
+      ...completed, session: { ...completed.session, id: `session-${index}` },
+      template: { ...completed.template, nameEs: `Sesión ${index}` },
+    }));
+    render(<SessionHistoryContent sessions={sessions} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+    expect(screen.queryByRole("link", { name: /Sesión 12/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ver más sesiones" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(13);
+    expect(screen.getByRole("link", { name: /Sesión 12/ })).toHaveAttribute("href", "/entrenar/session-12");
+    expect(screen.queryByRole("button", { name: "Ver más sesiones" })).not.toBeInTheDocument();
   });
 
-  it("surfaces pain on the row itself rather than behind a disclosure", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([{ muscleGroup: "pecho", effectiveSets: 26, avgRir: null, rirSetCount: 0 }]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
-      improvements: [
-        {
-          exerciseNameEs: "Press de banca",
-          improvement: buildImprovement({ latestMaxPain: 4 }),
-          latestCompletedAt: new Date("2026-08-10T12:00:00"),
-        },
-      ],
-    });
-
-    expect(progressSection().getByText("Pasado de vuelta")).toBeVisible();
-    expect(progressSection().getByText("Dolor 4")).toBeVisible();
-  });
-
-  // The reason RIR is tracked at all: the same "Estancado" verdict must give
-  // opposite advice depending on how close to failure the sets were taken.
-  it("tells a stalled group training far from failure to push closer", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([
-        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 3.5, rirSetCount: 12 },
-      ]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
-      improvements: [
-        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
-      ],
-    });
-
-    expect(progressSection().getByText("Estancado")).toBeVisible();
-    expect(progressSection().getByText(/Lejos del fallo · RIR 3.5/)).toBeVisible();
-    expect(progressSection().getByText(/acércate más/)).toBeVisible();
-  });
-
-  it("tells a stalled group already at failure to back off instead", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([
-        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 0.5, rirSetCount: 12 },
-      ]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
-      improvements: [
-        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
-      ],
-    });
-
-    expect(progressSection().getByText("Estancado")).toBeVisible();
-    expect(progressSection().getByText(/Al límite · RIR 0.5/)).toBeVisible();
-    expect(progressSection().getByText(/descarga o cambia el ejercicio/)).toBeVisible();
-  });
-
-  // Printing "RIR 2.1" on every healthy row is exactly the noise this screen
-  // is being cut back for.
-  it("stays silent about RIR in the productive range", () => {
-    renderPage({
-      muscleVolumeSummary: buildVolumeSummary([
-        { muscleGroup: "pecho", effectiveSets: 13, avgRir: 2, rirSetCount: 12 },
-      ]),
-      exerciseSeriesGroups: [buildSeriesGroup("Press de banca", "pecho")],
-      improvements: [
-        { exerciseNameEs: "Press de banca", improvement: buildImprovement(), latestCompletedAt: new Date("2026-08-10T12:00:00") },
-      ],
-    });
-
-    expect(progressSection().queryByText(/RIR/)).toBeNull();
-  });
-
-  it("hides the section entirely when there is no volume summary", () => {
-    renderPage({ muscleVolumeSummary: null });
-
-    expect(screen.queryByText("¿Está funcionando?")).toBeNull();
-  });
-});
-
-describe("ProgresoPageContent — sections split out of the volume card", () => {
-  function summaryWith(overrides: Partial<MuscleVolumeSummary>): MuscleVolumeSummary {
-    const week: MuscleVolumeSummary["currentWeek"] = {
-      weekStartDate: new Date("2026-08-03T00:00:00"),
-      byMuscleGroup: [],
-      totalEffectiveSets: 0,
-    };
-    return {
-      weeks: [week],
-      currentWeek: week,
-      previousWeek: null,
-      unclassifiedExerciseNames: [],
-      pushPullRatio: null,
-      quadHamstringRatio: null,
-      painByLocation: [],
-      views: [
-        { key: "week", labelEs: "Esta semana", byMuscleGroup: [], weeksCounted: 0, isAverage: false, comparison: null },
-      ],
-      ...overrides,
-    };
-  }
-
-  function painRow(overrides: Partial<MuscleVolumeSummary["painByLocation"][number]> = {}) {
-    return {
-      location: "hombro" as const,
-      maxPainScore: 4,
-      setsAboveThreshold: 0,
-      setCount: 3,
-      exerciseNamesEs: ["Press militar"],
-      isInferred: false,
-      ...overrides,
-    };
-  }
-
-  it("gives Equilibrio its own section, closed by default", () => {
-    renderPage({ muscleVolumeSummary: summaryWith({ pushPullRatio: 1.5, quadHamstringRatio: null }) });
-
-    const details = screen.getByText("Equilibrio").closest("details");
-    expect(details).not.toBeNull();
-    expect(details).not.toHaveAttribute("open");
-  });
-
-  // The physio correction to the first review: a fixed collapse means pain is
-  // never read. It has to open itself exactly when it becomes actionable.
-  it("opens the pain section by itself once a set crossed the progression gate", () => {
-    renderPage({
-      muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ setsAboveThreshold: 2 })] }),
-    });
-
-    expect(screen.getByText("Dónde te ha dolido").closest("details")).toHaveAttribute("open");
-  });
-
-  it("leaves the pain section closed when nothing crossed the gate", () => {
-    renderPage({ muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ maxPainScore: 2 })] }) });
-
-    expect(screen.getByText("Dónde te ha dolido").closest("details")).not.toHaveAttribute("open");
-  });
-
-  it("keeps hedging in the title when any pain row was inferred", () => {
-    renderPage({
-      muscleVolumeSummary: summaryWith({ painByLocation: [painRow({ isInferred: true })] }),
-    });
-
-    expect(screen.getByText("Dónde te ha dolido (algunas series son estimadas)")).toBeVisible();
-  });
-
-  it("moves Sin clasificar out of the volume card into its own closed section", () => {
-    renderPage({ muscleVolumeSummary: summaryWith({ unclassifiedExerciseNames: ["Máquina rara"] }) });
-
-    const details = screen.getByText("Sin clasificar (1)").closest("details");
-    expect(details).not.toHaveAttribute("open");
-    expect(screen.getByRole("link", { name: "Editar plan" })).toHaveAttribute("href", "/plan/builder");
-  });
-});
-
-describe("formatRatio", () => {
-  it("reads the correct way round when the right side is larger", () => {
-    // Real dev-DB data: cuádriceps 4, femorales 6 -> 0.667. There is MORE
-    // femoral work, so this must not render "1.5 : 1". Both branches were
-    // inverted when this shipped and the dashboard stated the opposite of
-    // the data.
-    expect(formatRatio(4 / 6)).toBe("1 : 1.5");
-  });
-
-  it("reads the correct way round when the left side is larger", () => {
-    expect(formatRatio(8 / 4)).toBe("2.0 : 1");
-  });
-
-  it("renders an even split as 1 : 1", () => {
-    expect(formatRatio(1)).toBe("1.0 : 1");
+  it("provides a useful destination with no completed sessions", () => {
+    render(<SessionHistoryContent sessions={[]} />);
+    expect(screen.getByText("0 sesiones completadas")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ir a Entrenar" })).toHaveAttribute("href", "/entrenar");
   });
 });
